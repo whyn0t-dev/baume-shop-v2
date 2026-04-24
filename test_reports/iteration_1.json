@@ -1,0 +1,72 @@
+{
+  "summary": "Iteration 1: Full backend + frontend review of baume-shop refonte. Backend: 24/25 pytest tests pass (96%). Only /api/checkout/status/{session_id} fails (Stripe 'No such checkout.session' returning HTTP 500). Frontend: all pages render, navigation OK, cart drawer + multi-step checkout shipping+total correct (server-side priced at 48.90 CHF for 1×p1 CH, free shipping at 84 CHF for 2×p1), contact form persists, mobile drawer works. Two real defects: (1) size validation toast never fires because ProductPage pre-selects sizes[0]; (2) checkout status endpoint 500 will break post-payment confirmation page.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/checkout/status/{session_id}",
+        "issue": "Returns HTTP 500 immediately after a session is successfully created. Stripe returns 'No such checkout.session: cs_test_...'. Since create_checkout_session returns that same session_id and persists it in payment_transactions, the Stripe key/environment used by emergentintegrations for retrieval does not see the session (likely account/key mismatch between StripeCheckout.create_checkout_session and StripeCheckout.get_checkout_status, or proxy routing issue with sk_test_emergent). This WILL break /commande/confirmation after the user returns from Stripe and prevent the order from being created (orders collection write is gated by this call).",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/checkout/status/{session_id}",
+        "issue": "Endpoint raises unhandled exception → 500 instead of catching CheckoutError and returning a graceful 4xx/JSON (at minimum wrap in try/except to avoid stack-trace leakage)."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ProductPage.jsx",
+        "issue": "Size validation toast never fires. Line 27 pre-selects size with setSize(p.sizes?.[0] || null) so !size check on line 55 is always false. User clicking 'Ajouter à ma routine' without consciously picking a size silently adds XS (first size in list). Spec requires toast error when sizes present and none selected. Fix: initialize size to null and keep pre-fill optional (or remove the fallback).",
+        "selector": "[data-testid=\"add-to-cart-button\"]",
+        "priority": "HIGH"
+      },
+      {
+        "component": "CartDrawer / Sheet dialogs",
+        "issue": "Radix DialogContent missing DialogTitle — accessibility warning in console (repeated 4× on product page, 2× elsewhere). Wrap title in VisuallyHidden if visual title not desired.",
+        "selector": "[data-testid=\"cart-drawer\"]",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Post-Stripe confirmation",
+        "issue": "Because /api/checkout/status/{session_id} returns 500, the ConfirmationPage (if it polls this endpoint) will error. Orders will not be written because the 'create order if paid' logic in server.py only runs inside checkout_status.",
+        "affected_selectors": ["[data-testid=\"confirmation-page\"]"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "Global",
+        "issues": ["None blocking. Palette (ivory #F7F3EE bg, burgundy #4D1E19 CTAs, taupe borders) and typography (Cormorant for headings, Inter for UI) all rendered correctly across pages tested."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_baume_api.py",
+    "/app/test_reports/pytest/baume_api.xml"
+  ],
+  "action_items": [
+    "FIX ProductPage.jsx line 27: remove the p.sizes?.[0] default so size starts null and the validation toast on line 55 actually triggers.",
+    "FIX Stripe status retrieval: investigate why stripe_checkout.get_checkout_status(session_id) fails with 'No such checkout.session' right after create_checkout_session returns that id. Likely cause = emergentintegrations using different modes for create vs retrieve, or account-scoping of sk_test_emergent. Catch CheckoutError and return 404/409 JSON instead of 500. Until resolved, /commande/confirmation and orders collection write are broken.",
+    "FIX a11y warnings: add DialogTitle (optionally inside VisuallyHidden) to CartDrawer and any Sheet/Dialog components using Radix DialogContent."
+  ],
+  "critical_code_review_comments": [
+    "server.py checkout_status: no try/except around Stripe call; a third-party failure becomes an unhandled 500. Wrap with HTTPException mapping.",
+    "server.py startup_seed: categories count check is based on kind='besoin' only — if reseeding needs re-run, produit categories won't be re-added if besoins already exist.",
+    "CORS middleware registered after app.include_router; works but conventionally added before routes.",
+    "ProductPage defaults size to first element, silently defeating the size-required UX contract."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_baume_api.py"
+  ],
+  "success_rate": {"backend": "96% (24/25)", "frontend": "~92% (all pages load, 1 HIGH ATC bug, a11y warnings)"},
+  "test_credentials": "No auth; guest checkout. Stripe test card 4242 4242 4242 4242 (not exercised — Stripe redirect intentionally not followed).",
+  "seed_data_creation": "Two TEST_ contact_messages rows created by /api/contact tests (test_marie@example.com, pw_test@example.com). No cleanup performed — safe to leave.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend pytest suite at /app/backend/tests/test_baume_api.py is reusable. 24 tests pass cleanly. The single failing test (test_checkout_session_valid last assertion) creates a session successfully but the status-retrieval line returns 500. If main agent fixes checkout_status, that test should pass. ProductPage size validation still needs to be re-verified via Playwright after fix — select M, ATC should NOT silently add XS; clicking ATC without any size click should raise a sonner toast 'Choisissez une taille'.",
+  "rca of the issue": "Size toast RCA: ProductPage.jsx sets size state to sizes[0] on product load (line 27). validateAddToCart (line 55) checks !size which is therefore always false when sizes exist, so no toast is shown and the default XS is pushed to cart. Fix = setSize(null) or remove fallback. Checkout status RCA: emergentintegrations StripeCheckout.create_checkout_session succeeds and returns cs_test_... but a subsequent get_checkout_status on the same session_id raises InvalidRequestError 'No such checkout.session' from Stripe. The session_id is valid on the platform that created it but invisible to the retrieval path, indicating sk_test_emergent proxy routing for create differs from direct Stripe API used for retrieve. Short-term mitigation: wrap call in try/except and return payment_status from our own payment_transactions row; long-term: align StripeCheckout instance/keys between create and retrieve, or migrate status retrieval to webhook-only updates."
+}

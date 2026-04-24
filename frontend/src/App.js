@@ -1,54 +1,83 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { Toaster } from "sonner";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+import CartDrawer from "./components/CartDrawer";
+import { CartProvider } from "./lib/cart";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import HomePage from "./pages/HomePage";
+import ShopIndexPage from "./pages/ShopIndexPage";
+import CategoryPage from "./pages/CategoryPage";
+import ProductPage from "./pages/ProductPage";
+import CartPage from "./pages/CartPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import ConfirmationPage from "./pages/ConfirmationPage";
+import AboutPage from "./pages/AboutPage";
+import ContactPage from "./pages/ContactPage";
+import FaqPage from "./pages/FaqPage";
+import StorePage from "./pages/StorePage";
+import AteliersPage from "./pages/AteliersPage";
+import { GuidesIndexPage, GuideDetailPage } from "./pages/GuidesPage";
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [pathname]);
+  return null;
+}
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
+function AppShell() {
   return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
-
-function App() {
-  return (
-    <div className="App">
-      <BrowserRouter>
+    <>
+      <ScrollToTop />
+      <Header />
+      <main>
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/shop/besoin" element={<ShopIndexPage kind="besoin" />} />
+          <Route path="/shop/besoin/:slug" element={<CategoryPage kind="besoin" />} />
+          <Route path="/shop/produit" element={<ShopIndexPage kind="produit" />} />
+          <Route path="/shop/produit/:slug" element={<CategoryPage kind="produit" />} />
+          <Route path="/produit/:slug" element={<ProductPage />} />
+          <Route path="/panier" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/commande/confirmation" element={<ConfirmationPage />} />
+          <Route path="/a-propos" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/faq" element={<FaqPage />} />
+          <Route path="/boutique-geneve" element={<StorePage />} />
+          <Route path="/ateliers" element={<AteliersPage />} />
+          <Route path="/guides" element={<GuidesIndexPage />} />
+          <Route path="/guides/:slug" element={<GuideDetailPage />} />
+          <Route path="*" element={<HomePage />} />
         </Routes>
-      </BrowserRouter>
-    </div>
+      </main>
+      <Footer />
+      <CartDrawer />
+      <Toaster
+        position="top-right"
+        richColors
+        toastOptions={{
+          style: {
+            background: "#FFFFFF",
+            border: "1px solid #E7DDD3",
+            color: "#111111",
+            fontFamily: "Inter, sans-serif",
+          },
+        }}
+      />
+    </>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <CartProvider>
+      <BrowserRouter>
+        <AppShell />
+      </BrowserRouter>
+    </CartProvider>
+  );
+}
