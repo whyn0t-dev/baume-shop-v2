@@ -412,24 +412,39 @@ async def checkout_status(session_id: str, http_request: Request):
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
+    tx = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction introuvable")
+
     host_url = str(http_request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
 
-    status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+    try:
+        status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+        new_status = status.status
+        new_payment = status.payment_status
+        amount_total = status.amount_total
+        currency = status.currency
+        metadata = status.metadata or {}
+    except Exception as e:
+        logger.warning(f"Stripe status retrieval failed for {session_id}: {e}. Falling back to DB state.")
+        new_status = tx.get("status", "initiated")
+        new_payment = tx.get("payment_status", "pending")
+        amount_total = int(round(float(tx.get("amount", 0)) * 100))
+        currency = tx.get("currency", "chf")
+        metadata = tx.get("metadata", {}) or {}
 
-    tx = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
-    if tx and tx.get("payment_status") != status.payment_status:
+    if tx.get("payment_status") != new_payment or tx.get("status") != new_status:
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": {
-                "status": status.status,
-                "payment_status": status.payment_status,
+                "status": new_status,
+                "payment_status": new_payment,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }},
         )
-        # Create order if paid
-        if status.payment_status == "paid":
+        if new_payment == "paid":
             existing_order = await db.orders.find_one({"session_id": session_id})
             if not existing_order:
                 order = {
@@ -446,11 +461,11 @@ async def checkout_status(session_id: str, http_request: Request):
                 await db.orders.insert_one(order)
 
     return {
-        "status": status.status,
-        "payment_status": status.payment_status,
-        "amount_total": status.amount_total,
-        "currency": status.currency,
-        "metadata": status.metadata,
+        "status": new_status,
+        "payment_status": new_payment,
+        "amount_total": amount_total,
+        "currency": currency,
+        "metadata": metadata,
     }
 
 

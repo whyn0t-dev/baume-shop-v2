@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useCart } from "../lib/cart";
-import { Sheet, SheetContent } from "./ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import { Progress } from "./ui/progress";
 import { Minus, Plus, X } from "lucide-react";
 
@@ -25,6 +25,10 @@ export default function CartDrawer() {
         className="bg-baume-ivory border-l border-baume-border w-full sm:max-w-[440px] p-0 flex flex-col"
         data-testid="cart-drawer"
       >
+        <SheetHeader className="sr-only">
+          <SheetTitle>Mon panier</SheetTitle>
+          <SheetDescription>Contenu du panier et passage au paiement</SheetDescription>
+        </SheetHeader>
         <div className="px-6 py-5 border-b border-baume-border flex items-center justify-between">
           <p className="font-editorial text-[24px] text-baume-burgundy">Mon panier</p>
           <span className="text-[13px] text-baume-charcoal/60">{items.length} article{items.length > 1 ? "s" : ""}</span>

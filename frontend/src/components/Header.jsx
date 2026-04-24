@@ -3,7 +3,7 @@ import { Link, NavLink } from "react-router-dom";
 import { Search, User, ShoppingBag, Menu, ChevronRight } from "lucide-react";
 import { NAV_MAIN, NEEDS, PRODUCT_CATS } from "../lib/constants";
 import { useCart } from "../lib/cart";
-import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./ui/sheet";
 import { Button } from "./ui/button";
 
 export default function Header() {
@@ -36,6 +36,10 @@ export default function Header() {
               </button>
             </SheetTrigger>
             <SheetContent side="left" className="bg-baume-ivory border-r border-baume-border w-[320px] p-0">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Menu</SheetTitle>
+                <SheetDescription>Navigation principale du site</SheetDescription>
+              </SheetHeader>
               <MobileDrawer onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>

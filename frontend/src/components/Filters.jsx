@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import { Button } from "./ui/button";
 import { Slider } from "./ui/slider";
 import { Checkbox } from "./ui/checkbox";
@@ -156,6 +156,10 @@ export default function Filters({ filters, setFilters, needs, cats, onReset }) {
             </button>
           </SheetTrigger>
           <SheetContent side="bottom" className="bg-baume-ivory h-[85vh] p-0 flex flex-col">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Filtres</SheetTitle>
+              <SheetDescription>Filtrer les produits</SheetDescription>
+            </SheetHeader>
             <div className="px-6 py-5 border-b border-baume-border flex items-center justify-between">
               <p className="font-editorial text-[24px] text-baume-burgundy">Filtres</p>
               <button aria-label="Fermer" onClick={() => setOpenMobile(false)}>

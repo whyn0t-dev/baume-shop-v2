@@ -24,7 +24,8 @@ export default function ProductPage() {
     window.scrollTo({ top: 0, behavior: "instant" });
     getProduct(slug).then((p) => {
       setProduct(p);
-      setSize(p.sizes?.[0] || null);
+      // Intentionally do NOT pre-select a size — user must choose to avoid silent XS add.
+      setSize(null);
       setColor(p.colors?.[0] || null);
       if (p.product_category) {
         getProducts({ category: p.product_category, limit: 8 })
