@@ -143,6 +143,7 @@ async def startup():
     await db.orders.create_index("session_id")
     await db.orders.create_index("user_id")
     await db.orders.create_index("email")
+    await db.stripe_webhook_events.create_index("event_id", unique=True, sparse=True)
 
     # Admin seed
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@baume-shop.com").lower()
@@ -628,30 +629,68 @@ async def checkout_status(session_id: str, http_request: Request):
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
+    """Stripe webhook endpoint — production-grade."""
     if not STRIPE_API_KEY:
-        return {"received": False}
+        logger.warning("Webhook called but STRIPE_API_KEY missing")
+        raise HTTPException(status_code=503, detail="Stripe non configuré")
+
+    body = await request.body()
+    sig = request.headers.get("Stripe-Signature", "")
     host_url = str(request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
-    body = await request.body()
-    sig = request.headers.get("Stripe-Signature", "")
+
     try:
         event = await stripe_checkout.handle_webhook(body, sig)
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return {"received": False}
+        logger.error(f"Stripe webhook signature/parse error: {e}")
+        raise HTTPException(status_code=400, detail="Signature Stripe invalide")
 
-    if event and event.session_id:
-        await db.payment_transactions.update_one(
-            {"session_id": event.session_id},
-            {"$set": {
-                "payment_status": event.payment_status,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }},
+    if not event or not getattr(event, "session_id", None):
+        logger.info("Webhook received but no session_id in event — ignored")
+        return {"received": True, "processed": False}
+
+    session_id = event.session_id
+    event_id = getattr(event, "event_id", None)
+    event_type = getattr(event, "event_type", "")
+    payment_status = getattr(event, "payment_status", "")
+
+    logger.info(
+        f"Stripe webhook: type={event_type} session={session_id} "
+        f"event_id={event_id} payment_status={payment_status}"
+    )
+
+    if event_id:
+        dup = await db.stripe_webhook_events.find_one({"event_id": event_id}, {"_id": 0})
+        if dup:
+            logger.info(f"Duplicate webhook event {event_id} — skipped")
+            return {"received": True, "processed": False, "duplicate": True}
+        await db.stripe_webhook_events.insert_one({
+            "event_id": event_id,
+            "event_type": event_type,
+            "session_id": session_id,
+            "payment_status": payment_status,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    await db.payment_transactions.update_one(
+        {"session_id": session_id},
+        {"$set": {
+            "payment_status": payment_status or "unknown",
+            "last_webhook_event": event_type,
+            "last_webhook_event_id": event_id,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+
+    if payment_status == "paid":
+        order = await _ensure_order_from_tx(session_id)
+        logger.info(
+            f"Order processed for session={session_id} "
+            f"order_id={order.get('id') if order else None}"
         )
-        if event.payment_status == "paid":
-            await _ensure_order_from_tx(event.session_id)
-    return {"received": True}
+
+    return {"received": True, "processed": True, "session_id": session_id}
 
 
 # ---------- Mount & CORS ----------

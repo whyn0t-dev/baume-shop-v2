@@ -24,6 +24,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import AccountPage from "./pages/AccountPage";
 import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
+import { MentionsLegalesPage, CgvPage, PrivacyPage } from "./pages/LegalPages";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -61,6 +62,9 @@ function AppShell() {
           <Route path="/compte" element={<AccountPage />} />
           <Route path="/mot-de-passe-oublie" element={<ForgotPasswordPage />} />
           <Route path="/reinitialiser-mot-de-passe" element={<ResetPasswordPage />} />
+          <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
+          <Route path="/cgv" element={<CgvPage />} />
+          <Route path="/confidentialite" element={<PrivacyPage />} />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>

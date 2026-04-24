@@ -76,8 +76,12 @@ export default function Footer() {
 
       <div className="border-t border-baume-white/10">
         <div className="baume-container py-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-[12px] text-baume-white/60">
-          <p>© {new Date().getFullYear()} Baume · Tous droits réservés</p>
-          <p>Conçu à Genève avec soin</p>
+          <p>© {new Date().getFullYear()} Baume Sàrl · Tous droits réservés · Conçu à Genève</p>
+          <ul className="flex flex-wrap items-center gap-4">
+            <li><Link to="/mentions-legales" data-testid="footer-legal-mentions" className="hover:text-baume-white">Mentions légales</Link></li>
+            <li><Link to="/cgv" data-testid="footer-legal-cgv" className="hover:text-baume-white">CGV</Link></li>
+            <li><Link to="/confidentialite" data-testid="footer-legal-privacy" className="hover:text-baume-white">Confidentialité</Link></li>
+          </ul>
         </div>
       </div>
     </footer>
