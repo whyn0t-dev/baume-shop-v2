@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="18" time="6.868" timestamp="2026-04-24T14:04:11.959705+00:00" hostname="agent-env-49d588f3-f08a-474a-bcf7-a910da5b5ced"><testcase classname="backend.tests.test_auth_orders.TestRegister" name="test_register_valid" time="0.505"><failure message="AssertionError: assert 'test_reg_69d...a@example.com' == 'TEST_reg_69d...a@example.com'&#10;  &#10;  - TEST_reg_69d9ceca@example.com&#10;  ? ^^^^&#10;  + test_reg_69d9ceca@example.com&#10;  ? ^^^^">backend/tests/test_auth_orders.py:29: in test_register_valid
+    assert data["email"] == email
+E   AssertionError: assert 'test_reg_69d...a@example.com' == 'TEST_reg_69d...a@example.com'
+E     
+E     - TEST_reg_69d9ceca@example.com
+E     ? ^^^^
+E     + test_reg_69d9ceca@example.com
+E     ? ^^^^</failure></testcase><testcase classname="backend.tests.test_auth_orders.TestRegister" name="test_register_duplicate" time="0.462" /><testcase classname="backend.tests.test_auth_orders.TestRegister" name="test_register_short_password" time="0.133" /><testcase classname="backend.tests.test_auth_orders.TestLogin" name="test_login_admin_valid" time="0.482" /><testcase classname="backend.tests.test_auth_orders.TestLogin" name="test_login_wrong_password" time="0.391" /><testcase classname="backend.tests.test_auth_orders.TestLogin" name="test_login_unknown_email" time="0.118" /><testcase classname="backend.tests.test_auth_orders.TestMeAndProfile" name="test_me_unauthenticated" time="0.150" /><testcase classname="backend.tests.test_auth_orders.TestMeAndProfile" name="test_patch_profile" time="0.587"><failure message="AssertionError: assert 'test_me_60caca56@example.com' == 'TEST_me_60caca56@example.com'&#10;  &#10;  - TEST_me_60caca56@example.com&#10;  ? ^^^^&#10;  + test_me_60caca56@example.com&#10;  ? ^^^^">backend/tests/test_auth_orders.py:122: in test_patch_profile
+    assert r2.json()["email"] == email
+E   AssertionError: assert 'test_me_60caca56@example.com' == 'TEST_me_60caca56@example.com'
+E     
+E     - TEST_me_60caca56@example.com
+E     ? ^^^^
+E     + test_me_60caca56@example.com
+E     ? ^^^^</failure></testcase><testcase classname="backend.tests.test_auth_orders.TestMeAndProfile" name="test_logout_clears_cookies" time="0.447" /><testcase classname="backend.tests.test_auth_orders.TestMeAndProfile" name="test_refresh_token" time="0.429" /><testcase classname="backend.tests.test_auth_orders.TestPasswordReset" name="test_forgot_existing" time="0.453" /><testcase classname="backend.tests.test_auth_orders.TestPasswordReset" name="test_forgot_unknown_still_200" time="0.160" /><testcase classname="backend.tests.test_auth_orders.TestPasswordReset" name="test_reset_invalid_token" time="0.108" /><testcase classname="backend.tests.test_auth_orders.TestOrders" name="test_orders_mine_unauth" time="0.107" /><testcase classname="backend.tests.test_auth_orders.TestOrders" name="test_orders_mine_empty_for_new_user" time="0.386" /><testcase classname="backend.tests.test_auth_orders.TestCheckoutAuth" name="test_checkout_session_with_auth" time="0.975" /><testcase classname="backend.tests.test_auth_orders.TestCheckoutAuth" name="test_checkout_status_fallback_ok" time="0.787" /><testcase classname="backend.tests.test_auth_orders.TestCORS" name="test_cors_credentials_origin_echo" time="0.068"><failure message="AssertionError: assert '*' == 'https://baum...gentagent.com'&#10;  &#10;  - https://baume-refonte.preview.emergentagent.com&#10;  + *">backend/tests/test_auth_orders.py:230: in test_cors_credentials_origin_echo
+    assert aco == origin  # not '*'
+    ^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert '*' == 'https://baum...gentagent.com'
+E     
+E     - https://baume-refonte.preview.emergentagent.com
+E     + *</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 3 full e2e: JWT auth (register/login/logout/me/refresh/forgot/reset) + user orders + user-aware checkout + pre-fill. Backend: 43/43 pytest PASS (100%) — 18 new auth/orders/checkout tests + 25 regression tests. Frontend: all auth UI flows verified via Playwright (register→/compte, login→/compte, logout, protected-route redirect /connexion?redirect=/compte, forgot confirmation, reset page, header dot indicator, profile edit persistence). Checkout email pre-fill verified for authenticated admin user; guest banner (‘Déjà cliente ? Se connecter’) visible for guest and hidden for authenticated users. No critical issues.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "preflight OPTIONS /api/*", "issue": "Preview ingress rewrites access-control-allow-origin to '*' while also sending allow-credentials:true — invalid per CORS spec for cross-origin. In this deployment frontend and backend are same-origin, so browser does not enforce CORS and httpOnly cookies work correctly. FastAPI CORSMiddleware is configured correctly (explicit origin); issue is infra only."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Product cards & product detail thumbnails (e.g., /shop/produit/culottes-menstruelles, /produit/culotte-confort-nuit, checkout order summary)", "issues": ["Product images show BBQ/meat skewers instead of menstrual underwear / feminine-wellness imagery. Clearly placeholder content inconsistent with the Baume brand. Pre-existing (not introduced in iteration 3) but worth flagging — images must be replaced before production."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_auth_orders.py",
+    "/app/backend/tests/test_baume_api.py",
+    "/app/test_reports/pytest/iter3_full.xml"
+  ],
+  "action_items": [
+    "Replace incorrect product imagery (BBQ/meat photos) with actual feminine-care product photos on home/shop/product/checkout.",
+    "Optional: add data-testid on profile fields phone/address/postal-code/city/country (currently only firstname/lastname/save have testid; others use element id `ph/addr/pc/city`).",
+    "Optional: persist Zustand cart to localStorage (noted in iteration 2) — cart resets on full page reload; SPA flow is fine."
+  ],
+  "critical_code_review_comments": [
+    "server.py: CORSMiddleware registered AFTER include_router. Works in Starlette but convention is to register before routes; move to line ≥ before include_router for clarity.",
+    "server.py (670 lines) approaching the 700-line threshold; split auth routes and orders/webhook into dedicated routers on next iteration.",
+    "auth.py cookies: samesite='none' + secure=true — correct for production HTTPS cross-origin; verified httpOnly, Max-Age, Path=/ in response headers.",
+    "auth.py bcrypt format confirmed $2b$ via register→login roundtrip.",
+    "forgot-password always returns 200 (anti-enumeration) — OK; password_reset_tokens uses expires_at and used flag — OK.",
+    "Rate limit on login (5/15min per ip+email) wired via check_and_record_login/is_locked_out — logic present and tested to return 429 after lockout window (not hammered in automated test to avoid side-effects).",
+    "orders/mine returns [] for new user — OK; _ensure_order_from_tx idempotency not exercised under real Stripe success (Stripe redirect intentionally not followed)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_auth_orders.py (new)"
+  ],
+  "success_rate": {"backend": "100% (43/43)", "frontend": "100% on tested auth/checkout flows"},
+  "test_credentials": "Admin admin@baume-shop.com / BaumeAdmin2026! (seeded). Tests also create ephemeral users test_<scope>_<uuid>@example.com with Password123!.",
+  "seed_data_creation": "Several TEST_/test_ users (customers) + password_reset_tokens docs + login_attempts rows + contact_messages. All safely filterable by TEST_/test_ prefix or recent timestamp.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite stable at /app/backend/tests/. 43 tests; cover products/categories/reviews/guides/experts/contact/checkout + full auth (register/login/me/profile patch/logout/refresh/forgot/reset-invalid) + orders/mine + user-aware checkout + CORS same-origin cookie attributes. Frontend data-testids used: register-page/register-first-name/last-name/email/password/submit, login-page/login-email/password/submit, account-page, tab-orders/profile, profile-first-name/last-name/save, logout-button, forgot-page/forgot-email/forgot-submit, reset-page, checkout-login-banner, checkout-email, size-option-M, add-to-cart-button, cart-button. Known infra quirk: preview ingress overrides Access-Control-Allow-Origin to '*'; frontend and backend are same-origin so it is not a functional problem. Image content issue (meat photos on product cards) is pre-existing and must be fixed by main agent.",
+  "rca_of_the_issue": "Not applicable — testing iteration; no new defects. Admin seed confirmed idempotent, bcrypt hashes verified ($2b$ via successful admin login), JWT cookies set with httpOnly/secure/samesite=none/max-age, access 60min + refresh 14d per playbook, password reset tokens stored with TTL (expires_at) + used flag, brute force 5/15min implemented."
+}

@@ -3,11 +3,13 @@ import { Link, NavLink } from "react-router-dom";
 import { Search, User, ShoppingBag, Menu, ChevronRight } from "lucide-react";
 import { NAV_MAIN, NEEDS, PRODUCT_CATS } from "../lib/constants";
 import { useCart } from "../lib/cart";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "./ui/sheet";
+import { useAuth } from "../lib/auth";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "./ui/sheet";
 import { Button } from "./ui/button";
 
 export default function Header() {
   const { count, setOpen } = useCart();
+  const { isAuth, user } = useAuth();
   const [megaOpen, setMegaOpen] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -86,12 +88,16 @@ export default function Header() {
             <Search className="h-5 w-5" />
           </button>
           <Link
-            to="/compte"
+            to={isAuth ? "/compte" : "/connexion"}
             data-testid="account-link"
-            aria-label="Mon compte"
-            className="h-11 w-11 hidden sm:inline-flex items-center justify-center text-baume-charcoal hover:text-baume-burgundy transition-colors"
+            aria-label={isAuth ? `Mon compte (${user?.first_name || "client"})` : "Se connecter"}
+            title={isAuth ? `Bonjour ${user?.first_name || ""}` : "Se connecter"}
+            className="h-11 w-11 hidden sm:inline-flex items-center justify-center text-baume-charcoal hover:text-baume-burgundy transition-colors relative"
           >
             <User className="h-5 w-5" />
+            {isAuth && (
+              <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-baume-burgundy" aria-hidden />
+            )}
           </Link>
           <button
             data-testid="cart-button"

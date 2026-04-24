@@ -5,6 +5,7 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import { CartProvider } from "./lib/cart";
+import { AuthProvider } from "./lib/auth";
 
 import HomePage from "./pages/HomePage";
 import ShopIndexPage from "./pages/ShopIndexPage";
@@ -19,6 +20,10 @@ import FaqPage from "./pages/FaqPage";
 import StorePage from "./pages/StorePage";
 import AteliersPage from "./pages/AteliersPage";
 import { GuidesIndexPage, GuideDetailPage } from "./pages/GuidesPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import AccountPage from "./pages/AccountPage";
+import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -51,6 +56,11 @@ function AppShell() {
           <Route path="/ateliers" element={<AteliersPage />} />
           <Route path="/guides" element={<GuidesIndexPage />} />
           <Route path="/guides/:slug" element={<GuideDetailPage />} />
+          <Route path="/connexion" element={<LoginPage />} />
+          <Route path="/inscription" element={<RegisterPage />} />
+          <Route path="/compte" element={<AccountPage />} />
+          <Route path="/mot-de-passe-oublie" element={<ForgotPasswordPage />} />
+          <Route path="/reinitialiser-mot-de-passe" element={<ResetPasswordPage />} />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>
@@ -74,10 +84,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <CartProvider>
-      <BrowserRouter>
-        <AppShell />
-      </BrowserRouter>
-    </CartProvider>
+    <AuthProvider>
+      <CartProvider>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
+      </CartProvider>
+    </AuthProvider>
   );
 }

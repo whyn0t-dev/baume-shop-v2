@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useCart } from "../lib/cart";
+import { useAuth } from "../lib/auth";
 import { createCheckout } from "../lib/api";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -22,6 +23,7 @@ const COUNTRIES = [
 
 export default function CheckoutPage() {
   const { items, subtotal } = useCart();
+  const { user, isAuth } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -35,6 +37,23 @@ export default function CheckoutPage() {
     country: "CH",
     phone: "",
   });
+
+  // Pre-fill from authenticated user profile
+  useEffect(() => {
+    if (isAuth && user) {
+      setForm((f) => ({
+        ...f,
+        email: f.email || user.email || "",
+        first_name: f.first_name || user.first_name || "",
+        last_name: f.last_name || user.last_name || "",
+        phone: f.phone || user.phone || "",
+        address: f.address || user.address || "",
+        postal_code: f.postal_code || user.postal_code || "",
+        city: f.city || user.city || "",
+        country: f.country || user.country || "CH",
+      }));
+    }
+  }, [isAuth, user]);
 
   const country = COUNTRIES.find((c) => c.code === form.country) || COUNTRIES[0];
   const shipping = subtotal >= country.threshold ? 0 : country.fee;
@@ -86,6 +105,15 @@ export default function CheckoutPage() {
         origin_url: window.location.origin,
         email: form.email,
         shipping_country: form.country,
+        shipping_address: {
+          first_name: form.first_name,
+          last_name: form.last_name,
+          address: form.address,
+          postal_code: form.postal_code,
+          city: form.city,
+          country: form.country,
+          phone: form.phone,
+        },
       };
       const res = await createCheckout(payload);
       if (res?.url) {
@@ -129,6 +157,13 @@ export default function CheckoutPage() {
             {step === 1 && (
               <div className="space-y-4">
                 <p className="font-editorial text-[22px] text-baume-charcoal">Vos informations</p>
+                {!isAuth && (
+                  <div className="rounded-xl border border-baume-border bg-baume-ivory p-4 text-[13px] text-baume-charcoal/80 flex flex-wrap items-center gap-2" data-testid="checkout-login-banner">
+                    <span>Déjà cliente ?</span>
+                    <Link to={`/connexion?redirect=/checkout`} className="baume-link font-semibold">Se connecter</Link>
+                    <span className="text-baume-charcoal/50">— vos infos seront pré-remplies.</span>
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="email" className="text-[13px] font-medium">Email</Label>
                   <Input

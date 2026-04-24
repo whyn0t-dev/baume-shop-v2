@@ -66,6 +66,7 @@ export default function Footer() {
             </a>
           </p>
           <ul className="mt-6 space-y-2 text-[14px]">
+            <li><Link to="/compte" className="text-baume-white/80 hover:text-baume-white">Mon compte</Link></li>
             <li><Link to="/faq" className="text-baume-white/80 hover:text-baume-white">FAQ</Link></li>
             <li><Link to="/contact" className="text-baume-white/80 hover:text-baume-white">Contact</Link></li>
             <li><Link to="/a-propos" className="text-baume-white/80 hover:text-baume-white">À propos</Link></li>
