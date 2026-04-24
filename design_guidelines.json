@@ -1,0 +1,184 @@
+{
+  "theme": "Light",
+  "archetype": "1 (Organic & Earthy)",
+  "global_design_rules": {
+    "tone": "Premium, clear, warm, reassuring, conversion-oriented, non-medicalizing. Elegant, clean white space.",
+    "border_radius": "rounded-2xl for soft borders on cards and surfaces, ensuring no sharp, clinical edges.",
+    "shadows": "Very soft ambient shadows, relying primarily on borders with #E7DDD3 for separation to maintain a grounded feel.",
+    "hover_states": "Subtle background shifts, active text colors, no aggressive transformations. Preserve the peaceful aura.",
+    "touch_targets": "Minimum 44x44px for all interactive elements to ensure mobile accessibility.",
+    "carousels": "NO auto-carousels. All sliders must be user-initiated to respect user control and prevent CLS."
+  },
+  "color_tokens": {
+    "primary_burgundy": "#4D1E19",
+    "text_charcoal": "#111111",
+    "white": "#FFFFFF",
+    "bg_ivory": "#F7F3EE",
+    "surface_taupe": "#C0B4A6",
+    "border_soft": "#E7DDD3"
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Cormorant Garamond",
+      "body": "Inter",
+      "google_fonts_url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap"
+    },
+    "scale": {
+      "h1": {
+        "desktop": "text-[56px] leading-[64px] font-semibold tracking-tight",
+        "mobile": "text-[34px] leading-[40px] font-semibold tracking-tight"
+      },
+      "h2": {
+        "desktop": "text-[40px] leading-[48px] font-semibold tracking-tight",
+        "mobile": "text-[28px] leading-[34px] font-semibold tracking-tight"
+      },
+      "h3": {
+        "desktop": "text-[28px] leading-[36px] font-semibold tracking-tight",
+        "mobile": "text-[22px] leading-[28px] font-semibold tracking-tight"
+      },
+      "lead": {
+        "desktop": "text-[20px] leading-[32px] font-normal",
+        "mobile": "text-[18px] leading-[28px] font-normal"
+      },
+      "body": {
+        "desktop": "text-[18px] leading-[28px] font-normal",
+        "mobile": "text-[16px] leading-[26px] font-normal"
+      },
+      "small": {
+        "desktop": "text-[14px] leading-[22px]",
+        "mobile": "text-[14px] leading-[22px]"
+      },
+      "button": {
+        "desktop": "text-[16px] leading-[24px] font-semibold",
+        "mobile": "text-[16px] leading-[24px] font-semibold"
+      }
+    }
+  },
+  "spacing": {
+    "px": [4, 8, 12, 16, 24, 32, 48, 64, 96],
+    "tailwind_classes": ["p-1", "p-2", "p-3", "p-4", "p-6", "p-8", "p-12", "p-16", "p-24"]
+  },
+  "grid": {
+    "container": "w-full max-w-[1200px] mx-auto",
+    "desktop": "grid grid-cols-12 gap-6",
+    "tablet": "grid grid-cols-4 gap-4 px-8",
+    "mobile": "grid grid-cols-2 gap-4 px-4"
+  },
+  "component_specs": {
+    "button": {
+      "primary": "bg-[#4D1E19] text-[#FFFFFF] hover:bg-[#3D1814] rounded-full px-8 py-3 h-[48px] inline-flex items-center justify-center font-inter font-semibold transition-colors duration-200",
+      "secondary": "bg-[#C0B4A6] text-[#111111] hover:bg-[#AFA08F] rounded-full px-8 py-3 h-[48px] inline-flex items-center justify-center font-inter font-semibold transition-colors duration-200",
+      "outline": "border border-[#4D1E19] text-[#4D1E19] hover:bg-[#4D1E19]/5 rounded-full px-8 py-3 h-[48px] inline-flex items-center justify-center font-inter font-semibold transition-colors duration-200",
+      "ghost": "text-[#111111] hover:bg-[#E7DDD3]/50 rounded-full px-4 py-2 font-inter transition-colors duration-200"
+    },
+    "card": {
+      "default": "bg-[#FFFFFF] border border-[#E7DDD3] rounded-2xl p-6 md:p-8",
+      "interactive": "bg-[#FFFFFF] border border-[#E7DDD3] rounded-2xl p-6 md:p-8 hover:border-[#4D1E19]/30 hover:shadow-sm transition-all duration-200 cursor-pointer",
+      "taupe": "bg-[#C0B4A6] rounded-2xl p-6 md:p-8 text-[#111111]"
+    },
+    "navigation": {
+      "header": "sticky top-0 z-50 bg-[#F7F3EE]/95 backdrop-blur-xl border-b border-[#E7DDD3] h-[72px] flex items-center w-full",
+      "mega_menu": "absolute top-full left-0 w-full bg-[#FFFFFF] border-b border-[#E7DDD3] p-8 shadow-sm transition-all duration-200",
+      "mobile_drawer": "bg-[#F7F3EE] w-full max-w-[320px] border-r border-[#E7DDD3]"
+    },
+    "form_elements": {
+      "input": "w-full border border-[#E7DDD3] bg-[#FFFFFF] rounded-lg px-4 py-3 min-h-[44px] focus:ring-2 focus:ring-[#4D1E19]/20 focus:border-[#4D1E19] outline-none text-[#111111] placeholder:text-[#111111]/40 font-inter",
+      "label": "text-[14px] leading-[22px] font-medium text-[#111111] mb-2 block font-inter"
+    },
+    "badges": {
+      "proof": "bg-[#C0B4A6]/30 text-[#111111] text-[12px] font-semibold px-2.5 py-1 rounded-full border border-[#C0B4A6]"
+    }
+  },
+  "page_layouts": {
+    "home": {
+      "hero": "Full width layout. #F7F3EE ivory background. Bold Cormorant Garamond H1. CTAs 'Découvrir ma routine' (primary) & 'Voir les best-sellers' (outline). Features a soft botanical lifestyle image.",
+      "cards_besoins": "Grid layout representing entry by 'Need'. 3 cols desktop, 2 cols tablet, 1 col mobile. Use minimal illustrations or soft lifestyle crops.",
+      "reassurance": "Full width banner block with #C0B4A6 background. 3 to 4 trust points (icons + synthetic text).",
+      "bestsellers": "4 columns product grid on desktop, 2 on tablet/mobile.",
+      "conseils": "Editorial block, 50/50 split of warm image and narrative text. Focus on accompaniment.",
+      "ateliers_expertes": "3 columns grid displaying expert portraits and physical workshops.",
+      "boutique_geneva": "Full width immersive image of the physical boutique in Geneva. Text overlay or side-by-side. Very warm, cozy vibes.",
+      "reviews": "Clean review cards in a grid or flex wrap, highlighting trust.",
+      "footer": "Deep Burgundy #4D1E19 background with #FFFFFF text for contrast and brand affirmation. Clear columns."
+    },
+    "category": {
+      "layout": "Breadcrumb on top. Large H1 and intro text. Content: Sidebar with sticky filters (desktop) / Drawer filters (mobile). Product grid 3 cols desktop.",
+      "filters": "Sections for: besoin, flux, usage, taille, prix, disponibilité.",
+      "cards": "Product cards must include image, mini conseil text, price, and quick add button."
+    },
+    "product": {
+      "layout": "2 columns on desktop. Image Gallery on left. Sticky Buy Box on right.",
+      "buy_box": "H1 title, price, variants (size, color). Primary CTA for Add to Cart. 3-5 synthetic benefits listed cleanly.",
+      "accordions": "Structured with Shadcn Accordion: description, composition, utilisation, livraison, fabrication, FAQ.",
+      "cross_sell": "Related products grid below main fold.",
+      "reviews": "Customer reviews section at the bottom.",
+      "assistance": "Block 'Besoin d'aide pour choisir ?' linking to guide or contact."
+    },
+    "cart": {
+      "layout": "Slide-over sheet (Drawer) on the right.",
+      "features": "Free shipping threshold indicator (progress bar), list of items with quantity adjusters, subtotal, and secure checkout button."
+    },
+    "checkout": {
+      "layout": "Multi-step structure (Information, Shipping, Payment), highly focused, removing main nav/footer distractions.",
+      "features": "Stripe payment integration element. Clean summary pane on the right."
+    },
+    "about": {
+      "layout": "Editorial layout, heavy use of imagery (team, founders, mission), 50/50 blocks overlapping softly, alternating #FFFFFF and #F7F3EE backgrounds."
+    },
+    "contact": {
+      "layout": "2 columns desktop. Left: Contact info, map, email, social links. Right: Simple form (Resend email integration) with shadcn Input and Textarea components."
+    },
+    "faq": {
+      "layout": "Centered narrow layout (max-w-3xl). Grouped accordion items. Clear search bar at the top."
+    },
+    "store_geneva": {
+      "layout": "Immersive hero image of the boutique. 2 cols details (Address/Hours on left, Map/Info on right). Expert cards highlighting on-site team."
+    },
+    "guides": {
+      "layout": "Blog/Article grid layout. Featured guide span 2 cols, others 1 col. Article cards with soft borders, imagery, category badge, and title."
+    }
+  },
+  "media_assets": {
+    "hero_botanical": {
+      "url": "https://images.unsplash.com/photo-1714648893954-3744b033f226?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwzfHxib3RhbmljYWwlMjBzaGFkb3dzJTIwd2FybSUyMG5ldXRyYWx8ZW58MHx8fHwxNzc3MDM1ODUxfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Ombre botanique douce sur fond chaud"
+    },
+    "product_minimalist": {
+      "url": "https://images.unsplash.com/photo-1745565610492-b70156cec381?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwzfHxtaW5pbWFsaXN0JTIwY29zbWV0aWMlMjBwcm9kdWN0JTIwc29mdHxlbnwwfHx8fDE3NzcwMzU4NTB8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Produits cosmétiques minimalistes sur fond clair"
+    },
+    "lifestyle_wellness": {
+      "url": "https://images.pexels.com/photos/7365410/pexels-photo-7365410.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "alt": "Femmes dans un spa, bien-être et chaleur"
+    },
+    "boutique_geneva": {
+      "url": "https://images.unsplash.com/photo-1777008873256-fcdf52ae61b3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MTJ8MHwxfHNlYXJjaHwxfHxjb3p5JTIwYm91dGlxdWUlMjBpbnRlcmlvciUyMHdhcm18ZW58MHx8fHwxNzc3MDM1ODUwfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Intérieur de boutique chaleureux et accueillant"
+    }
+  },
+  "microcopy": {
+    "nav_main": ["Shop par besoin", "Shop par produit", "Guides & conseils", "Ateliers & experts", "Boutique Genève", "À propos", "FAQ", "Contact"],
+    "nav_besoins": ["Règles & cycle", "Intimité", "Sexualité", "Maternité & post-partum", "Péri-ménopause", "Ados & premiers cycles"],
+    "nav_produits": ["Culottes menstruelles", "Maillots menstruels", "Cups & disques", "Serviettes lavables", "Soins intimes", "Lubrifiants", "Compléments", "Accessoires & cadeaux"],
+    "ctas": {
+      "hero_primary": "Découvrir ma routine",
+      "hero_secondary": "Voir les best-sellers",
+      "quick_add": "Ajout rapide",
+      "add_to_cart": "Ajouter au panier",
+      "help": "Besoin d'aide pour choisir ?"
+    }
+  },
+  "accessibility": {
+    "contrast": "Maintain WCAG 2.2 AA. Text #111111 and #4D1E19 on #F7F3EE or #FFFFFF meets this standard. Be careful with white text on #C0B4A6.",
+    "focus": "All interactive elements must exhibit a visible focus state: focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4D1E19] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F3EE]",
+    "aria": "Use aria-expanded on accordion and drawer components. Include precise aria-labels on icon buttons.",
+    "hierarchy": "Enforce strict semantic Hn structure: H1 -> H2 -> H3. No visual headings should bypass the semantic flow."
+  },
+  "tech_instructions": {
+    "icons": "Use lucide-react exclusively. No emojis.",
+    "ui_components": "Mandatory to use shadcn/ui. Required: Button, Card, Accordion, Dialog, Sheet, Select, Input, Label, Tabs, Separator, Badge. Toast notifications via 'sonner'. Extract these to /app/frontend/src/components/ui/.",
+    "performance": "Target LCP < 2.5s, CLS < 0.1, INP < 200ms. Ensure AVIF/WebP formats and lazy-load non-critical imagery.",
+    "testing": "CRITICAL: Add data-testid attributes to all interactive/key informational elements using kebab-case role-based names (e.g., data-testid='hero-primary-cta').",
+    "styling": "Use standard html and Tailwind CSS for main layouts instead of rigidly relying on pre-built structural components when creative overlapping or spacing is needed."
+  }
+}
