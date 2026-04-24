@@ -120,7 +120,7 @@ export default function HomePage() {
         <div className="relative rounded-[28px] overflow-hidden border border-baume-border">
           <div className="aspect-[16/10] md:aspect-[21/9]">
             <img
-              src="https://images.unsplash.com/photo-1604176354204-9268737828e4?auto=format&fit=crop&w=1600&q=85"
+              src="https://images.unsplash.com/photo-1777008873256-fcdf52ae61b3?crop=entropy&cs=srgb&fm=jpg&w=1600&q=85"
               alt="Intérieur de la boutique Baume à Genève"
               loading="lazy"
               className="w-full h-full object-cover"

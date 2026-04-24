@@ -39,7 +39,7 @@ export default function AboutPage() {
         </div>
         <div className="lg:col-span-6">
           <div className="aspect-[5/6] rounded-[24px] overflow-hidden border border-baume-border">
-            <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=1200&q=80" alt="L'équipe Baume" loading="lazy" className="w-full h-full object-cover" />
+            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1200&q=80" alt="L'équipe Baume" loading="lazy" className="w-full h-full object-cover" />
           </div>
         </div>
       </section>

@@ -54,7 +54,7 @@ export default function Hero() {
           <div className="relative">
             <div className="relative aspect-[4/5] md:aspect-[5/6] rounded-[28px] overflow-hidden border border-baume-border bg-baume-taupe/20 baume-grain">
               <img
-                src="https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=1400&q=85"
+                src="https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=1400&q=85"
                 alt="Rituel bien-être intime — ambiance chaleureuse et éditoriale"
                 fetchPriority="high"
                 className="w-full h-full object-cover"

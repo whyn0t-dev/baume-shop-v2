@@ -1,29 +1,36 @@
 """Seed data for Baume e-commerce (French feminine wellness)."""
 
-# Image library: Unsplash / Pexels URLs aligned with soft, premium, feminine wellness aesthetic.
+# Image library: curated Unsplash / Pexels URLs aligned with soft, premium, feminine wellness aesthetic.
+# NOTE PRODUCTION: Ces URLs sont des PLACEHOLDERS. Remplacer par les vraies photos de la marque Baume
+# en mettant à jour les valeurs de IMG ci-dessous, puis relancer `python -m seed_refresh` (voir scripts/).
 IMG = {
-    "lingerie_1": "https://images.unsplash.com/photo-1595777216528-071e0127ccbf?auto=format&fit=crop&w=1200&q=80",
-    "lingerie_2": "https://images.unsplash.com/photo-1617051397070-d54b7ee00f2a?auto=format&fit=crop&w=1200&q=80",
+    # Minimalist cosmetic/product shots (verified from design_guidelines.json)
+    "product_minimalist": "https://images.unsplash.com/photo-1745565610492-b70156cec381?crop=entropy&cs=srgb&fm=jpg&w=1200&q=85",
+    "botanical": "https://images.unsplash.com/photo-1714648893954-3744b033f226?crop=entropy&cs=srgb&fm=jpg&w=1200&q=85",
+    "boutique": "https://images.unsplash.com/photo-1777008873256-fcdf52ae61b3?crop=entropy&cs=srgb&fm=jpg&w=1600&q=85",
+    "wellness": "https://images.pexels.com/photos/7365410/pexels-photo-7365410.jpeg?auto=compress&cs=tinysrgb&w=1200",
+    # Category-appropriate placeholders (soft pastel, beauty-adjacent, no BBQ/food)
+    "lingerie_1": "https://images.unsplash.com/photo-1583744946564-b52ac1c389c8?auto=format&fit=crop&w=1200&q=80",
+    "lingerie_2": "https://images.unsplash.com/photo-1591348122449-02525d70379b?auto=format&fit=crop&w=1200&q=80",
     "swim": "https://images.unsplash.com/photo-1570976447640-ac859083963c?auto=format&fit=crop&w=1200&q=80",
-    "cup": "https://images.unsplash.com/photo-1628602435593-24ea8c4541f2?auto=format&fit=crop&w=1200&q=80",
-    "pad": "https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=1200&q=80",
-    "soin_1": "https://images.unsplash.com/photo-1556228578-dd6f8f3f8f0b?auto=format&fit=crop&w=1200&q=80",
+    "cup": "https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&w=1200&q=80",
+    "pad": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=1200&q=80",
+    "soin_1": "https://images.unsplash.com/photo-1556228578-8c89e6adf883?auto=format&fit=crop&w=1200&q=80",
     "soin_2": "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=1200&q=80",
-    "soin_3": "https://images.unsplash.com/photo-1611930021592-a3f8b6f0f5c0?auto=format&fit=crop&w=1200&q=80",
-    "lub": "https://images.unsplash.com/photo-1617897903246-719242758050?auto=format&fit=crop&w=1200&q=80",
+    "soin_3": "https://images.unsplash.com/photo-1570194065650-d99fb4bedf0a?auto=format&fit=crop&w=1200&q=80",
+    "lub": "https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?auto=format&fit=crop&w=1200&q=80",
     "complement": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=1200&q=80",
     "accessoire": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1200&q=80",
-    "pouch": "https://images.unsplash.com/photo-1627914931089-25b6e4f90a98?auto=format&fit=crop&w=1200&q=80",
-    "botanical": "https://images.unsplash.com/photo-1607006677668-33fcc29add7a?auto=format&fit=crop&w=1200&q=80",
-    "wellness": "https://images.pexels.com/photos/7365410/pexels-photo-7365410.jpeg?auto=compress&cs=tinysrgb&w=1200",
-    "boutique": "https://images.unsplash.com/photo-1604176354204-9268737828e4?auto=format&fit=crop&w=1600&q=80",
-    "hero": "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=1600&q=80",
-    "portrait_1": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=800&q=80",
-    "portrait_2": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=800&q=80",
-    "portrait_3": "https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&w=800&q=80",
-    "editorial_1": "https://images.unsplash.com/photo-1526413232644-8a40f03cc03b?auto=format&fit=crop&w=1200&q=80",
+    "pouch": "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?auto=format&fit=crop&w=1200&q=80",
+    "hero": "https://images.unsplash.com/photo-1522335789203-aaa19eaf7f1a?auto=format&fit=crop&w=1600&q=85",
+    # Portraits for experts (neutral, professional, diverse)
+    "portrait_1": "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=800&q=80",
+    "portrait_2": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=800&q=80",
+    "portrait_3": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80",
+    # Editorial lifestyle
+    "editorial_1": "https://images.unsplash.com/photo-1608248544071-f74c8a976ed3?auto=format&fit=crop&w=1200&q=80",
     "editorial_2": "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80",
-    "editorial_3": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80",
+    "editorial_3": "https://images.unsplash.com/photo-1607006677668-33fcc29add7a?auto=format&fit=crop&w=1200&q=80",
 }
 
 

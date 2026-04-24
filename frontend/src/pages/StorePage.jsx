@@ -21,7 +21,7 @@ export default function StorePage() {
       <section className="baume-container py-10 md:py-14">
         <div className="relative rounded-[24px] overflow-hidden border border-baume-border aspect-[16/9] md:aspect-[21/9]">
           <img
-            src="https://images.unsplash.com/photo-1604176354204-9268737828e4?auto=format&fit=crop&w=1800&q=85"
+            src="https://images.unsplash.com/photo-1777008873256-fcdf52ae61b3?crop=entropy&cs=srgb&fm=jpg&w=1800&q=85"
             alt="Boutique Baume Genève"
             className="w-full h-full object-cover"
             loading="eager"
@@ -80,13 +80,13 @@ export default function StorePage() {
 
           <div className="mt-8 grid grid-cols-2 gap-3">
             <div className="aspect-square rounded-xl overflow-hidden border border-baume-border">
-              <img src="https://images.unsplash.com/photo-1526413232644-8a40f03cc03b?auto=format&fit=crop&w=900&q=80" alt="" className="w-full h-full object-cover" />
+              <img src="https://images.unsplash.com/photo-1714648893954-3744b033f226?crop=entropy&cs=srgb&fm=jpg&w=900&q=80" alt="" className="w-full h-full object-cover" />
             </div>
             <div className="aspect-square rounded-xl overflow-hidden border border-baume-border">
-              <img src="https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=900&q=80" alt="" className="w-full h-full object-cover" />
+              <img src="https://images.unsplash.com/photo-1745565610492-b70156cec381?crop=entropy&cs=srgb&fm=jpg&w=900&q=80" alt="" className="w-full h-full object-cover" />
             </div>
             <div className="aspect-square rounded-xl overflow-hidden border border-baume-border col-span-2">
-              <img src="https://images.unsplash.com/photo-1604176354204-9268737828e4?auto=format&fit=crop&w=1800&q=80" alt="" className="w-full h-full object-cover" />
+              <img src="https://images.unsplash.com/photo-1777008873256-fcdf52ae61b3?crop=entropy&cs=srgb&fm=jpg&w=1800&q=80" alt="" className="w-full h-full object-cover" />
             </div>
           </div>
 

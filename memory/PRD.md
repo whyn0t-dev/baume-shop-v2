@@ -1,55 +1,82 @@
-# PRD — Baume · Refonte e-commerce baume-shop.com
+# PRD — Baume · Refonte e-commerce baume-shop.com (production-ready)
 
-## Problem statement (original, fr-FR)
-Refonte complète du site **baume-shop.com**, marque suisse premium de bien-être féminin (cycle, intimité, sexualité, maternité, post-partum, péri-ménopause) avec boutique physique à Genève. Ton doux, précis, rassurant, jamais médicalisant ni infantilisant. Positionnement : sélection exigeante + accompagnement humain + contenus conseils.
+## Problem statement (fr-FR)
+Refonte complète de **baume-shop.com**, marque suisse premium de bien-être féminin (cycle, intimité, sexualité, maternité, post-partum, péri-ménopause) avec boutique physique à Genève. Ton doux, précis, rassurant, non médicalisant. Positionnement : sélection exigeante + accompagnement humain + contenus conseils.
 
-**Stack imposée :** FastAPI + MongoDB + Stripe (paiement réel mode test) + Resend (formulaire contact, clé à fournir). Palette imposée : `#4D1E19` bourgogne, `#F7F3EE` ivoire, `#C0B4A6` taupe, `#E7DDD3` bordures. Typographies : **Cormorant Garamond** (titres) + **Inter** (UI/body).
+**Stack production-ready :** FastAPI + MongoDB + Stripe (test) + Resend (clé à fournir) + JWT custom auth (bcrypt, httpOnly cookies). Palette imposée respectée : `#4D1E19` bourgogne, `#F7F3EE` ivoire, `#C0B4A6` taupe, `#E7DDD3` bordures. Typos : **Cormorant Garamond** + **Inter**.
 
 ## Architecture
-- **Backend** `/app/backend/server.py` : FastAPI, MongoDB via Motor. Endpoints `/api/products`, `/api/categories`, `/api/reviews`, `/api/guides`, `/api/experts`, `/api/contact` (Resend), `/api/checkout/session` + `/api/checkout/status/{id}` + `/api/webhook/stripe` (emergentintegrations Stripe). Recalcul du prix côté serveur (anti-manipulation), seuil livraison offerte 60 CHF (CH) / 90 € (EU).
-- **Seed** `/app/backend/seed_data.py` : 20 produits, 6 besoins, 8 catégories produit, 6 guides, 3 expertes, 6 reviews. Structure facilement extensible.
-- **Frontend** : React + React Router 7 + Tailwind + shadcn/ui + sonner + lucide-react. Cart en `CartContext` + localStorage. Routes : `/`, `/shop/{besoin|produit}[/...slug]`, `/produit/:slug`, `/panier`, `/checkout`, `/commande/confirmation`, `/a-propos`, `/contact`, `/faq`, `/boutique-geneve`, `/ateliers`, `/guides[/:slug]`.
+
+### Backend (`/app/backend/`)
+- `server.py` — routes API + auth_router (`/api/auth/*`)
+- `auth.py` — JWT/bcrypt/get_current_user/RegisterRequest/LoginRequest/brute-force
+- `emails.py` — Resend templates (contact_ack, welcome, order_confirmation, password_reset)
+- `seed_data.py` — catalogue (20 produits, 6 besoins, 8 catégories, 6 guides, 3 expertes, 6 reviews) · dict `IMG` centralisé pour swap images
+- `scripts/reseed.py` — clear + re-insert catalogue (à relancer après changement du dict `IMG`)
+
+### Endpoints
+
+**Publics** : `/api/products` (filtres), `/api/products/{slug}`, `/api/categories[/{kind}/{slug}]`, `/api/reviews`, `/api/guides[/{slug}]`, `/api/experts`, `/api/contact`
+
+**Auth** : `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`, `/api/auth/me` (GET + PATCH), `/api/auth/refresh`, `/api/auth/forgot-password`, `/api/auth/reset-password`
+
+**Orders & Checkout** : `/api/checkout/session`, `/api/checkout/status/{session_id}`, `/api/webhook/stripe`, `/api/orders/mine` (auth), `/api/orders/{id}` (auth)
+
+### Frontend (`/app/frontend/src/`)
+- `lib/auth.jsx` — AuthContext (status: loading/authenticated/guest)
+- `lib/cart.jsx` — CartContext + localStorage
+- `lib/api.js` — axios `withCredentials: true`, auth helpers, `formatApiError`
+- 19 pages, 16 composants shadcn-based
 
 ## User personas
-- **Cliente cycle / règles** (25-40) : cherche culottes/cups/serviettes lavables fiables.
-- **Future / jeune maman** : maternité, post-partum, soins doux.
-- **Femme en péri-ménopause** : sécheresse, lubrifiants, accompagnement.
-- **Ado & parent** : premiers cycles, ressources éducatives.
-- **Cliente locale Genève** : retrait boutique, ateliers.
+- Cliente cycle (25-40) · Future/jeune maman · Péri-ménopause · Ado & parent · Locale Genève (boutique/atelier)
 
-## What's been implemented (2026-04-24)
-- Backend FastAPI complet (routes, validation Pydantic, gestion erreurs)
-- Seed MongoDB (20 produits + 6 besoins + 8 catégories + 6 guides + 3 expertes + 6 reviews)
-- Stripe checkout multi-étapes (CHF, prix recalculé serveur, fallback DB sur status)
-- Resend setup (clé à fournir, contact persiste en DB en attendant)
-- Design system Baume complet (palette + fonts + tokens Tailwind + index.css)
-- 16 composants UI (Header+megamenu+drawer, Footer, Hero, Cards x5, TrustBar, Filters sticky+drawer, Gallery, Breadcrumb, CartDrawer, etc.)
-- 13 pages complètes en français (Home, Shop index x2, Category x2, Product, Cart, Checkout 3-steps, Confirmation, About, Contact, FAQ, Store, Ateliers, Guides+Detail)
-- Routing React Router avec scroll-to-top
-- SEO : title/description/OG en français
-- Accessibilité : focus visible bourgogne, sr-only Sheet titles, alt text, hiérarchie Hn
-- Tests : backend 25/25 pass, frontend Playwright 100% sur flows critiques
+## Fonctionnalités production-ready ✅ (2026-04-24)
+- Catalogue filtré (besoin/flux/usage/taille/prix/dispo) + recherche full-text
+- Panier localStorage + drawer + progress bar livraison offerte (60 CHF CH / 90 € EU)
+- Checkout 3 étapes avec pré-remplissage automatique si user authentifié
+- Stripe checkout CHF (prix recalculé serveur, anti-manipulation)
+- Order creation idempotent via webhook + poll `/checkout/status`
+- Emails transactionnels : acknowledge contact, welcome, order confirmation, password reset (templates HTML brandés)
+- Auth JWT complète : register, login, logout, me, PATCH profile, refresh, forgot/reset password
+- Brute force protection (5 tentatives / 15 min par IP+email)
+- Espace client `/compte` avec tabs Commandes + Informations
+- Admin seeded (`admin@baume-shop.com` / `BaumeAdmin2026!`)
+- SEO : title/description/OG en français, lang=en → à passer en `fr` si nécessaire
+- Accessibilité : focus visible bourgogne, SheetTitle sr-only, alt text, hiérarchie Hn
+- Design system 100% conforme (palette + fonts + échelle typo)
 
-## Prioritized backlog
-- **P1** Fournir `RESEND_API_KEY` pour activer l'envoi email du formulaire contact
-- **P1** Compte client (auth) + historique commandes + adresses sauvegardées
-- **P2** Recherche globale (page dédiée `/recherche`) — endpoint `/api/products?search=` déjà prêt
-- **P2** Newsletter (intégration Resend audiences ou Klaviyo)
-- **P2** Wishlist / favoris
-- **P2** Multilingue (fr-CH ↔ de-CH ↔ en-CH)
-- **P3** Programme fidélité, codes promo, parrainage
-- **P3** Gestion stocks temps réel, dashboard admin
-- **P3** Avis clients : soumission, modération, photos
-- **P3** Webhook Stripe complet : envoi email confirmation commande via Resend, mise à jour stock
-- **P3** Remplacement images Unsplash par les vraies photos de la marque
+## Couverture tests
+- **Backend** : 43/43 pytest ✅ (auth + orders + checkout + contact + catalogue)
+- **Frontend** : 100% sur flows auth/checkout/panier testés via Playwright (testing_agent_v3 iter. 3)
 
-## Tech debt / notes
-- `payment_transactions.updated_at` mis à jour seulement quand le statut change (pourrait être à chaque poll).
-- Cart store actuel = Context + localStorage ; persiste sur reload navigateur SPA.
-- CORSMiddleware enregistré après `include_router` (fonctionne mais convention inverse).
+## Configuration production (à finaliser)
+1. `RESEND_API_KEY` — **requis** pour activer envoi email (dashboard Resend)
+2. Images marque — remplacer les URLs Unsplash dans `seed_data.py` (dict `IMG`), puis `python backend/scripts/reseed.py`
+3. Domaine vérifié Resend pour `contact@baume-shop.com`
+4. `STRIPE_API_KEY` — passer en clé live quand prêt
+5. `FRONTEND_URL` / `CORS_ORIGINS` — adapter au vrai domaine de prod
+
+## Tech debt / améliorations futures
+- Cart : migrer vers IndexedDB si volumes élevés (actuellement localStorage)
+- Webhook signature Stripe : à vérifier une fois la vraie clé et l'endpoint webhook publics configurés dans le dashboard Stripe
+- `server.py` (670 lignes) : à scinder en routers dédiés si évolution (auth_router, orders_router, catalog_router)
+- Images : passer sur un CDN dédié (Cloudflare Images / Imgix) avec srcset AVIF
+
+## Roadmap (P1 → P3)
+- **P1** Remplacement images marque (prêt via IMG dict)
+- **P1** Clé Resend + domaine vérifié → envoi emails réels
+- **P1** Page Guide des tailles (modal depuis fiche produit)
+- **P2** Recherche globale page dédiée `/recherche`
+- **P2** Newsletter (Resend audiences)
+- **P2** Wishlist
+- **P2** Codes promo / fidélité
+- **P3** Dashboard admin (produits/commandes/stocks)
+- **P3** Avis clients avec photos, modération
+- **P3** Multilingue FR/DE/EN (marché suisse)
 
 ## Next tasks
-1. Récupérer `RESEND_API_KEY` du client et l'ajouter dans `/app/backend/.env`
-2. Définir si on ajoute auth utilisateur dans la prochaine itération
-3. Remplacer les images Unsplash par les visuels marque (champs `image`, `gallery` dans seed_data.py)
-4. Brancher webhook Stripe pour envoi email de confirmation post-paiement
+1. Réceptionner `RESEND_API_KEY` du client → ajouter dans `/app/backend/.env` → restart backend
+2. Réceptionner vraies photos marque → substituer dans `seed_data.IMG` → `python backend/scripts/reseed.py`
+3. Configurer domaine vérifié Resend pour l'email `contact@baume-shop.com`
+4. Validation finale avec vraie clé Stripe + webhook configuré dans dashboard Stripe
