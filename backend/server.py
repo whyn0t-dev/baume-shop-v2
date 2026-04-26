@@ -312,15 +312,7 @@ async def _seed_db():
             ],
         )
 
-# ---------- API Routes ----------
-@app.get("/")
-async def root_public():
-    return {"service": "baume-api", "status": "ok"}
-
-
-# ---------- Health ----------
-
-
+@api_router.get("")
 @api_router.get("/")
 async def root():
     return {"service": "baume-api", "status": "ok"}
