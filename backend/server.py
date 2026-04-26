@@ -10,12 +10,13 @@ import os
 import logging
 import uuid
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
 import stripe
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, Query
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from supabase import create_client, Client
@@ -51,7 +52,21 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 
-app = FastAPI(title="Baume API")
+# FIX: assign the API key to the stripe client so all Stripe calls work
+if STRIPE_API_KEY:
+    stripe.api_key = STRIPE_API_KEY
+
+
+# ---------- Lifespan (replaces deprecated @app.on_event) ----------
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await _seed_db()
+    yield
+
+
+app = FastAPI(title="Baume API", lifespan=lifespan)
 api_router = APIRouter(prefix="/api")
 
 
@@ -95,6 +110,12 @@ async def sb_count(table: str, filters: Optional[Dict[str, Any]] = None) -> int:
     return result.count or 0
 
 
+async def sb_delete(table: str, column: str, value):
+    return await asyncio.to_thread(
+        lambda: supabase.table(table).delete().eq(column, value).execute()
+    )
+
+
 def auth_user_id(user) -> Optional[str]:
     if not user:
         return None
@@ -109,6 +130,24 @@ def auth_user_email(user) -> str:
     if isinstance(user, dict):
         return user.get("email", "") or ""
     return getattr(user, "email", "") or ""
+
+
+async def get_or_create_customer(profile: dict) -> dict:
+    customer = await sb_select_one("customers", "profile_id", profile["id"])
+
+    if customer:
+        return customer
+
+    inserted = await sb_insert("customers", {
+        "profile_id": profile["id"],
+        "email": profile.get("email"),
+        "first_name": profile.get("first_name"),
+        "last_name": profile.get("last_name"),
+        "phone": profile.get("phone"),
+        "created_at": now_iso(),
+    })
+
+    return inserted.data[0]
 
 
 # ---------- Models ----------
@@ -169,11 +208,31 @@ class CheckoutRequest(BaseModel):
     shipping_address: Optional[Dict[str, Any]] = None
 
 
+class AddressRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    address_line1: str
+    address_line2: Optional[str] = None
+    city: str
+    postal_code: str
+    country: str = "CH"
+    phone: Optional[str] = None
+    is_default: bool = False
+
+
+class CartItemRequest(BaseModel):
+    variant_id: str
+    quantity: int = Field(..., gt=0)
+
+
+class DiscountCheckRequest(BaseModel):
+    code: str
+
+
 # ---------- Startup / Seed ----------
 
 
-@app.on_event("startup")
-async def startup():
+async def _seed_db():
     if await sb_count("products") == 0:
         products = []
         for p in PRODUCTS:
@@ -291,7 +350,7 @@ async def list_products(
     bestseller: Optional[bool] = None,
     featured: Optional[bool] = None,
     search: Optional[str] = None,
-    limit: int = 48,
+    limit: int = Query(default=48, ge=1, le=200),
 ):
     def run():
         q = supabase.table("products").select("*")
@@ -334,6 +393,67 @@ async def get_product(slug: str):
         raise HTTPException(status_code=404, detail="Produit introuvable")
 
     return doc
+
+
+@api_router.get("/products/{product_id}/full")
+async def get_product_full(product_id: str):
+    product = await sb_select_one("products", "id", product_id)
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Produit introuvable")
+
+    variants = await asyncio.to_thread(
+        lambda: supabase.table("product_variants")
+        .select("*")
+        .eq("product_id", product_id)
+        .execute()
+    )
+
+    images = await asyncio.to_thread(
+        lambda: supabase.table("product_images")
+        .select("*")
+        .eq("product_id", product_id)
+        .order("position")
+        .execute()
+    )
+
+    options = await asyncio.to_thread(
+        lambda: supabase.table("product_options")
+        .select("*, product_option_values(*)")
+        .eq("product_id", product_id)
+        .execute()
+    )
+
+    return {
+        **product,
+        "variants": variants.data or [],
+        "images": images.data or [],
+        "options": options.data or [],
+    }
+
+
+@api_router.get("/products/{product_id}/variants")
+async def list_product_variants(product_id: str):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("product_variants")
+        .select("*")
+        .eq("product_id", product_id)
+        .eq("active", True)
+        .execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/products/{product_id}/images")
+async def list_product_images(product_id: str):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("product_images")
+        .select("*")
+        .eq("product_id", product_id)
+        .order("position")
+        .execute()
+    )
+    return result.data or []
 
 
 # ---------- Categories / Reviews / Guides / Experts ----------
@@ -446,17 +566,56 @@ async def submit_contact(payload: ContactRequest):
     }
 
 
+# ---------- Customer / Addresses / Cart ----------
+
+
+@api_router.get("/customers/me")
+async def get_my_customer(profile=Depends(get_current_profile)):
+    return await get_or_create_customer(profile)
+
+
+@api_router.get("/addresses")
+async def list_my_addresses(profile=Depends(get_current_profile)):
+    customer = await get_or_create_customer(profile)
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("addresses")
+        .select("*")
+        .eq("customer_id", customer["id"])
+        .execute()
+    )
+
+    return result.data or []
+
+
+@api_router.get("/cart")
+async def get_cart(profile=Depends(get_current_profile)):
+    customer = await get_or_create_customer(profile)
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("carts")
+        .select("*, cart_items(*, product_variants(*))")
+        .eq("customer_id", customer["id"])
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    return result.data[0] if result.data else {}
+
+
 # ---------- Orders ----------
 
 
 @api_router.get("/orders/mine")
 async def my_orders(profile=Depends(get_current_profile)):
+    customer = await get_or_create_customer(profile)
+
     result = await asyncio.to_thread(
         lambda: supabase.table("orders")
-        .select("*")
-        .eq("user_id", profile["id"])
+        .select("*, order_items(*), payments(*)")
+        .eq("customer_id", customer["id"])
         .order("created_at", desc=True)
-        .limit(200)
         .execute()
     )
 
@@ -465,11 +624,32 @@ async def my_orders(profile=Depends(get_current_profile)):
 
 @api_router.get("/orders/{order_id}")
 async def get_order(order_id: str, profile=Depends(get_current_profile)):
+    customer = await get_or_create_customer(profile)
+
     result = await asyncio.to_thread(
         lambda: supabase.table("orders")
-        .select("*")
+        .select("*, order_items(*)")
         .eq("id", order_id)
-        .eq("user_id", profile["id"])
+        .eq("customer_id", customer["id"])
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    return result.data[0]
+
+
+@api_router.get("/orders/{order_id}/full")
+async def get_order_full(order_id: str, profile=Depends(get_current_profile)):
+    customer = await get_or_create_customer(profile)
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*, order_items(*), payments(*), refunds(*)")
+        .eq("id", order_id)
+        .eq("customer_id", customer["id"])
         .limit(1)
         .execute()
     )
@@ -631,7 +811,15 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
 
 
 async def _decrease_stock_for_order(order: dict):
-    for item in order.get("items", []):
+    items = order.get("items", [])
+
+    if not items:
+        logger.info(
+            f"No line items found for order {order.get('id')}, stock decrement skipped."
+        )
+        return
+
+    for item in items:
         product_id = item.get("product_id")
         quantity = int(item.get("quantity", 0))
 
@@ -641,6 +829,7 @@ async def _decrease_stock_for_order(order: dict):
         product = await sb_select_one("products", "id", product_id)
 
         if not product:
+            logger.warning(f"Product {product_id} not found during stock decrement.")
             continue
 
         current_stock = int(product.get("stock", 0))
@@ -657,11 +846,44 @@ async def _decrease_stock_for_order(order: dict):
             product_id,
         )
 
+        # Shopify-like inventory tables are variant-based.
+        # If no variant_id exists yet, we update products.stock only.
+        variant_id = item.get("variant_id")
+
+        if not variant_id:
+            logger.info(
+                f"No variant_id for product {product_id}; inventory_movements skipped."
+            )
+            continue
+
+        inventory_item = await sb_select_one(
+            "inventory_items", "variant_id", variant_id
+        )
+
+        if not inventory_item:
+            logger.info(
+                f"No inventory_item for variant {variant_id}; inventory_movements skipped."
+            )
+            continue
+
+        movement_exists = await asyncio.to_thread(
+            lambda: supabase.table("inventory_movements")
+            .select("id")
+            .eq("inventory_item_id", inventory_item["id"])
+            .eq("reference_id", order["id"])
+            .eq("reference_type", "order")
+            .limit(1)
+            .execute()
+        )
+
+        if movement_exists.data:
+            continue
+
         await sb_insert(
             "inventory_movements",
             {
-                "id": str(uuid.uuid4()),
-                "product_id": product_id,
+                "inventory_item_id": inventory_item["id"],
+                "location_id": None,
                 "change_quantity": -quantity,
                 "reason": "order_created",
                 "reference_type": "order",
@@ -678,30 +900,44 @@ async def _ensure_order_from_tx(session_id: str):
     if not tx or tx.get("payment_status") != "paid":
         return None
 
-    existing = await sb_select_one("orders", "session_id", session_id)
+    existing = await sb_select_one("orders", "stripe_checkout_session_id", session_id)
 
     if existing:
         return existing
 
-    order = {
-        "id": str(uuid.uuid4()),
-        "session_id": session_id,
-        "user_id": tx.get("user_id"),
+    order_data = {
+        "customer_id": None,
         "email": tx.get("email", ""),
-        "amount": tx["amount"],
         "subtotal": tx.get("subtotal", tx["amount"]),
-        "shipping": tx.get("shipping", 0.0),
-        "currency": tx["currency"],
-        "items": tx["items"],
-        "country": tx.get("country", "CH"),
+        "shipping_total": tx.get("shipping", 0.0),
+        "tax_total": 0,
+        "discount_total": 0,
+        "total": tx["amount"],
+        "currency": tx.get("currency", "chf").upper(),
+        "stripe_checkout_session_id": session_id,
         "shipping_address": tx.get("shipping_address", {}),
+        "billing_address": tx.get("shipping_address", {}),
         "status": "paid",
         "created_at": now_iso(),
         "updated_at": now_iso(),
     }
 
-    await sb_insert("orders", order)
-    await _decrease_stock_for_order(order)
+    try:
+        inserted_order = await sb_insert("orders", order_data)
+    except Exception as e:
+        # FIX: handle race condition — another process may have inserted concurrently
+        logger.warning(
+            f"Order insert failed for session {session_id}: {e}. Fetching existing."
+        )
+        return await sb_select_one("orders", "stripe_checkout_session_id", session_id)
+
+    order = inserted_order.data[0]
+    order["items"] = tx.get("items", [])
+
+    try:
+        await _decrease_stock_for_order(order)
+    except Exception as e:
+        logger.error(f"Stock decrement failed for order {order.get('id')}: {e}")
 
     email = order.get("email")
 
@@ -713,13 +949,18 @@ async def _ensure_order_from_tx(session_id: str):
             if profile:
                 first_name = profile.get("first_name", "cliente")
 
-        await send_order_confirmation(email, first_name, order)
+        try:
+            await send_order_confirmation(email, first_name, order)
+        except Exception as e:
+            logger.error(
+                f"Order confirmation email failed for order {order.get('id')}: {e}"
+            )
 
     return order
 
 
 @api_router.get("/checkout/status/{session_id}")
-async def checkout_status(session_id: str, http_request: Request):
+async def checkout_status(session_id: str):
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
@@ -784,18 +1025,17 @@ async def stripe_webhook(request: Request):
     sig = request.headers.get("Stripe-Signature", "")
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
+    # FIX: reject webhook if secret is not configured — never accept unsigned events
+    if not webhook_secret:
+        logger.error("STRIPE_WEBHOOK_SECRET is not set. Rejecting webhook.")
+        raise HTTPException(status_code=503, detail="Webhook Stripe non configuré")
+
     try:
-        if webhook_secret:
-            event = stripe.Webhook.construct_event(
-                payload=body,
-                sig_header=sig,
-                secret=webhook_secret,
-            )
-        else:
-            event = stripe.Event.construct_from(
-                await request.json(),
-                stripe.api_key,
-            )
+        event = stripe.Webhook.construct_event(
+            payload=body,
+            sig_header=sig,
+            secret=webhook_secret,
+        )
     except Exception as e:
         logger.error(f"Stripe webhook signature/parse error: {e}")
         raise HTTPException(status_code=400, detail="Signature Stripe invalide")
@@ -859,8 +1099,244 @@ async def stripe_webhook(request: Request):
     }
 
 
-# ---------- Mount & CORS ----------
+# ---------- Collections ----------
 
+
+@api_router.get("/collections")
+async def list_collections(limit: int = 50):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("collections").select("*").limit(limit).execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/collections/{slug}")
+async def get_collection(slug: str):
+    collection = await sb_select_one("collections", "slug", slug)
+
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection introuvable")
+
+    return collection
+
+
+@api_router.get("/collections/{collection_id}/products")
+async def list_collection_products(collection_id: str):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("product_collections")
+        .select("products(*)")
+        .eq("collection_id", collection_id)
+        .execute()
+    )
+
+    return [row["products"] for row in result.data or [] if row.get("products")]
+
+
+# ---------- Inventory / Locations ----------
+
+
+@api_router.get("/locations")
+async def list_locations():
+    result = await asyncio.to_thread(
+        lambda: supabase.table("locations")
+        .select("*")
+        .eq("active", True)
+        .execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/inventory/variant/{variant_id}")
+async def get_variant_inventory(variant_id: str, profile=Depends(require_admin)):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("inventory_items")
+        .select("*, inventory_levels(*, locations(*))")
+        .eq("variant_id", variant_id)
+        .limit(1)
+        .execute()
+    )
+
+    return result.data[0] if result.data else {}
+
+
+# ---------- Shipping / Discounts ----------
+
+
+@api_router.get("/shipping-methods")
+async def list_shipping_methods(country: Optional[str] = None):
+    def run():
+        q = supabase.table("shipping_methods").select("*").eq("active", True)
+        if country:
+            q = q.eq("country", country.upper())
+        return q.execute()
+
+    result = await asyncio.to_thread(run)
+    return result.data or []
+
+
+@api_router.get("/discounts/{code}")
+async def get_discount(code: str):
+    discount = await sb_select_one("discounts", "code", code.upper())
+
+    if not discount or not discount.get("active"):
+        raise HTTPException(status_code=404, detail="Code promo invalide")
+
+    return discount
+
+
+# ---------- Pages / Store Settings ----------
+
+
+@api_router.get("/pages")
+async def list_pages():
+    result = await asyncio.to_thread(
+        lambda: supabase.table("pages")
+        .select("*")
+        .eq("published", True)
+        .execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/pages/{slug}")
+async def get_page(slug: str):
+    page = await sb_select_one("pages", "slug", slug)
+
+    if not page or not page.get("published", False):
+        raise HTTPException(status_code=404, detail="Page introuvable")
+
+    return page
+
+
+@api_router.get("/store-settings")
+async def get_store_settings():
+    result = await asyncio.to_thread(
+        lambda: supabase.table("store_settings").select("*").execute()
+    )
+
+    return {row["key"]: row["value"] for row in result.data or []}
+
+
+# ---------- Full Ecommerce Table API ----------
+
+PUBLIC_READ_TABLES = {
+    "products",
+    "collections",
+    "product_collections",
+    "product_images",
+    "product_variants",
+    "product_options",
+    "product_option_values",
+    "categories",
+    "reviews",
+    "guides",
+    "experts",
+    "pages",
+    "shipping_methods",
+    "store_settings",
+}
+
+CUSTOMER_TABLES = {
+    "customers",
+    "addresses",
+    "carts",
+    "cart_items",
+    "orders",
+    "order_items",
+    "payments",
+    "refunds",
+}
+
+ADMIN_TABLES = {
+    "activity_logs",
+    "barcode_scans",
+    "discounts",
+    "inventory_items",
+    "inventory_levels",
+    "inventory_movements",
+    "locations",
+    "payment_transactions",
+    "profiles",
+    "stripe_webhook_events",
+}
+
+
+@api_router.get("/ecom/public/{table}")
+async def list_public_table(table: str, limit: int = 100):
+    if table not in PUBLIC_READ_TABLES:
+        raise HTTPException(status_code=400, detail="Table publique non autorisée")
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table(table).select("*").limit(limit).execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/ecom/public/{table}/{item_id}")
+async def get_public_item(table: str, item_id: str):
+    if table not in PUBLIC_READ_TABLES:
+        raise HTTPException(status_code=400, detail="Table publique non autorisée")
+
+    item = await sb_select_one(table, "id", item_id)
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Élément introuvable")
+
+    return item
+
+
+@api_router.get("/ecom/admin/{table}")
+async def list_admin_table(
+    table: str,
+    limit: int = 200,
+    profile=Depends(require_admin),
+):
+    allowed = PUBLIC_READ_TABLES | CUSTOMER_TABLES | ADMIN_TABLES
+
+    if table not in allowed:
+        raise HTTPException(status_code=400, detail="Table non autorisée")
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table(table).select("*").limit(limit).execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/ecom/admin/{table}/{item_id}")
+async def get_admin_item(
+    table: str,
+    item_id: str,
+    profile=Depends(require_admin),
+):
+    allowed = PUBLIC_READ_TABLES | CUSTOMER_TABLES | ADMIN_TABLES
+
+    if table not in allowed:
+        raise HTTPException(status_code=400, detail="Table non autorisée")
+
+    item = await sb_select_one(table, "id", item_id)
+
+    if not item:
+        raise HTTPException(status_code=404, detail="Élément introuvable")
+
+    return item
+
+
+@api_router.delete("/ecom/admin/{table}/{item_id}")
+async def delete_admin_item(
+    table: str,
+    item_id: str,
+    profile=Depends(require_admin),
+):
+    allowed = PUBLIC_READ_TABLES | CUSTOMER_TABLES | ADMIN_TABLES
+
+    if table not in allowed:
+        raise HTTPException(status_code=400, detail="Table non autorisée")
+
+    await sb_delete(table, "id", item_id)
+    return {"status": "deleted"}
+
+
+# ---------- CORS & Mount ----------
 app.include_router(api_router)
 
 _cors_origins = [
