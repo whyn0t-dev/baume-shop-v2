@@ -178,7 +178,7 @@ async def startup():
         products = []
         for p in PRODUCTS:
             doc = dict(p)
-            doc.setdefault("id", str(uuid.uuid4()))
+            doc.pop("id", None)
             doc.setdefault("created_at", now_iso())
             doc.setdefault("updated_at", now_iso())
             products.append(doc)
