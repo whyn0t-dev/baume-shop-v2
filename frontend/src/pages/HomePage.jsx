@@ -29,14 +29,6 @@ export default function HomePage() {
 
   useEffect(() => {
     getCategories("besoin").then(setNeeds).catch(() => { });
-    getProducts()
-      .then((data) => {
-        console.log("Produits reçus :", data);
-        setBestsellers(data.slice(0, 8));
-      })
-      .catch((err) => {
-        console.error("Erreur produits :", err);
-      });
     getReviews().then((r) => setReviews(r.slice(0, 3))).catch(() => { });
     getGuides().then((g) => setGuides(g.slice(0, 3))).catch(() => { });
     getExperts().then(setExperts).catch(() => { });

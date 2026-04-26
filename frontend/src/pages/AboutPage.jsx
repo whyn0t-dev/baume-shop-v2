@@ -45,12 +45,12 @@ export default function AboutPage() {
 
   return (
     <div data-testid="about-page" className="bg-baume-ivory">
-      <div className="baume-container pt-8">
+      <div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pt-8">
         <Breadcrumb items={[{ label: "À propos" }]} />
       </div>
 
       {/* Hero */}
-      <section className="baume-container py-12 md:py-20 grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-14 items-center">
+      <section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-12 md:py-20 grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-16 items-center">
         <div className="lg:col-span-6">
           <p className="text-[12px] uppercase tracking-[0.22em] text-baume-burgundy font-semibold mb-4">
             Notre mission
@@ -61,7 +61,7 @@ export default function AboutPage() {
             <span className="italic text-baume-burgundy">avec douceur</span>.
           </h1>
 
-          <p className="mt-6 text-[18px] leading-[30px] text-baume-charcoal/75 max-w-[600px]">
+          <p className="mt-6 text-[18px] leading-[30px] text-baume-charcoal/75 max-w-[620px]">
             Baume est née à Genève d’une envie simple : réunir des produits intimes,
             menstruels et bien-être soigneusement sélectionnés, avec un vrai conseil humain.
             Ici, on prend le temps d’écouter, d’expliquer et d’orienter sans jugement.
@@ -91,7 +91,7 @@ export default function AboutPage() {
               src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1200&q=80"
               alt="L'équipe Baume"
               loading="lazy"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
             />
 
             <div className="absolute left-5 right-5 bottom-5 rounded-2xl bg-baume-white/92 backdrop-blur px-5 py-4 border border-baume-border">
@@ -104,9 +104,9 @@ export default function AboutPage() {
       </section>
 
       {/* Repères */}
-      <section className="baume-container pb-14 md:pb-20">
+      <section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pb-14 md:pb-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-          <div className="rounded-3xl bg-baume-white border border-baume-border p-6">
+          <div className="rounded-3xl bg-baume-white border border-baume-border p-6 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300">
             <Heart className="h-6 w-6 text-baume-burgundy mb-4" />
             <h3 className="font-editorial text-[24px] text-baume-charcoal">
               À votre rythme
@@ -116,7 +116,7 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="rounded-3xl bg-baume-white border border-baume-border p-6">
+          <div className="rounded-3xl bg-baume-white border border-baume-border p-6 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300">
             <ShieldCheck className="h-6 w-6 text-baume-burgundy mb-4" />
             <h3 className="font-editorial text-[24px] text-baume-charcoal">
               Sélection exigeante
@@ -126,7 +126,7 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="rounded-3xl bg-baume-white border border-baume-border p-6">
+          <div className="rounded-3xl bg-baume-white border border-baume-border p-6 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300">
             <Sparkles className="h-6 w-6 text-baume-burgundy mb-4" />
             <h3 className="font-editorial text-[24px] text-baume-charcoal">
               Plus qu’une boutique
@@ -140,8 +140,8 @@ export default function AboutPage() {
 
       {/* Values */}
       <section className="bg-baume-white border-y border-baume-border">
-        <div className="baume-container py-16 md:py-20">
-          <div className="max-w-[680px] mb-12">
+        <div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16 md:py-20">
+          <div className="max-w-[700px] mb-12">
             <p className="text-[12px] uppercase tracking-[0.22em] text-baume-burgundy font-semibold mb-3">
               Notre engagement
             </p>
@@ -158,7 +158,7 @@ export default function AboutPage() {
             {VALUES.map((v) => (
               <div
                 key={v.title}
-                className="group rounded-3xl border border-baume-border p-6 md:p-8 bg-baume-white flex gap-4 hover:bg-baume-ivory transition-colors"
+                className="group rounded-3xl border border-baume-border p-6 md:p-8 bg-baume-white flex gap-4 hover:bg-baume-ivory hover:shadow-sm hover:-translate-y-0.5 transition-all duration-300"
               >
                 <span className="shrink-0 h-12 w-12 rounded-full bg-baume-ivory text-baume-burgundy inline-flex items-center justify-center group-hover:bg-baume-white transition-colors">
                   <v.icon className="h-5 w-5" />
@@ -179,16 +179,16 @@ export default function AboutPage() {
       </section>
 
       {/* Founders / Experts */}
-      <section className="baume-container py-16 md:py-20">
+      <section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16 md:py-20">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
           <div>
             <p className="text-[12px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold mb-2">
               L’équipe
             </p>
-            <h2 className="font-editorial text-[34px] md:text-[46px] leading-[1.08] text-baume-charcoal max-w-[620px]">
+            <h2 className="font-editorial text-[34px] md:text-[46px] leading-[1.08] text-baume-charcoal max-w-[640px]">
               Des expertes qui accompagnent avec clarté et bienveillance.
             </h2>
-            <p className="mt-4 text-[16px] leading-[26px] text-baume-charcoal/70 max-w-[620px]">
+            <p className="mt-4 text-[16px] leading-[26px] text-baume-charcoal/70 max-w-[640px]">
               Des profils complémentaires pour répondre aux questions liées au cycle,
               à l’intimité, à la maternité et au bien-être.
             </p>
@@ -207,8 +207,8 @@ export default function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-baume-burgundy text-baume-white">
-        <div className="baume-container py-16 md:py-20 text-center">
+      <section className="bg-baume-burgundy text-baume-white border-t border-baume-border">
+        <div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16 md:py-20 text-center">
           <p className="text-[12px] uppercase tracking-[0.22em] text-baume-white/70 font-semibold mb-3">
             Nous rencontrer
           </p>

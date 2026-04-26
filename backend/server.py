@@ -230,85 +230,85 @@ class DiscountCheckRequest(BaseModel):
 # ---------- Startup / Seed ----------
 
 
-async def _seed_db():
-    if await sb_count("products") == 0:
-        products = []
-        for p in PRODUCTS:
-            doc = dict(p)
-            doc.pop("id", None)
-            doc.setdefault("created_at", now_iso())
-            doc.setdefault("updated_at", now_iso())
-            products.append(doc)
+# async def _seed_db():
+#     if await sb_count("products") == 0:
+#         products = []
+#         for p in PRODUCTS:
+#             doc = dict(p)
+#             doc.pop("id", None)
+#             doc.setdefault("created_at", now_iso())
+#             doc.setdefault("updated_at", now_iso())
+#             products.append(doc)
 
-        await sb_insert("products", products)
-        logger.info(f"Seeded {len(products)} products")
+#         await sb_insert("products", products)
+#         logger.info(f"Seeded {len(products)} products")
 
-    if await sb_count("categories", {"kind": "besoin"}) == 0:
-        await sb_insert(
-            "categories",
-            [
-                {
-                    **n,
-                    "id": n.get("id", str(uuid.uuid4())),
-                    "kind": "besoin",
-                    "created_at": now_iso(),
-                }
-                for n in NEEDS
-            ],
-        )
+#     if await sb_count("categories", {"kind": "besoin"}) == 0:
+#         await sb_insert(
+#             "categories",
+#             [
+#                 {
+#                     **n,
+#                     "id": n.get("id", str(uuid.uuid4())),
+#                     "kind": "besoin",
+#                     "created_at": now_iso(),
+#                 }
+#                 for n in NEEDS
+#             ],
+#         )
 
-    if await sb_count("categories", {"kind": "produit"}) == 0:
-        await sb_insert(
-            "categories",
-            [
-                {
-                    **c,
-                    "id": c.get("id", str(uuid.uuid4())),
-                    "kind": "produit",
-                    "created_at": now_iso(),
-                }
-                for c in PRODUCT_CATEGORIES
-            ],
-        )
+#     if await sb_count("categories", {"kind": "produit"}) == 0:
+#         await sb_insert(
+#             "categories",
+#             [
+#                 {
+#                     **c,
+#                     "id": c.get("id", str(uuid.uuid4())),
+#                     "kind": "produit",
+#                     "created_at": now_iso(),
+#                 }
+#                 for c in PRODUCT_CATEGORIES
+#             ],
+#         )
 
-    if await sb_count("reviews") == 0:
-        await sb_insert(
-            "reviews",
-            [
-                {
-                    **r,
-                    "id": r.get("id", str(uuid.uuid4())),
-                    "created_at": r.get("created_at", now_iso()),
-                }
-                for r in REVIEWS
-            ],
-        )
+#     if await sb_count("reviews") == 0:
+#         await sb_insert(
+#             "reviews",
+#             [
+#                 {
+#                     **r,
+#                     "id": r.get("id", str(uuid.uuid4())),
+#                     "created_at": r.get("created_at", now_iso()),
+#                 }
+#                 for r in REVIEWS
+#             ],
+#         )
 
-    if await sb_count("guides") == 0:
-        await sb_insert(
-            "guides",
-            [
-                {
-                    **g,
-                    "id": g.get("id", str(uuid.uuid4())),
-                    "created_at": g.get("created_at", now_iso()),
-                }
-                for g in GUIDES
-            ],
-        )
+#     if await sb_count("guides") == 0:
+#         await sb_insert(
+#             "guides",
+#             [
+#                 {
+#                     **g,
+#                     "id": g.get("id", str(uuid.uuid4())),
+#                     "created_at": g.get("created_at", now_iso()),
+#                 }
+#                 for g in GUIDES
+#             ],
+#         )
 
-    if await sb_count("experts") == 0:
-        await sb_insert(
-            "experts",
-            [
-                {
-                    **e,
-                    "id": e.get("id", str(uuid.uuid4())),
-                    "created_at": e.get("created_at", now_iso()),
-                }
-                for e in EXPERTS
-            ],
-        )
+#     if await sb_count("experts") == 0:
+#         await sb_insert(
+#             "experts",
+#             [
+#                 {
+#                     **e,
+#                     "id": e.get("id", str(uuid.uuid4())),
+#                     "created_at": e.get("created_at", now_iso()),
+#                 }
+#                 for e in EXPERTS
+#             ],
+#         )
 
 @api_router.get("")
 @api_router.get("/")
