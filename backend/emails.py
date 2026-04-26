@@ -76,16 +76,6 @@ async def send_contact_acknowledgement(to_email: str, name: str):
     return await _send([to_email], "Nous avons bien reçu votre message · Baume", _layout(body))
 
 
-async def send_welcome_email(to_email: str, first_name: str):
-    body = f"""
-      <h2 style="font-family:Georgia,serif;font-size:26px;color:#4D1E19;margin:0 0 16px">Bienvenue, {first_name}</h2>
-      <p>Votre compte Baume est créé. Vous pouvez désormais suivre vos commandes, enregistrer vos adresses et accéder à nos guides.</p>
-      <p><a href="https://baume-shop.com/compte" style="display:inline-block;background:#4D1E19;color:#FFFFFF;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600">Accéder à mon espace</a></p>
-      <p style="margin-top:24px;font-size:13px;opacity:0.75">Une question ? Écrivez-nous à <a href="mailto:contact@baume-shop.com" style="color:#4D1E19">contact@baume-shop.com</a>.</p>
-    """
-    return await _send([to_email], "Bienvenue chez Baume", _layout(body))
-
-
 async def send_order_confirmation(to_email: str, first_name: str, order: dict):
     items_html = "".join(
         f"""<tr>
@@ -113,13 +103,3 @@ async def send_order_confirmation(to_email: str, first_name: str, order: dict):
       <p style="margin-top:24px;font-size:13px;opacity:0.75">Une question sur votre commande ? Répondez à cet email ou écrivez à contact@baume-shop.com.</p>
     """
     return await _send([to_email], f"Commande confirmée · Baume", _layout(body))
-
-
-async def send_password_reset(to_email: str, reset_url: str):
-    body = f"""
-      <h2 style="font-family:Georgia,serif;font-size:24px;color:#4D1E19;margin:0 0 16px">Réinitialiser votre mot de passe</h2>
-      <p>Vous avez demandé à réinitialiser le mot de passe de votre compte Baume. Ce lien est valable <strong>1 heure</strong>.</p>
-      <p><a href="{reset_url}" style="display:inline-block;background:#4D1E19;color:#FFFFFF;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600">Choisir un nouveau mot de passe</a></p>
-      <p style="margin-top:24px;font-size:13px;opacity:0.75">Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet email.</p>
-    """
-    return await _send([to_email], "Réinitialiser votre mot de passe · Baume", _layout(body))

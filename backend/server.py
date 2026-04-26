@@ -1,4 +1,4 @@
-"""Baume e-commerce API — FastAPI + MongoDB + Stripe + Resend + JWT auth."""
+"""Baume e-commerce API — FastAPI + Supabase + Stripe + Resend + Supabase Auth."""
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -9,13 +9,14 @@ load_dotenv(ROOT_DIR / ".env")
 import os
 import logging
 import uuid
-from datetime import datetime, timezone, timedelta
+import asyncio
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from supabase import create_client, Client
 
 from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout,
@@ -25,26 +26,32 @@ from emergentintegrations.payments.stripe.checkout import (
 )
 
 from auth import (
-    RegisterRequest, LoginRequest, UpdateProfileRequest, ForgotPasswordRequest, ResetPasswordRequest,
-    hash_password, verify_password,
-    create_access_token, create_refresh_token, decode_token,
-    set_auth_cookies, clear_auth_cookies, get_current_user, get_optional_user,
-    new_user_doc, public_user, new_reset_token,
-    check_and_record_login, is_locked_out,
+    get_current_user,
+    get_optional_user,
+    get_current_profile,
+    require_admin,
 )
+
 from emails import (
-    send_contact_notification, send_contact_acknowledgement,
-    send_welcome_email, send_order_confirmation, send_password_reset,
+    send_contact_notification,
+    send_contact_acknowledgement,
+    send_order_confirmation,
 )
+
 from seed_data import PRODUCTS, NEEDS, PRODUCT_CATEGORIES, REVIEWS, GUIDES, EXPERTS
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
-mongo_url = os.environ["MONGO_URL"]
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ["DB_NAME"]]
+
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
@@ -53,10 +60,66 @@ app = FastAPI(title="Baume API")
 api_router = APIRouter(prefix="/api")
 
 
+# ---------- Helpers ----------
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+async def sb_insert(table: str, data):
+    return await asyncio.to_thread(lambda: supabase.table(table).insert(data).execute())
+
+
+async def sb_update(table: str, values: dict, column: str, value):
+    return await asyncio.to_thread(
+        lambda: supabase.table(table).update(values).eq(column, value).execute()
+    )
+
+
+async def sb_select_one(table: str, column: str, value, select: str = "*"):
+    result = await asyncio.to_thread(
+        lambda: supabase.table(table)
+        .select(select)
+        .eq(column, value)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+async def sb_count(table: str, filters: Optional[Dict[str, Any]] = None) -> int:
+    def run():
+        q = supabase.table(table).select("id", count="exact")
+        if filters:
+            for k, v in filters.items():
+                q = q.eq(k, v)
+        return q.execute()
+
+    result = await asyncio.to_thread(run)
+    return result.count or 0
+
+
+def auth_user_id(user) -> Optional[str]:
+    if not user:
+        return None
+    if isinstance(user, dict):
+        return user.get("id")
+    return getattr(user, "id", None)
+
+
+def auth_user_email(user) -> str:
+    if not user:
+        return ""
+    if isinstance(user, dict):
+        return user.get("email", "") or ""
+    return getattr(user, "email", "") or ""
+
+
 # ---------- Models ----------
 
 class Product(BaseModel):
     model_config = ConfigDict(extra="ignore")
+
     id: str
     slug: str
     name: str
@@ -109,62 +172,88 @@ class CheckoutRequest(BaseModel):
     shipping_address: Optional[Dict[str, Any]] = None
 
 
-# ---------- Startup ----------
+# ---------- Startup / Seed ----------
 
 @app.on_event("startup")
 async def startup():
-    # Products
-    existing = await db.products.count_documents({})
-    if existing == 0:
-        await db.products.insert_many([dict(p) for p in PRODUCTS])
-        logger.info(f"Seeded {len(PRODUCTS)} products")
-    await db.products.create_index("slug", unique=True)
-    await db.products.create_index("product_category")
-    await db.products.create_index("needs")
+    if await sb_count("products") == 0:
+        products = []
+        for p in PRODUCTS:
+            doc = dict(p)
+            doc.setdefault("id", str(uuid.uuid4()))
+            doc.setdefault("created_at", now_iso())
+            doc.setdefault("updated_at", now_iso())
+            products.append(doc)
 
-    # Categories
-    if await db.categories.count_documents({"kind": "besoin"}) == 0:
-        await db.categories.insert_many([{**n, "kind": "besoin"} for n in NEEDS])
-    if await db.categories.count_documents({"kind": "produit"}) == 0:
-        await db.categories.insert_many([{**c, "kind": "produit"} for c in PRODUCT_CATEGORIES])
+        await sb_insert("products", products)
+        logger.info(f"Seeded {len(products)} products")
 
-    # Reviews, guides, experts
-    if await db.reviews.count_documents({}) == 0:
-        await db.reviews.insert_many(REVIEWS)
-    if await db.guides.count_documents({}) == 0:
-        await db.guides.insert_many(GUIDES)
-    if await db.experts.count_documents({}) == 0:
-        await db.experts.insert_many(EXPERTS)
+    if await sb_count("categories", {"kind": "besoin"}) == 0:
+        await sb_insert(
+            "categories",
+            [
+                {
+                    **n,
+                    "id": n.get("id", str(uuid.uuid4())),
+                    "kind": "besoin",
+                    "created_at": now_iso(),
+                }
+                for n in NEEDS
+            ],
+        )
 
-    # Auth indexes
-    await db.users.create_index("email", unique=True)
-    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
-    await db.login_attempts.create_index("identifier")
-    await db.orders.create_index("session_id")
-    await db.orders.create_index("user_id")
-    await db.orders.create_index("email")
-    await db.stripe_webhook_events.create_index("event_id", unique=True, sparse=True)
+    if await sb_count("categories", {"kind": "produit"}) == 0:
+        await sb_insert(
+            "categories",
+            [
+                {
+                    **c,
+                    "id": c.get("id", str(uuid.uuid4())),
+                    "kind": "produit",
+                    "created_at": now_iso(),
+                }
+                for c in PRODUCT_CATEGORIES
+            ],
+        )
 
-    # Admin seed
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@baume-shop.com").lower()
-    admin_password = os.environ.get("ADMIN_PASSWORD", "")
-    if admin_password:
-        existing_admin = await db.users.find_one({"email": admin_email})
-        if not existing_admin:
-            doc = new_user_doc(admin_email, admin_password, "Admin", "Baume", role="admin")
-            await db.users.insert_one(doc)
-            logger.info(f"Seeded admin {admin_email}")
-        elif not verify_password(admin_password, existing_admin.get("password_hash", "")):
-            await db.users.update_one(
-                {"email": admin_email},
-                {"$set": {"password_hash": hash_password(admin_password)}},
-            )
-            logger.info(f"Updated admin password for {admin_email}")
+    if await sb_count("reviews") == 0:
+        await sb_insert(
+            "reviews",
+            [
+                {
+                    **r,
+                    "id": r.get("id", str(uuid.uuid4())),
+                    "created_at": r.get("created_at", now_iso()),
+                }
+                for r in REVIEWS
+            ],
+        )
 
+    if await sb_count("guides") == 0:
+        await sb_insert(
+            "guides",
+            [
+                {
+                    **g,
+                    "id": g.get("id", str(uuid.uuid4())),
+                    "created_at": g.get("created_at", now_iso()),
+                }
+                for g in GUIDES
+            ],
+        )
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+    if await sb_count("experts") == 0:
+        await sb_insert(
+            "experts",
+            [
+                {
+                    **e,
+                    "id": e.get("id", str(uuid.uuid4())),
+                    "created_at": e.get("created_at", now_iso()),
+                }
+                for e in EXPERTS
+            ],
+        )
 
 
 # ---------- Health ----------
@@ -172,6 +261,18 @@ async def shutdown_db_client():
 @api_router.get("/")
 async def root():
     return {"service": "baume-api", "status": "ok"}
+
+
+# ---------- Auth test routes ----------
+
+@api_router.get("/me")
+async def me(profile=Depends(get_current_profile)):
+    return profile
+
+
+@api_router.get("/admin/test")
+async def admin_test(profile=Depends(require_admin)):
+    return {"message": "Admin OK", "user": profile}
 
 
 # ---------- Products ----------
@@ -191,35 +292,46 @@ async def list_products(
     search: Optional[str] = None,
     limit: int = 48,
 ):
-    query: Dict[str, Any] = {}
-    if category: query["product_category"] = category
-    if need: query["needs"] = need
-    if flux: query["flux"] = flux
-    if usage: query["usage"] = usage
-    if size: query["sizes"] = size
-    if available is not None: query["available"] = available
-    if bestseller is not None: query["bestseller"] = bestseller
-    if featured is not None: query["featured"] = featured
-    if min_price is not None or max_price is not None:
-        price_q: Dict[str, Any] = {}
-        if min_price is not None: price_q["$gte"] = min_price
-        if max_price is not None: price_q["$lte"] = max_price
-        query["price"] = price_q
-    if search:
-        query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"tagline": {"$regex": search, "$options": "i"}},
-            {"description": {"$regex": search, "$options": "i"}},
-        ]
-    items = await db.products.find(query, {"_id": 0}).limit(limit).to_list(length=limit)
-    return items
+    def run():
+        q = supabase.table("products").select("*")
+
+        if category:
+            q = q.eq("product_category", category)
+        if need:
+            q = q.contains("needs", [need])
+        if flux:
+            q = q.eq("flux", flux)
+        if usage:
+            q = q.eq("usage", usage)
+        if size:
+            q = q.contains("sizes", [size])
+        if available is not None:
+            q = q.eq("available", available)
+        if bestseller is not None:
+            q = q.eq("bestseller", bestseller)
+        if featured is not None:
+            q = q.eq("featured", featured)
+        if min_price is not None:
+            q = q.gte("price", min_price)
+        if max_price is not None:
+            q = q.lte("price", max_price)
+        if search:
+            s = f"%{search}%"
+            q = q.or_(f"name.ilike.{s},tagline.ilike.{s},description.ilike.{s}")
+
+        return q.limit(limit).execute()
+
+    result = await asyncio.to_thread(run)
+    return result.data or []
 
 
 @api_router.get("/products/{slug}", response_model=Product)
 async def get_product(slug: str):
-    doc = await db.products.find_one({"slug": slug}, {"_id": 0})
+    doc = await sb_select_one("products", "slug", slug)
+
     if not doc:
         raise HTTPException(status_code=404, detail="Produit introuvable")
+
     return doc
 
 
@@ -227,40 +339,72 @@ async def get_product(slug: str):
 
 @api_router.get("/categories")
 async def list_categories(kind: Optional[str] = None):
-    q = {"kind": kind} if kind else {}
-    return await db.categories.find(q, {"_id": 0}).to_list(length=100)
+    def run():
+        q = supabase.table("categories").select("*")
+        if kind:
+            q = q.eq("kind", kind)
+        return q.execute()
+
+    result = await asyncio.to_thread(run)
+    return result.data or []
 
 
 @api_router.get("/categories/{kind}/{slug}")
 async def get_category(kind: str, slug: str):
-    doc = await db.categories.find_one({"slug": slug, "kind": kind}, {"_id": 0})
-    if not doc:
+    def run():
+        return (
+            supabase.table("categories")
+            .select("*")
+            .eq("kind", kind)
+            .eq("slug", slug)
+            .limit(1)
+            .execute()
+        )
+
+    result = await asyncio.to_thread(run)
+
+    if not result.data:
         raise HTTPException(status_code=404, detail="Catégorie introuvable")
-    return doc
+
+    return result.data[0]
 
 
 @api_router.get("/reviews")
 async def list_reviews(product_id: Optional[str] = None, limit: int = 20):
-    q = {"product_id": product_id} if product_id else {}
-    return await db.reviews.find(q, {"_id": 0}).limit(limit).to_list(length=limit)
+    def run():
+        q = supabase.table("reviews").select("*")
+        if product_id:
+            q = q.eq("product_id", product_id)
+        return q.limit(limit).execute()
+
+    result = await asyncio.to_thread(run)
+    return result.data or []
 
 
 @api_router.get("/guides")
 async def list_guides(limit: int = 20):
-    return await db.guides.find({}, {"_id": 0}).limit(limit).to_list(length=limit)
+    result = await asyncio.to_thread(
+        lambda: supabase.table("guides").select("*").limit(limit).execute()
+    )
+    return result.data or []
 
 
 @api_router.get("/guides/{slug}")
 async def get_guide(slug: str):
-    doc = await db.guides.find_one({"slug": slug}, {"_id": 0})
+    doc = await sb_select_one("guides", "slug", slug)
+
     if not doc:
         raise HTTPException(status_code=404, detail="Guide introuvable")
+
     return doc
 
 
 @api_router.get("/experts")
 async def list_experts():
-    return await db.experts.find({}, {"_id": 0}).to_list(length=50)
+    result = await asyncio.to_thread(
+        lambda: supabase.table("experts").select("*").limit(50).execute()
+    )
+    return result.data or []
 
 
 # ---------- Contact ----------
@@ -274,11 +418,11 @@ async def submit_contact(payload: ContactRequest):
         "subject": payload.subject,
         "message": payload.message,
         "topic": payload.topic,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now_iso(),
     }
-    await db.contact_messages.insert_one(msg)
 
-    # Send notification to team + acknowledgement to user (non-blocking if Resend key missing)
+    await sb_insert("contact_messages", msg)
+
     await send_contact_notification(
         name=payload.name,
         email=payload.email,
@@ -286,155 +430,50 @@ async def submit_contact(payload: ContactRequest):
         topic=payload.topic or "",
         message=payload.message,
     )
-    await send_contact_acknowledgement(to_email=payload.email, name=payload.name)
 
-    return {"status": "ok", "id": msg["id"], "message": "Message enregistré. Nos expertes vous répondent sous peu."}
-
-
-# ---------- Auth ----------
-
-auth_router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-
-@auth_router.post("/register")
-async def register(payload: RegisterRequest, request: Request, response: Response):
-    email = payload.email.lower().strip()
-    existing = await db.users.find_one({"email": email}, {"_id": 0})
-    if existing:
-        raise HTTPException(status_code=400, detail="Un compte existe déjà avec cet email")
-    doc = new_user_doc(email, payload.password, payload.first_name, payload.last_name)
-    await db.users.insert_one(doc)
-    access = create_access_token(doc["id"], email, doc["role"])
-    refresh = create_refresh_token(doc["id"])
-    set_auth_cookies(response, access, refresh)
-    # Welcome email (non-blocking)
-    await send_welcome_email(email, doc["first_name"])
-    return public_user(doc)
-
-
-@auth_router.post("/login")
-async def login(payload: LoginRequest, request: Request, response: Response):
-    email = payload.email.lower().strip()
-    ip = request.client.host if request.client else "unknown"
-    identifier = f"{ip}:{email}"
-
-    if await is_locked_out(db, identifier):
-        raise HTTPException(status_code=429, detail="Trop de tentatives. Réessayez dans 15 minutes.")
-
-    user = await db.users.find_one({"email": email})
-    if not user or not verify_password(payload.password, user.get("password_hash", "")):
-        await check_and_record_login(db, identifier, success=False)
-        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-
-    await check_and_record_login(db, identifier, success=True)
-    access = create_access_token(user["id"], email, user.get("role", "customer"))
-    refresh = create_refresh_token(user["id"])
-    set_auth_cookies(response, access, refresh)
-    return public_user(user)
-
-
-@auth_router.post("/logout")
-async def logout(response: Response):
-    clear_auth_cookies(response)
-    return {"status": "ok"}
-
-
-@auth_router.post("/refresh")
-async def refresh_token(request: Request, response: Response):
-    rt = request.cookies.get("refresh_token")
-    if not rt:
-        raise HTTPException(status_code=401, detail="Pas de refresh token")
-    try:
-        payload = decode_token(rt)
-        if payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail="Token invalide")
-        user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0})
-        if not user:
-            raise HTTPException(status_code=401, detail="Utilisateur introuvable")
-        access = create_access_token(user["id"], user["email"], user.get("role", "customer"))
-        new_refresh = create_refresh_token(user["id"])
-        set_auth_cookies(response, access, new_refresh)
-        return {"status": "ok"}
-    except Exception:
-        raise HTTPException(status_code=401, detail="Token invalide")
-
-
-async def _current_user(request: Request):
-    return await get_current_user(request, db)
-
-
-@auth_router.get("/me")
-async def me(user: dict = Depends(_current_user)):
-    return public_user(user)
-
-
-@auth_router.patch("/me")
-async def update_me(payload: UpdateProfileRequest, user: dict = Depends(_current_user)):
-    update = {k: v for k, v in payload.model_dump().items() if v is not None}
-    if update:
-        await db.users.update_one({"id": user["id"]}, {"$set": update})
-    updated = await db.users.find_one({"id": user["id"]}, {"_id": 0})
-    return public_user(updated)
-
-
-@auth_router.post("/forgot-password")
-async def forgot_password(payload: ForgotPasswordRequest):
-    email = payload.email.lower().strip()
-    user = await db.users.find_one({"email": email}, {"_id": 0})
-    # Always return 200 to avoid user enumeration
-    if user:
-        token = new_reset_token()
-        expires = datetime.now(timezone.utc) + timedelta(hours=1)
-        await db.password_reset_tokens.insert_one({
-            "token": token,
-            "user_id": user["id"],
-            "email": email,
-            "expires_at": expires,
-            "used": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        reset_url = f"{FRONTEND_URL}/reinitialiser-mot-de-passe?token={token}"
-        await send_password_reset(email, reset_url)
-    return {"status": "ok", "message": "Si un compte existe, un email vous a été envoyé."}
-
-
-@auth_router.post("/reset-password")
-async def reset_password(payload: ResetPasswordRequest):
-    rec = await db.password_reset_tokens.find_one({"token": payload.token}, {"_id": 0})
-    if not rec or rec.get("used"):
-        raise HTTPException(status_code=400, detail="Lien invalide ou expiré")
-    expires = rec.get("expires_at")
-    if isinstance(expires, str):
-        expires = datetime.fromisoformat(expires)
-    if expires and expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
-    if expires and datetime.now(timezone.utc) > expires:
-        raise HTTPException(status_code=400, detail="Lien expiré")
-    await db.users.update_one(
-        {"id": rec["user_id"]},
-        {"$set": {"password_hash": hash_password(payload.password)}},
+    await send_contact_acknowledgement(
+        to_email=payload.email,
+        name=payload.name,
     )
-    await db.password_reset_tokens.update_one(
-        {"token": payload.token},
-        {"$set": {"used": True}},
-    )
-    return {"status": "ok", "message": "Mot de passe réinitialisé avec succès."}
+
+    return {
+        "status": "ok",
+        "id": msg["id"],
+        "message": "Message enregistré. Nos expertes vous répondent sous peu.",
+    }
 
 
 # ---------- Orders ----------
 
 @api_router.get("/orders/mine")
-async def my_orders(user: dict = Depends(_current_user)):
-    orders = await db.orders.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(length=200)
-    return orders
+async def my_orders(profile=Depends(get_current_profile)):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*")
+        .eq("user_id", profile["id"])
+        .order("created_at", desc=True)
+        .limit(200)
+        .execute()
+    )
+
+    return result.data or []
 
 
 @api_router.get("/orders/{order_id}")
-async def get_order(order_id: str, user: dict = Depends(_current_user)):
-    order = await db.orders.find_one({"id": order_id, "user_id": user["id"]}, {"_id": 0})
-    if not order:
+async def get_order(order_id: str, profile=Depends(get_current_profile)):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*")
+        .eq("id", order_id)
+        .eq("user_id", profile["id"])
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
         raise HTTPException(status_code=404, detail="Commande introuvable")
-    return order
+
+    return result.data[0]
 
 
 # ---------- Stripe Checkout ----------
@@ -443,40 +482,62 @@ SHIPPING_RULES = {
     "CH": {"fee": 6.90, "threshold": 60.0},
     "default": {"fee": 12.90, "threshold": 90.0},
 }
+
 EU_COUNTRIES = {"FR", "BE", "DE", "IT", "ES", "AT", "NL", "LU"}
 
 
 async def _price_cart(items: List[CheckoutItem], country: str) -> Dict[str, Any]:
     total = 0.0
     line_items = []
+
     for it in items:
         if it.quantity <= 0:
             continue
-        prod = await db.products.find_one({"id": it.product_id}, {"_id": 0})
+
+        prod = await sb_select_one("products", "id", it.product_id)
+
         if not prod:
             raise HTTPException(status_code=400, detail=f"Produit introuvable: {it.product_id}")
+
         if not prod.get("available", True):
             raise HTTPException(status_code=400, detail=f"Produit indisponible: {prod['name']}")
+
+        stock = int(prod.get("stock", 0))
+
+        if stock < it.quantity:
+            raise HTTPException(status_code=400, detail=f"Stock insuffisant pour: {prod['name']}")
+
         unit_price = float(prod["price"])
         subtotal = round(unit_price * it.quantity, 2)
         total += subtotal
-        line_items.append({
-            "product_id": prod["id"],
-            "slug": prod["slug"],
-            "name": prod["name"],
-            "image": prod.get("image", ""),
-            "unit_price": unit_price,
-            "quantity": it.quantity,
-            "size": it.size,
-            "color": it.color,
-            "subtotal": subtotal,
-        })
+
+        line_items.append(
+            {
+                "product_id": prod["id"],
+                "slug": prod["slug"],
+                "name": prod["name"],
+                "image": prod.get("image", ""),
+                "unit_price": unit_price,
+                "quantity": it.quantity,
+                "size": it.size,
+                "color": it.color,
+                "subtotal": subtotal,
+            }
+        )
+
     if total <= 0:
         raise HTTPException(status_code=400, detail="Panier vide")
+
     rule = SHIPPING_RULES.get(country, SHIPPING_RULES["default"])
     shipping = 0.0 if total >= rule["threshold"] else rule["fee"]
     grand_total = round(total + shipping, 2)
-    return {"line_items": line_items, "subtotal": round(total, 2), "shipping": shipping, "total": grand_total}
+
+    return {
+        "line_items": line_items,
+        "subtotal": round(total, 2),
+        "shipping": shipping,
+        "total": grand_total,
+    }
 
 
 @api_router.post("/checkout/session")
@@ -484,8 +545,13 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
-    user = await get_optional_user(http_request, db)
+    user = await get_optional_user(http_request)
+
+    user_id = auth_user_id(user)
+    user_email = auth_user_email(user)
+
     country = (payload.shipping_country or "CH").upper()
+
     if country not in {"CH"} | EU_COUNTRIES:
         raise HTTPException(status_code=400, detail="Pays non desservi")
 
@@ -493,18 +559,23 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
 
     host_url = str(http_request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
-    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+
+    stripe_checkout = StripeCheckout(
+        api_key=STRIPE_API_KEY,
+        webhook_url=webhook_url,
+    )
 
     origin = payload.origin_url.rstrip("/")
     success_url = f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{origin}/panier"
 
-    email = payload.email or (user.get("email") if user else "")
+    email = payload.email or user_email
+
     metadata = {
         "source": "baume_checkout",
         "country": country,
         "email": email,
-        "user_id": user["id"] if user else "",
+        "user_id": user_id or "",
         "items_count": str(sum(i.quantity for i in payload.items)),
     }
 
@@ -515,6 +586,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         cancel_url=cancel_url,
         metadata=metadata,
     )
+
     session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(req)
 
     tx = {
@@ -525,29 +597,79 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "shipping": priced["shipping"],
         "currency": "chf",
         "email": email,
-        "user_id": user["id"] if user else None,
+        "user_id": user_id,
         "country": country,
         "items": priced["line_items"],
         "shipping_address": payload.shipping_address or {},
         "status": "initiated",
         "payment_status": "pending",
         "metadata": metadata,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
     }
-    await db.payment_transactions.insert_one(tx)
 
-    return {"url": session.url, "session_id": session.session_id, "total": priced["total"]}
+    await sb_insert("payment_transactions", tx)
+
+    return {
+        "url": session.url,
+        "session_id": session.session_id,
+        "total": priced["total"],
+    }
+
+
+async def _decrease_stock_for_order(order: dict):
+    for item in order.get("items", []):
+        product_id = item.get("product_id")
+        quantity = int(item.get("quantity", 0))
+
+        if not product_id or quantity <= 0:
+            continue
+
+        product = await sb_select_one("products", "id", product_id)
+
+        if not product:
+            continue
+
+        current_stock = int(product.get("stock", 0))
+        new_stock = max(current_stock - quantity, 0)
+
+        await sb_update(
+            "products",
+            {
+                "stock": new_stock,
+                "available": new_stock > 0,
+                "updated_at": now_iso(),
+            },
+            "id",
+            product_id,
+        )
+
+        await sb_insert(
+            "inventory_movements",
+            {
+                "id": str(uuid.uuid4()),
+                "product_id": product_id,
+                "change_quantity": -quantity,
+                "reason": "order_created",
+                "reference_type": "order",
+                "reference_id": order["id"],
+                "note": f"Stock décrémenté automatiquement pour commande {order['id']}",
+                "created_at": now_iso(),
+            },
+        )
 
 
 async def _ensure_order_from_tx(session_id: str):
-    """Idempotent: create an order + send email if tx is paid and no order exists yet."""
-    tx = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+    tx = await sb_select_one("payment_transactions", "session_id", session_id)
+
     if not tx or tx.get("payment_status") != "paid":
         return None
-    existing = await db.orders.find_one({"session_id": session_id}, {"_id": 0})
+
+    existing = await sb_select_one("orders", "session_id", session_id)
+
     if existing:
         return existing
+
     order = {
         "id": str(uuid.uuid4()),
         "session_id": session_id,
@@ -561,18 +683,25 @@ async def _ensure_order_from_tx(session_id: str):
         "country": tx.get("country", "CH"),
         "shipping_address": tx.get("shipping_address", {}),
         "status": "paid",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
     }
-    await db.orders.insert_one(order)
-    # Send confirmation email
+
+    await sb_insert("orders", order)
+    await _decrease_stock_for_order(order)
+
     email = order.get("email")
+
     if email:
         first_name = "cliente"
+
         if order.get("user_id"):
-            u = await db.users.find_one({"id": order["user_id"]}, {"_id": 0})
-            if u:
-                first_name = u.get("first_name", "cliente")
+            profile = await sb_select_one("profiles", "id", order["user_id"])
+            if profile:
+                first_name = profile.get("first_name", "cliente")
+
         await send_order_confirmation(email, first_name, order)
+
     return order
 
 
@@ -581,23 +710,31 @@ async def checkout_status(session_id: str, http_request: Request):
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
-    tx = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+    tx = await sb_select_one("payment_transactions", "session_id", session_id)
+
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction introuvable")
 
     host_url = str(http_request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
-    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+
+    stripe_checkout = StripeCheckout(
+        api_key=STRIPE_API_KEY,
+        webhook_url=webhook_url,
+    )
 
     try:
         status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+
         new_status = status.status
         new_payment = status.payment_status
         amount_total = status.amount_total
         currency = status.currency
         metadata = status.metadata or {}
+
     except Exception as e:
         logger.warning(f"Stripe status retrieval failed for {session_id}: {e}. Falling back to DB.")
+
         new_status = tx.get("status", "initiated")
         new_payment = tx.get("payment_status", "pending")
         amount_total = int(round(float(tx.get("amount", 0)) * 100))
@@ -605,16 +742,17 @@ async def checkout_status(session_id: str, http_request: Request):
         metadata = tx.get("metadata", {}) or {}
 
     if tx.get("payment_status") != new_payment or tx.get("status") != new_status:
-        await db.payment_transactions.update_one(
-            {"session_id": session_id},
-            {"$set": {
+        await sb_update(
+            "payment_transactions",
+            {
                 "status": new_status,
                 "payment_status": new_payment,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }},
+                "updated_at": now_iso(),
+            },
+            "session_id",
+            session_id,
         )
 
-    # Idempotent order creation + email
     if new_payment == "paid":
         await _ensure_order_from_tx(session_id)
 
@@ -629,16 +767,20 @@ async def checkout_status(session_id: str, http_request: Request):
 
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
-    """Stripe webhook endpoint — production-grade."""
     if not STRIPE_API_KEY:
         logger.warning("Webhook called but STRIPE_API_KEY missing")
         raise HTTPException(status_code=503, detail="Stripe non configuré")
 
     body = await request.body()
     sig = request.headers.get("Stripe-Signature", "")
+
     host_url = str(request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
-    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+
+    stripe_checkout = StripeCheckout(
+        api_key=STRIPE_API_KEY,
+        webhook_url=webhook_url,
+    )
 
     try:
         event = await stripe_checkout.handle_webhook(body, sig)
@@ -647,7 +789,6 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Signature Stripe invalide")
 
     if not event or not getattr(event, "session_id", None):
-        logger.info("Webhook received but no session_id in event — ignored")
         return {"received": True, "processed": False}
 
     session_id = event.session_id
@@ -655,32 +796,34 @@ async def stripe_webhook(request: Request):
     event_type = getattr(event, "event_type", "")
     payment_status = getattr(event, "payment_status", "")
 
-    logger.info(
-        f"Stripe webhook: type={event_type} session={session_id} "
-        f"event_id={event_id} payment_status={payment_status}"
-    )
-
     if event_id:
-        dup = await db.stripe_webhook_events.find_one({"event_id": event_id}, {"_id": 0})
-        if dup:
-            logger.info(f"Duplicate webhook event {event_id} — skipped")
-            return {"received": True, "processed": False, "duplicate": True}
-        await db.stripe_webhook_events.insert_one({
-            "event_id": event_id,
-            "event_type": event_type,
-            "session_id": session_id,
-            "payment_status": payment_status,
-            "received_at": datetime.now(timezone.utc).isoformat(),
-        })
+        existing_event = await sb_select_one("stripe_webhook_events", "event_id", event_id)
 
-    await db.payment_transactions.update_one(
-        {"session_id": session_id},
-        {"$set": {
+        if existing_event:
+            return {"received": True, "processed": False, "duplicate": True}
+
+        await sb_insert(
+            "stripe_webhook_events",
+            {
+                "id": str(uuid.uuid4()),
+                "event_id": event_id,
+                "event_type": event_type,
+                "session_id": session_id,
+                "payment_status": payment_status,
+                "received_at": now_iso(),
+            },
+        )
+
+    await sb_update(
+        "payment_transactions",
+        {
             "payment_status": payment_status or "unknown",
             "last_webhook_event": event_type,
             "last_webhook_event_id": event_id,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }},
+            "updated_at": now_iso(),
+        },
+        "session_id",
+        session_id,
     )
 
     if payment_status == "paid":
@@ -690,15 +833,23 @@ async def stripe_webhook(request: Request):
             f"order_id={order.get('id') if order else None}"
         )
 
-    return {"received": True, "processed": True, "session_id": session_id}
+    return {
+        "received": True,
+        "processed": True,
+        "session_id": session_id,
+    }
 
 
 # ---------- Mount & CORS ----------
 
 app.include_router(api_router)
-app.include_router(auth_router)
 
-_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", FRONTEND_URL).split(",") if o.strip()]
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", FRONTEND_URL).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
