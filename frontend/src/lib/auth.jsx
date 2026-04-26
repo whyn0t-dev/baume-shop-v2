@@ -19,9 +19,14 @@ export function AuthProvider({ children }) {
       return null;
     }
   }, []);
-
   useEffect(() => {
-    refreshMe();
+    const hasAuthCookie = document.cookie.includes("access_token");
+
+    if (hasAuthCookie) {
+      refreshMe();
+    } else {
+      setStatus("guest");
+    }
   }, [refreshMe]);
 
   const login = useCallback(async (email, password) => {

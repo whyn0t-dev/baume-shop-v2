@@ -34,7 +34,7 @@ from emails import (
     send_order_confirmation,
 )
 
-from seed_data import PRODUCTS, NEEDS, PRODUCT_CATEGORIES, REVIEWS, GUIDES, EXPERTS
+# from seed_data import PRODUCTS, NEEDS, PRODUCT_CATEGORIES, REVIEWS, GUIDES, EXPERTS
 
 
 logging.basicConfig(
@@ -59,10 +59,8 @@ if STRIPE_API_KEY:
 
 # ---------- Lifespan (replaces deprecated @app.on_event) ----------
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await _seed_db()
     yield
 
 

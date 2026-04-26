@@ -28,7 +28,7 @@ export const authApi = axios.create({
 export const registerUser = (payload) => authApi.post("/register", payload).then((r) => r.data);
 export const loginUser = (payload) => authApi.post("/login", payload).then((r) => r.data);
 export const logoutUser = () => authApi.post("/logout").then((r) => r.data);
-export const fetchMe = () => authApi.get("/me").then((r) => r.data);
+export const fetchMe = () => api.get("/me").then((r) => r.data);
 export const updateMe = (payload) => authApi.patch("/me", payload).then((r) => r.data);
 export const forgotPassword = (email) => authApi.post("/forgot-password", { email }).then((r) => r.data);
 export const resetPassword = (token, password) =>
