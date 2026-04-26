@@ -13,17 +13,12 @@ import asyncio
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
+import stripe
+
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from supabase import create_client, Client
-
-from emergentintegrations.payments.stripe.checkout import (
-    StripeCheckout,
-    CheckoutSessionResponse,
-    CheckoutStatusResponse,
-    CheckoutSessionRequest,
-)
 
 from auth import (
     get_current_user,
@@ -61,6 +56,7 @@ api_router = APIRouter(prefix="/api")
 
 
 # ---------- Helpers ----------
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -116,6 +112,7 @@ def auth_user_email(user) -> str:
 
 
 # ---------- Models ----------
+
 
 class Product(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -173,6 +170,7 @@ class CheckoutRequest(BaseModel):
 
 
 # ---------- Startup / Seed ----------
+
 
 @app.on_event("startup")
 async def startup():
@@ -258,12 +256,14 @@ async def startup():
 
 # ---------- Health ----------
 
+
 @api_router.get("/")
 async def root():
     return {"service": "baume-api", "status": "ok"}
 
 
 # ---------- Auth test routes ----------
+
 
 @api_router.get("/me")
 async def me(profile=Depends(get_current_profile)):
@@ -276,6 +276,7 @@ async def admin_test(profile=Depends(require_admin)):
 
 
 # ---------- Products ----------
+
 
 @api_router.get("/products", response_model=List[Product])
 async def list_products(
@@ -336,6 +337,7 @@ async def get_product(slug: str):
 
 
 # ---------- Categories / Reviews / Guides / Experts ----------
+
 
 @api_router.get("/categories")
 async def list_categories(kind: Optional[str] = None):
@@ -409,6 +411,7 @@ async def list_experts():
 
 # ---------- Contact ----------
 
+
 @api_router.post("/contact")
 async def submit_contact(payload: ContactRequest):
     msg = {
@@ -444,6 +447,7 @@ async def submit_contact(payload: ContactRequest):
 
 
 # ---------- Orders ----------
+
 
 @api_router.get("/orders/mine")
 async def my_orders(profile=Depends(get_current_profile)):
@@ -497,15 +501,21 @@ async def _price_cart(items: List[CheckoutItem], country: str) -> Dict[str, Any]
         prod = await sb_select_one("products", "id", it.product_id)
 
         if not prod:
-            raise HTTPException(status_code=400, detail=f"Produit introuvable: {it.product_id}")
+            raise HTTPException(
+                status_code=400, detail=f"Produit introuvable: {it.product_id}"
+            )
 
         if not prod.get("available", True):
-            raise HTTPException(status_code=400, detail=f"Produit indisponible: {prod['name']}")
+            raise HTTPException(
+                status_code=400, detail=f"Produit indisponible: {prod['name']}"
+            )
 
         stock = int(prod.get("stock", 0))
 
         if stock < it.quantity:
-            raise HTTPException(status_code=400, detail=f"Stock insuffisant pour: {prod['name']}")
+            raise HTTPException(
+                status_code=400, detail=f"Stock insuffisant pour: {prod['name']}"
+            )
 
         unit_price = float(prod["price"])
         subtotal = round(unit_price * it.quantity, 2)
@@ -546,7 +556,6 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
     user = await get_optional_user(http_request)
-
     user_id = auth_user_id(user)
     user_email = auth_user_email(user)
 
@@ -556,14 +565,6 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         raise HTTPException(status_code=400, detail="Pays non desservi")
 
     priced = await _price_cart(payload.items, country)
-
-    host_url = str(http_request.base_url).rstrip("/")
-    webhook_url = f"{host_url}/api/webhook/stripe"
-
-    stripe_checkout = StripeCheckout(
-        api_key=STRIPE_API_KEY,
-        webhook_url=webhook_url,
-    )
 
     origin = payload.origin_url.rstrip("/")
     success_url = f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
@@ -579,19 +580,31 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "items_count": str(sum(i.quantity for i in payload.items)),
     }
 
-    req = CheckoutSessionRequest(
-        amount=float(priced["total"]),
-        currency="chf",
+    session = await asyncio.to_thread(
+        stripe.checkout.Session.create,
+        mode="payment",
+        payment_method_types=["card"],
+        customer_email=email or None,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata=metadata,
+        line_items=[
+            {
+                "price_data": {
+                    "currency": "chf",
+                    "product_data": {
+                        "name": "Commande Baume",
+                    },
+                    "unit_amount": int(round(priced["total"] * 100)),
+                },
+                "quantity": 1,
+            }
+        ],
     )
-
-    session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(req)
 
     tx = {
         "id": str(uuid.uuid4()),
-        "session_id": session.session_id,
+        "session_id": session.id,
         "amount": priced["total"],
         "subtotal": priced["subtotal"],
         "shipping": priced["shipping"],
@@ -612,7 +625,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
 
     return {
         "url": session.url,
-        "session_id": session.session_id,
+        "session_id": session.id,
         "total": priced["total"],
     }
 
@@ -715,25 +728,21 @@ async def checkout_status(session_id: str, http_request: Request):
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction introuvable")
 
-    host_url = str(http_request.base_url).rstrip("/")
-    webhook_url = f"{host_url}/api/webhook/stripe"
-
-    stripe_checkout = StripeCheckout(
-        api_key=STRIPE_API_KEY,
-        webhook_url=webhook_url,
-    )
-
     try:
-        status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+        session = await asyncio.to_thread(stripe.checkout.Session.retrieve, session_id)
 
-        new_status = status.status
-        new_payment = status.payment_status
-        amount_total = status.amount_total
-        currency = status.currency
-        metadata = status.metadata or {}
+        new_status = session.status or "unknown"
+        new_payment = session.payment_status or "unknown"
+        amount_total = session.amount_total or int(
+            round(float(tx.get("amount", 0)) * 100)
+        )
+        currency = session.currency or tx.get("currency", "chf")
+        metadata = dict(session.metadata or {})
 
     except Exception as e:
-        logger.warning(f"Stripe status retrieval failed for {session_id}: {e}. Falling back to DB.")
+        logger.warning(
+            f"Stripe status retrieval failed for {session_id}: {e}. Falling back to DB."
+        )
 
         new_status = tx.get("status", "initiated")
         new_payment = tx.get("payment_status", "pending")
@@ -773,31 +782,41 @@ async def stripe_webhook(request: Request):
 
     body = await request.body()
     sig = request.headers.get("Stripe-Signature", "")
-
-    host_url = str(request.base_url).rstrip("/")
-    webhook_url = f"{host_url}/api/webhook/stripe"
-
-    stripe_checkout = StripeCheckout(
-        api_key=STRIPE_API_KEY,
-        webhook_url=webhook_url,
-    )
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
     try:
-        event = await stripe_checkout.handle_webhook(body, sig)
+        if webhook_secret:
+            event = stripe.Webhook.construct_event(
+                payload=body,
+                sig_header=sig,
+                secret=webhook_secret,
+            )
+        else:
+            event = stripe.Event.construct_from(
+                await request.json(),
+                stripe.api_key,
+            )
     except Exception as e:
         logger.error(f"Stripe webhook signature/parse error: {e}")
         raise HTTPException(status_code=400, detail="Signature Stripe invalide")
 
-    if not event or not getattr(event, "session_id", None):
+    event_id = event.get("id")
+    event_type = event.get("type", "")
+    obj = event.get("data", {}).get("object", {})
+
+    if obj.get("object") != "checkout.session":
         return {"received": True, "processed": False}
 
-    session_id = event.session_id
-    event_id = getattr(event, "event_id", None)
-    event_type = getattr(event, "event_type", "")
-    payment_status = getattr(event, "payment_status", "")
+    session_id = obj.get("id")
+    payment_status = obj.get("payment_status", "")
+
+    if not session_id:
+        return {"received": True, "processed": False}
 
     if event_id:
-        existing_event = await sb_select_one("stripe_webhook_events", "event_id", event_id)
+        existing_event = await sb_select_one(
+            "stripe_webhook_events", "event_id", event_id
+        )
 
         if existing_event:
             return {"received": True, "processed": False, "duplicate": True}
