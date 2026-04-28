@@ -15,7 +15,7 @@ from auth import (
 )
 
 import os
-import logging
+import logging q = q.contains("needs", [need])
 import uuid
 import asyncio
 from contextlib import asynccontextmanager
@@ -359,13 +359,13 @@ async def list_products(
         if category:
             q = q.eq("product_category", category)
         if need:
-            q = q.contains("needs", [need])
+            q = q.filter("needs", "cs", f'["{need}"]')
         if flux:
             q = q.eq("flux", flux)
         if usage:
             q = q.eq("usage", usage)
         if size:
-            q = q.contains("sizes", [size])
+            q = q.filter("sizes", "cs", f'["{size}"]')
         if available is not None:
             q = q.eq("available", available)
         if bestseller is not None:

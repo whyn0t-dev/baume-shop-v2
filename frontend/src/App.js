@@ -25,6 +25,7 @@ import RegisterPage from "./pages/RegisterPage";
 import AccountPage from "./pages/AccountPage";
 import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
 import { MentionsLegalesPage, CgvPage, PrivacyPage } from "./pages/LegalPages";
+import DashBoardAdmin from "./pages/DashBoardAdmin";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -66,6 +67,7 @@ function AppShell() {
           <Route path="/cgv" element={<CgvPage />} />
           <Route path="/confidentialite" element={<PrivacyPage />} />
           <Route path="*" element={<HomePage />} />
+          <Route path="/admin" element={<DashBoardAdmin />} />
         </Routes>
       </main>
       <Footer />

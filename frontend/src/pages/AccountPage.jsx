@@ -111,7 +111,7 @@ export default function AccountPage() {
               <h1 className="font-editorial text-[40px] md:text-[56px] leading-[1.04] text-baume-charcoal">
                 Bonjour,{" "}
                 <span className="italic text-baume-burgundy">
-                  {user.first_name || "cliente"}
+                  {user.first_name || user.email?.split("@")[0] || "client"}
                 </span>
               </h1>
 

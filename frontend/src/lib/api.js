@@ -39,6 +39,12 @@ export const refreshToken = () => authApi.post("/refresh").then((r) => r.data);
 export const getMyOrders = () => api.get("/orders/mine").then((r) => r.data);
 export const getOrder = (orderId) => api.get(`/orders/${orderId}`).then((r) => r.data);
 
+export const getAdminTable = (table, limit = 200) =>
+  api.get(`/ecom/admin/${table}`, { params: { limit } }).then((r) => r.data);
+
+export const deleteAdminItem = (table, id) =>
+  api.delete(`/ecom/admin/${table}/${id}`).then((r) => r.data);
+
 export function formatApiError(err) {
   const d = err?.response?.data?.detail;
   if (d == null) return err?.message || "Une erreur est survenue.";
