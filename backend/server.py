@@ -15,7 +15,7 @@ from auth import (
 )
 
 import os
-import logging q = q.contains("needs", [need])
+import logging
 import uuid
 import asyncio
 from contextlib import asynccontextmanager
@@ -355,7 +355,6 @@ async def list_products(
 ):
     def run():
         q = supabase.table("products").select("*")
-
         if category:
             q = q.eq("product_category", category)
         if need:
