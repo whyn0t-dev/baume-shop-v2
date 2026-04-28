@@ -6,6 +6,14 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
+from auth import (
+    auth_router,
+    get_current_user,
+    get_optional_user,
+    get_current_profile,
+    require_admin,
+)
+
 import os
 import logging
 import uuid
@@ -20,13 +28,6 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, Query
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from supabase import create_client, Client
-
-from auth import (
-    get_current_user,
-    get_optional_user,
-    get_current_profile,
-    require_admin,
-)
 
 from emails import (
     send_contact_notification,
@@ -58,6 +59,7 @@ if STRIPE_API_KEY:
 
 
 # ---------- Lifespan (replaces deprecated @app.on_event) ----------
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -136,14 +138,17 @@ async def get_or_create_customer(profile: dict) -> dict:
     if customer:
         return customer
 
-    inserted = await sb_insert("customers", {
-        "profile_id": profile["id"],
-        "email": profile.get("email"),
-        "first_name": profile.get("first_name"),
-        "last_name": profile.get("last_name"),
-        "phone": profile.get("phone"),
-        "created_at": now_iso(),
-    })
+    inserted = await sb_insert(
+        "customers",
+        {
+            "profile_id": profile["id"],
+            "email": profile.get("email"),
+            "first_name": profile.get("first_name"),
+            "last_name": profile.get("last_name"),
+            "phone": profile.get("phone"),
+            "created_at": now_iso(),
+        },
+    )
 
     return inserted.data[0]
 
@@ -310,6 +315,7 @@ class DiscountCheckRequest(BaseModel):
 #             ],
 #         )
 
+
 @api_router.get("")
 @api_router.get("/")
 async def root():
@@ -345,7 +351,7 @@ async def list_products(
     bestseller: Optional[bool] = None,
     featured: Optional[bool] = None,
     search: Optional[str] = None,
-    limit: int = Query(default=48, ge=1, le=200),
+    limit: int = Query(1000, gt=0, le=1000),
 ):
     def run():
         q = supabase.table("products").select("*")
@@ -1133,10 +1139,7 @@ async def list_collection_products(collection_id: str):
 @api_router.get("/locations")
 async def list_locations():
     result = await asyncio.to_thread(
-        lambda: supabase.table("locations")
-        .select("*")
-        .eq("active", True)
-        .execute()
+        lambda: supabase.table("locations").select("*").eq("active", True).execute()
     )
     return result.data or []
 
@@ -1185,10 +1188,7 @@ async def get_discount(code: str):
 @api_router.get("/pages")
 async def list_pages():
     result = await asyncio.to_thread(
-        lambda: supabase.table("pages")
-        .select("*")
-        .eq("published", True)
-        .execute()
+        lambda: supabase.table("pages").select("*").eq("published", True).execute()
     )
     return result.data or []
 
@@ -1330,7 +1330,7 @@ async def delete_admin_item(
     await sb_delete(table, "id", item_id)
     return {"status": "deleted"}
 
-
+api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)
 

@@ -1,4 +1,5 @@
-from fastapi import Request, HTTPException, Depends
+from fastapi import Request, HTTPException, Depends, APIRouter
+from pydantic import BaseModel, EmailStr
 from supabase import create_client
 import os
 
@@ -6,6 +7,58 @@ SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+auth_router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    first_name: str | None = None
+    last_name: str | None = None
+
+
+@auth_router.post("/login")
+async def login(payload: LoginRequest):
+    result = supabase.auth.sign_in_with_password({
+        "email": payload.email,
+        "password": payload.password,
+    })
+
+    if not result.user or not result.session:
+        raise HTTPException(status_code=401, detail="Identifiants invalides")
+
+    return {
+        "user": {
+            "id": result.user.id,
+            "email": result.user.email,
+        },
+        "access_token": result.session.access_token,
+        "refresh_token": result.session.refresh_token,
+    }
+
+
+@auth_router.post("/register")
+async def register(payload: RegisterRequest):
+    result = supabase.auth.sign_up({
+        "email": payload.email,
+        "password": payload.password,
+    })
+
+    if not result.user:
+        raise HTTPException(status_code=400, detail="Inscription impossible")
+
+    return {
+        "user": {
+            "id": result.user.id,
+            "email": result.user.email,
+        }
+    }
 
 
 def extract_token(request: Request):
@@ -38,7 +91,7 @@ async def get_optional_user(request: Request):
     try:
         user = supabase.auth.get_user(token)
         return user.user if user and user.user else None
-    except:
+    except Exception:
         return None
 
 

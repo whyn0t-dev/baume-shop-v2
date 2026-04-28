@@ -2,19 +2,25 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb";
 import BesoinCard from "../components/BesoinCard";
-import { getCategories } from "../lib/api";
 import { NEEDS, PRODUCT_CATS } from "../lib/constants";
 import { ArrowRight } from "lucide-react";
+import { getCategories, getProducts } from "../lib/api";
 
 export default function ShopIndexPage({ kind }) {
   const [items, setItems] = useState([]);
 
   useEffect(() => {
-    getCategories(kind)
-      .then(setItems)
-      .catch(() =>
-        setItems(kind === "besoin" ? NEEDS : PRODUCT_CATS)
-      );
+    if (kind === "produit") {
+      // 👉 récupérer TOUS les produits
+      getProducts({ limit: 100 })
+        .then(setItems)
+        .catch(() => setItems([]));
+    } else {
+      // 👉 garder les besoins
+      getCategories("besoin")
+        .then(setItems)
+        .catch(() => setItems(NEEDS));
+    }
   }, [kind]);
 
   const title =
@@ -73,17 +79,17 @@ export default function ShopIndexPage({ kind }) {
         </section>
       ) : (
         <section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pb-24 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-          {items.map((c) => (
+          {items.map((p) => (
             <Link
-              key={c.slug}
-              to={`/shop/produit/${c.slug}`}
-              data-testid={`produit-card-${c.slug}`}
+              key={p.id}
+              to={`/produit/${p.slug}`}
+              data-testid={`product-card-${p.slug}`}
               className="group bg-baume-white border border-baume-border rounded-3xl overflow-hidden transition-all hover:border-baume-burgundy/40 hover:shadow-sm"
             >
               <div className="aspect-square bg-baume-ivory overflow-hidden">
                 <img
-                  src={c.image}
-                  alt={c.name}
+                  src={p.image}
+                  alt={p.name}
                   loading="lazy"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
@@ -91,15 +97,19 @@ export default function ShopIndexPage({ kind }) {
 
               <div className="p-5">
                 <h3 className="font-editorial text-[20px] leading-[26px] text-baume-charcoal group-hover:text-baume-burgundy transition-colors">
-                  {c.name}
+                  {p.name}
                 </h3>
 
                 <p className="mt-2 text-[13px] text-baume-charcoal/65 line-clamp-2">
-                  {c.tagline}
+                  {p.tagline}
+                </p>
+
+                <p className="mt-3 font-semibold text-baume-charcoal">
+                  {p.price?.toFixed(2)} CHF
                 </p>
 
                 <span className="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-baume-burgundy">
-                  Explorer <ArrowRight className="h-3.5 w-3.5" />
+                  Voir le produit <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </div>
             </Link>
