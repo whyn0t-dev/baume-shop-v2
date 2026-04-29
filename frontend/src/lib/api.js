@@ -4,6 +4,16 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const api = axios.create({ baseURL: API, withCredentials: true });
 
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
 function normalizeArray(data) {
   if (Array.isArray(data)) return data;
 
@@ -65,6 +75,16 @@ export const getCheckoutStatus = (sessionId) =>
 export const authApi = axios.create({
   baseURL: `${process.env.REACT_APP_BACKEND_URL}/api/auth`,
   withCredentials: true,
+});
+
+authApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 export const registerUser = (payload) =>
