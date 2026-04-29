@@ -146,3 +146,25 @@ export function formatApiError(err) {
   if (d && typeof d.msg === "string") return d.msg;
   return String(d);
 }
+
+async function callOrderFunction(name, payload) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export function updateOrderStatus(orderId, status) {
+  return callOrderFunction("update-order-status", { orderId, status });
+}
+
+export function refundOrder(orderId) {
+  return callOrderFunction("refund-order", { orderId });
+}
