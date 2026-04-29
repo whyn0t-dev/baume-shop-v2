@@ -66,7 +66,17 @@ export const submitContact = (payload) =>
 
 // Checkout
 export const createCheckout = (payload) =>
-  api.post("/checkout/session", payload).then((r) => r.data);
+  axios
+    .post(
+      `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/create-checkout-session`,
+      payload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    )
+    .then((r) => r.data);
 
 export const getCheckoutStatus = (sessionId) =>
   api.get(`/checkout/status/${sessionId}`).then((r) => r.data);
@@ -117,6 +127,9 @@ export const getMyOrders = () =>
 
 export const getOrder = (orderId) =>
   api.get(`/orders/${orderId}`).then((r) => r.data);
+
+export const getAdminOrder = (orderId) =>
+  api.get(`/ecom/admin/orders/${orderId}`).then((r) => r.data);
 
 export const getAdminTable = (table, limit = 200) =>
   api.get(`/ecom/admin/${table}`, { params: { limit } }).then((r) => normalizeArray(r.data));

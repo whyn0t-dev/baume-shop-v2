@@ -624,13 +624,10 @@ async def my_orders(profile=Depends(get_current_profile)):
 
 @api_router.get("/orders/{order_id}")
 async def get_order(order_id: str, profile=Depends(get_current_profile)):
-    customer = await get_or_create_customer(profile)
-
     result = await asyncio.to_thread(
         lambda: supabase.table("orders")
         .select("*, order_items(*)")
         .eq("id", order_id)
-        .eq("customer_id", customer["id"])
         .limit(1)
         .execute()
     )
@@ -638,18 +635,30 @@ async def get_order(order_id: str, profile=Depends(get_current_profile)):
     if not result.data:
         raise HTTPException(status_code=404, detail="Commande introuvable")
 
-    return result.data[0]
+    order = result.data[0]
+
+    is_admin = profile.get("role") == "admin"
+
+    if not is_admin:
+        customer = await get_or_create_customer(profile)
+
+        owns_by_customer_id = order.get("customer_id") == customer.get("id")
+        owns_by_email = order.get("email") == profile.get("email")
+
+        if not owns_by_customer_id and not owns_by_email:
+            raise HTTPException(status_code=403, detail="Accès refusé")
+
+    order["items"] = order.get("order_items", [])
+
+    return order
 
 
 @api_router.get("/orders/{order_id}/full")
 async def get_order_full(order_id: str, profile=Depends(get_current_profile)):
-    customer = await get_or_create_customer(profile)
-
     result = await asyncio.to_thread(
         lambda: supabase.table("orders")
         .select("*, order_items(*), payments(*), refunds(*)")
         .eq("id", order_id)
-        .eq("customer_id", customer["id"])
         .limit(1)
         .execute()
     )
@@ -657,7 +666,22 @@ async def get_order_full(order_id: str, profile=Depends(get_current_profile)):
     if not result.data:
         raise HTTPException(status_code=404, detail="Commande introuvable")
 
-    return result.data[0]
+    order = result.data[0]
+
+    is_admin = profile.get("role") == "admin"
+
+    if not is_admin:
+        customer = await get_or_create_customer(profile)
+
+        owns_by_customer_id = order.get("customer_id") == customer.get("id")
+        owns_by_email = order.get("email") == profile.get("email")
+
+        if not owns_by_customer_id and not owns_by_email:
+            raise HTTPException(status_code=403, detail="Accès refusé")
+
+    order["items"] = order.get("order_items", [])
+
+    return order
 
 
 # ---------- Stripe Checkout ----------
@@ -1328,6 +1352,7 @@ async def delete_admin_item(
 
     await sb_delete(table, "id", item_id)
     return {"status": "deleted"}
+
 
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------

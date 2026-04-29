@@ -26,6 +26,7 @@ import AccountPage from "./pages/AccountPage";
 import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
 import { MentionsLegalesPage, CgvPage, PrivacyPage } from "./pages/LegalPages";
 import DashBoardAdmin from "./pages/DashBoardAdmin";
+import OrderItems from "./pages/OrderItems";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -93,6 +94,14 @@ function AppShell() {
             element={
               <AdminRoute>
                 <DashBoardAdmin />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/orders/:orderId"
+            element={
+              <AdminRoute>
+                <OrderItems />
               </AdminRoute>
             }
           />
