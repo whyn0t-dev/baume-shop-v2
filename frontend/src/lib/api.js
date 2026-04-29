@@ -148,7 +148,7 @@ export function formatApiError(err) {
 }
 
 async function callOrderFunction(name, payload) {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+  const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/${name}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

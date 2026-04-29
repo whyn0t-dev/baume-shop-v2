@@ -16,10 +16,7 @@ import {
 	Truck,
 	User,
 } from "lucide-react";
-
-import { getAdminOrder } from "../lib/api";
 import { useAuth } from "../lib/auth";
-
 import {
 	getAdminOrder,
 	refundOrder,
