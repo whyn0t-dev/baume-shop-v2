@@ -1,11 +1,11 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import { CartProvider } from "./lib/cart";
-import { AuthProvider } from "./lib/auth";
+import { AuthProvider, useAuth } from "./lib/auth";
 
 import HomePage from "./pages/HomePage";
 import ShopIndexPage from "./pages/ShopIndexPage";
@@ -33,6 +33,28 @@ function ScrollToTop() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
   return null;
+}
+
+function isAdminUser(user) {
+  return (
+    user?.role === "admin" ||
+    user?.is_admin === true ||
+    user?.isAdmin === true ||
+    user?.profile?.role === "admin" ||
+    user?.user_metadata?.role === "admin"
+  );
+}
+
+function AdminRoute({ children }) {
+  const { user, status } = useAuth();
+
+  if (status === "loading") return null;
+
+  if (!user || !isAdminUser(user)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 }
 
 function AppShell() {
@@ -66,8 +88,15 @@ function AppShell() {
           <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
           <Route path="/cgv" element={<CgvPage />} />
           <Route path="/confidentialite" element={<PrivacyPage />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <DashBoardAdmin />
+              </AdminRoute>
+            }
+          />
           <Route path="*" element={<HomePage />} />
-          <Route path="/admin" element={<DashBoardAdmin />} />
         </Routes>
       </main>
       <Footer />
