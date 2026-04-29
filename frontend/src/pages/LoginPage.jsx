@@ -8,101 +8,65 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [loading, setLoading] = useState(false);
-	const { login } = useAuth();
-	const navigate = useNavigate();
-	const location = useLocation();
-	const redirect =
-		new URLSearchParams(location.search).get("redirect") || "/compte";
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const redirect = new URLSearchParams(location.search).get("redirect") || "/compte";
 
-	const onSubmit = async (e) => {
-		e.preventDefault();
-		if (!email || !password) return;
-		setLoading(true);
-		try {
-			await login(email, password);
-			toast.success("Bon retour chez Baume");
-			navigate(redirect);
-		} catch (err) {
-			toast.error("Connexion impossible", { description: formatApiError(err) });
-		} finally {
-			setLoading(false);
-		}
-	};
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    setLoading(true);
+    try {
+      await login(email, password);
+      toast.success("Bon retour chez Baume");
+      navigate(redirect);
+    } catch (err) {
+      toast.error("Connexion impossible", { description: formatApiError(err) });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-	return (
-		<div data-testid="login-page" className="bg-baume-ivory min-h-[70vh]">
-			<div className="baume-container py-16 md:py-24 max-w-[480px] mx-auto">
-				<p className="text-[12px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold mb-3">
-					Espace client
-				</p>
-				<h1 className="font-editorial text-[36px] md:text-[44px] leading-[1.1] text-baume-charcoal">
-					Se connecter
-				</h1>
-				<p className="mt-3 text-[15px] text-baume-charcoal/70">
-					Retrouvez votre historique de commandes et vos informations.
-				</p>
+  return (
+    <div data-testid="login-page" className="bg-baume-ivory min-h-[70vh]">
+      <div className="baume-container py-16 md:py-24 max-w-[480px] mx-auto">
+        <p className="text-[12px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold mb-3">Espace client</p>
+        <h1 className="font-editorial text-[36px] md:text-[44px] leading-[1.1] text-baume-charcoal">Se connecter</h1>
+        <p className="mt-3 text-[15px] text-baume-charcoal/70">Retrouvez votre historique de commandes et vos informations.</p>
 
-				<form
-					onSubmit={onSubmit}
-					className="mt-10 bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4"
-				>
-					<div>
-						<Label htmlFor="email">Email</Label>
-						<Input
-							id="email"
-							type="email"
-							data-testid="login-email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							required
-							className="mt-1.5 h-12 rounded-lg border-baume-border focus-visible:ring-baume-burgundy"
-						/>
-					</div>
-					<div>
-						<div className="flex items-center justify-between">
-							<Label htmlFor="password">Mot de passe</Label>
-							<Link
-								to="/mot-de-passe-oublie"
-								className="text-[12px] baume-link"
-							>
-								Oublié ?
-							</Link>
-						</div>
-						<Input
-							id="password"
-							type="password"
-							data-testid="login-password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							required
-							className="mt-1.5 h-12 rounded-lg border-baume-border focus-visible:ring-baume-burgundy"
-						/>
-					</div>
-					<button
-						type="submit"
-						disabled={loading}
-						data-testid="login-submit"
-						className="w-full h-12 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark disabled:opacity-60 inline-flex items-center justify-center gap-2"
-					>
-						{loading && <Loader2 className="h-4 w-4 animate-spin" />} Se
-						connecter
-					</button>
-				</form>
+        <form onSubmit={onSubmit} className="mt-10 bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" data-testid="login-email" value={email} onChange={(e) => setEmail(e.target.value)} required className="mt-1.5 h-12 rounded-lg border-baume-border focus-visible:ring-baume-burgundy" />
+          </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Mot de passe</Label>
+              <Link to="/mot-de-passe-oublie" className="text-[12px] baume-link">Oublié ?</Link>
+            </div>
+            <Input id="password" type="password" data-testid="login-password" value={password} onChange={(e) => setPassword(e.target.value)} required className="mt-1.5 h-12 rounded-lg border-baume-border focus-visible:ring-baume-burgundy" />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            data-testid="login-submit"
+            className="w-full h-12 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark disabled:opacity-60 inline-flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />} Se connecter
+          </button>
+        </form>
 
-				<p className="mt-6 text-center text-[14px] text-baume-charcoal/75">
-					Pas encore de compte ?{" "}
-					<Link
-						to="/inscription"
-						className="baume-link font-semibold"
-						data-testid="link-to-register"
-					>
-						Créer un compte
-					</Link>
-				</p>
-			</div>
-		</div>
-	);
+        <p className="mt-6 text-center text-[14px] text-baume-charcoal/75">
+          Pas encore de compte ?{" "}
+          <Link to="/inscription" className="baume-link font-semibold" data-testid="link-to-register">
+            Créer un compte
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
 }
