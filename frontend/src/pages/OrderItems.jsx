@@ -11,17 +11,11 @@ import {
 	MessageSquare,
 	MoreHorizontal,
 	Package,
-	ShieldCheck,
 	Tag,
 	Truck,
-	User,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import {
-	getAdminOrder,
-	refundOrder,
-	updateOrderStatus,
-} from "../lib/api";
+import { getAdminOrder, refundOrder, updateOrderStatus } from "../lib/api";
 
 export default function OrderItems() {
 	const { orderId } = useParams();
@@ -76,7 +70,6 @@ export default function OrderItems() {
 		order.customer_name ||
 		[user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
 		"Client";
-
 	return (
 		<div className="min-h-screen bg-[#f1f1f1] text-[#303030]">
 			<header className="sticky top-0 z-10 border-b border-[#d4d4d4] bg-[#f1f1f1]/95 backdrop-blur px-4 md:px-6 py-3">
@@ -105,23 +98,17 @@ export default function OrderItems() {
 					</div>
 
 					<div className="flex flex-wrap gap-2">
-						<ActionButton onClick={() => refundOrder(order.id)}>
-							Rembourser
+						<ActionButton tone="primary" onClick={() => window.print()}>
+							Imprimer
 						</ActionButton>
 
-						<ActionButton onClick={() => updateOrderStatus(order.id, "edited")}>
-							Modifier
-						</ActionButton>
-
-						<ActionButton onClick={() => window.print()}>
-							Imprimer <ChevronDown className="h-3.5 w-3.5" />
-						</ActionButton>
-
-						<ActionButton
-							onClick={() => updateOrderStatus(order.id, "fulfilled")}
-						>
-							Marquer traitée
-						</ActionButton>
+						<ActionMenu
+							onProcessing={() => updateOrderStatus(order.id, "processing")}
+							onShipped={() => updateOrderStatus(order.id, "shipped")}
+							onDelivered={() => updateOrderStatus(order.id, "delivered")}
+							onCancel={() => updateOrderStatus(order.id, "cancelled")}
+							onRefund={() => refundOrder(order.id)}
+						/>
 					</div>
 				</div>
 			</header>
@@ -185,13 +172,6 @@ export default function OrderItems() {
 									</div>
 								))
 							)}
-						</div>
-
-						<div className="flex justify-end mt-3">
-							<button className="h-9 px-4 rounded-md bg-[#303030] text-white text-[13px] font-semibold inline-flex items-center gap-2">
-								Marquer comme traité
-								<ChevronDown className="h-4 w-4" />
-							</button>
 						</div>
 					</Panel>
 
@@ -394,12 +374,77 @@ function Badge({ children, tone = "gray" }) {
 	);
 }
 
-function ActionButton({ children, onClick }) {
+function ActionMenu({
+	onProcessing,
+	onShipped,
+	onDelivered,
+	onCancel,
+	onRefund,
+}) {
+	const [open, setOpen] = useState(false);
+
+	return (
+		<div className="relative">
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold inline-flex items-center gap-2"
+			>
+				Modifier la commande
+				<ChevronDown className="h-3.5 w-3.5" />
+			</button>
+
+			{open && (
+				<div className="absolute right-0 mt-2 w-56 rounded-xl border border-[#d8d8d8] bg-white shadow-lg overflow-hidden z-50">
+					<MenuItem onClick={onProcessing}>En traitement</MenuItem>
+					<MenuItem onClick={onShipped}>Expédiée</MenuItem>
+					<MenuItem onClick={onDelivered}>Livrée</MenuItem>
+					<MenuItem tone="warning" onClick={onCancel}>
+						Annuler
+					</MenuItem>
+					<MenuItem tone="danger" onClick={onRefund}>
+						Rembourser
+					</MenuItem>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function ActionButton({ children, onClick, tone = "neutral" }) {
+	const styles =
+		tone === "primary"
+			? "bg-[#303030] hover:bg-black text-white"
+			: tone === "success"
+				? "bg-emerald-600 hover:bg-emerald-700 text-white"
+				: tone === "danger"
+					? "bg-red-600 hover:bg-red-700 text-white"
+					: "bg-[#e4e4e4] hover:bg-[#dcdcdc] text-[#303030]";
+
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className="h-9 px-4 rounded-lg bg-[#e4e4e4] hover:bg-[#dcdcdc] text-[13px] font-medium inline-flex items-center gap-1"
+			className={`h-9 px-4 rounded-lg text-[13px] font-semibold inline-flex items-center gap-1 ${styles}`}
+		>
+			{children}
+		</button>
+	);
+}
+
+function MenuItem({ children, onClick, tone = "default" }) {
+	const colors =
+		tone === "danger"
+			? "text-red-700 hover:bg-red-50"
+			: tone === "warning"
+				? "text-orange-700 hover:bg-orange-50"
+				: "text-[#303030] hover:bg-[#f3f3f3]";
+
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={`w-full text-left px-4 py-2.5 text-[13px] font-medium ${colors}`}
 		>
 			{children}
 		</button>

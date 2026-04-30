@@ -148,17 +148,34 @@ export function formatApiError(err) {
 }
 
 async function callOrderFunction(name, payload) {
-  const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/${name}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const token = localStorage.getItem("access_token");
 
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const res = await fetch(
+    `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/${name}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const text = await res.text();
+
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = { error: text };
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || data.message || "Erreur Edge Function");
+  }
+
+  return data;
 }
 
 export function updateOrderStatus(orderId, status) {
