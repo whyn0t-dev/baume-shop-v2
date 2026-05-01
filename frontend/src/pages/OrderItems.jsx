@@ -15,7 +15,12 @@ import {
 	Truck,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
-import { getAdminOrder, refundOrder, updateOrderStatus } from "../lib/api";
+import {
+	getAdminOrder,
+	refundOrder,
+	updateOrderStatus,
+	updateOrderItemStatus,
+} from "../lib/api";
 
 export default function OrderItems() {
 	const { orderId } = useParams();
@@ -23,9 +28,28 @@ export default function OrderItems() {
 
 	const [order, setOrder] = useState(null);
 	const [loading, setLoading] = useState(true);
+	const [currentStatus, setCurrentStatus] = useState(null);
 
 	const isAdmin =
 		user?.role === "admin" || user?.is_admin === true || user?.isAdmin === true;
+
+	useEffect(() => {
+		if (order?.status) {
+			setCurrentStatus(order.status);
+		}
+	}, [order]);
+
+	async function handleStatusChange(status) {
+		if (!order?.id) return;
+
+		try {
+			await updateOrderStatus(order.id, status);
+			setCurrentStatus(status);
+			setOrder((prev) => ({ ...prev, status }));
+		} catch (err) {
+			alert(err.message);
+		}
+	}
 
 	useEffect(() => {
 		if (status !== "authenticated" || !isAdmin) return;
@@ -52,6 +76,9 @@ export default function OrderItems() {
 	}
 
 	const items = Array.isArray(order.items) ? order.items : [];
+	const unfulfilledCount = items.filter(
+		(item) => item.fulfillment_status !== "fulfilled",
+	).length;
 	const currency = (order.currency || "CHF").toUpperCase();
 	const shippingAddress =
 		typeof order.shipping_address === "object" && order.shipping_address
@@ -86,7 +113,7 @@ export default function OrderItems() {
 						<div className="flex flex-wrap items-center gap-2">
 							<h1 className="text-[20px] font-semibold">{orderNumber}</h1>
 							<Badge tone="gray">Payée</Badge>
-							<Badge tone="yellow">Non traitée</Badge>
+							<StatusBadge status={currentStatus} />
 						</div>
 
 						<p className="text-[12px] text-[#6b6b6b] mt-1">
@@ -103,11 +130,11 @@ export default function OrderItems() {
 						</ActionButton>
 
 						<ActionMenu
-							onProcessing={() => updateOrderStatus(order.id, "processing")}
-							onShipped={() => updateOrderStatus(order.id, "shipped")}
-							onDelivered={() => updateOrderStatus(order.id, "delivered")}
-							onCancel={() => updateOrderStatus(order.id, "cancelled")}
-							onRefund={() => refundOrder(order.id)}
+							onProcessing={() => handleStatusChange("processing")}
+							onShipped={() => handleStatusChange("shipped")}
+							onDelivered={() => handleStatusChange("delivered")}
+							onCancel={() => handleStatusChange("cancelled")}
+							onRefund={() => handleStatusChange("refunded")}
 						/>
 					</div>
 				</div>
@@ -120,7 +147,7 @@ export default function OrderItems() {
 							<div className="flex flex-wrap gap-2">
 								<Badge tone="yellow">
 									<Package className="h-3.5 w-3.5" />
-									Non traité ({items.length})
+									Non traité ({unfulfilledCount})
 								</Badge>
 								<Badge tone="gray">
 									<MapPin className="h-3.5 w-3.5" />
@@ -144,7 +171,7 @@ export default function OrderItems() {
 								items.map((item) => (
 									<div
 										key={item.id}
-										className="px-4 py-3 flex items-center gap-3 border-b border-[#eee] last:border-b-0"
+										className="px-4 py-3 flex items-center gap-3 justify-between border-b border-[#eee] last:border-b-0"
 									>
 										<div className="h-12 w-12 rounded-md bg-[#f6f6f6] border border-[#e5e5e5] flex items-center justify-center shrink-0">
 											<Package className="h-5 w-5 text-[#777]" />
@@ -165,10 +192,35 @@ export default function OrderItems() {
 												{item.quantity || 1}
 											</span>
 										</div>
-
 										<div className="text-[13px] text-right w-24">
 											{Number(item.total_price || 0).toFixed(2)} {currency}
 										</div>
+
+										<button
+											type="button"
+											onClick={async () => {
+												await updateOrderItemStatus(item.id, "fulfilled");
+
+												setOrder((prev) => ({
+													...prev,
+													items: prev.items.map((i) =>
+														i.id === item.id
+															? { ...i, fulfillment_status: "fulfilled" }
+															: i,
+													),
+												}));
+											}}
+											disabled={item.fulfillment_status === "fulfilled"}
+											className={`h-8 px-3 rounded-md text-[12px] font-semibold ml-3 ${
+												item.fulfillment_status === "fulfilled"
+													? "bg-emerald-100 text-emerald-700 cursor-default"
+													: "bg-[#303030] text-white hover:bg-black"
+											}`}
+										>
+											{item.fulfillment_status === "fulfilled"
+												? "Traité"
+												: "Marquer comme traité"}
+										</button>
 									</div>
 								))
 							)}
@@ -396,7 +448,7 @@ function ActionMenu({
 
 			{open && (
 				<div className="absolute right-0 mt-2 w-56 rounded-xl border border-[#d8d8d8] bg-white shadow-lg overflow-hidden z-50">
-					<MenuItem onClick={onProcessing}>En traitement</MenuItem>
+					<MenuItem onClick={onProcessing}>⚙️ En traitement</MenuItem>
 					<MenuItem onClick={onShipped}>Expédiée</MenuItem>
 					<MenuItem onClick={onDelivered}>Livrée</MenuItem>
 					<MenuItem tone="warning" onClick={onCancel}>
@@ -433,23 +485,23 @@ function ActionButton({ children, onClick, tone = "neutral" }) {
 }
 
 function MenuItem({ children, onClick, tone = "default" }) {
-	const colors =
-		tone === "danger"
-			? "text-red-700 hover:bg-red-50"
-			: tone === "warning"
-				? "text-orange-700 hover:bg-orange-50"
-				: "text-[#303030] hover:bg-[#f3f3f3]";
+	const styles = {
+		default: "bg-gray-50 hover:bg-gray-200 text-[#303030]",
+		warning: "bg-orange-50 hover:bg-orange-200 text-orange-700",
+		danger: "bg-red-50 hover:bg-red-200 text-red-700",
+	};
 
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className={`w-full text-left px-4 py-2.5 text-[13px] font-medium ${colors}`}
+			className={`w-full text-left px-4 py-2.5 text-[13px] font-medium rounded-md transition-colors duration-150 ${styles[tone]}`}
 		>
 			{children}
 		</button>
 	);
 }
+
 function SummaryLine({ label, detail, value, strong = false }) {
 	return (
 		<div className="grid grid-cols-[120px_1fr_auto] gap-4 px-4 py-2 border-b border-[#eee] last:border-b-0 text-[13px]">
@@ -496,5 +548,44 @@ function TimelineItem({ children }) {
 			<span className="absolute -left-[33px] top-1 h-3 w-3 rounded-full bg-[#777] border-2 border-[#f1f1f1]" />
 			<p>{children}</p>
 		</div>
+	);
+}
+
+function StatusBadge({ status }) {
+	const map = {
+		pending: {
+			label: "Non traitée",
+			class: "bg-yellow-100 text-yellow-900 border-yellow-200",
+		},
+		processing: {
+			label: "En traitement",
+			class: "bg-blue-100 text-blue-900 border-blue-200",
+		},
+		shipped: {
+			label: "Expédiée",
+			class: "bg-purple-100 text-purple-900 border-purple-200",
+		},
+		delivered: {
+			label: "Livrée",
+			class: "bg-emerald-100 text-emerald-900 border-emerald-200",
+		},
+		cancelled: {
+			label: "Annulée",
+			class: "bg-red-100 text-red-900 border-red-200",
+		},
+		refunded: {
+			label: "Remboursée",
+			class: "bg-gray-200 text-gray-800 border-gray-300",
+		},
+	};
+
+	const s = map[status] || map.pending;
+
+	return (
+		<span
+			className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium ${s.class}`}
+		>
+			{s.label}
+		</span>
 	);
 }

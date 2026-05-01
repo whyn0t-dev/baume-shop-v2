@@ -16,12 +16,14 @@ export default function LoginPage() {
   const location = useLocation();
   const redirect = new URLSearchParams(location.search).get("redirect") || "/compte";
 
+  const [keepSession, setKeepSession] = useState(false);
+
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, { expiresInHours: keepSession ? 3 : null });
       toast.success("Bon retour chez Baume");
       navigate(redirect);
     } catch (err) {
@@ -49,6 +51,16 @@ export default function LoginPage() {
               <Link to="/mot-de-passe-oublie" className="text-[12px] baume-link">Oublié ?</Link>
             </div>
             <Input id="password" type="password" data-testid="login-password" value={password} onChange={(e) => setPassword(e.target.value)} required className="mt-1.5 h-12 rounded-lg border-baume-border focus-visible:ring-baume-burgundy" />
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="keep-session"
+              checked={keepSession}
+              onChange={(e) => setKeepSession(e.target.checked)}
+              className="h-4 w-4 text-baume-burgundy focus:ring-baume-burgundy"
+            />
+            <Label htmlFor="keep-session">Rester connecté</Label>
           </div>
           <button
             type="submit"

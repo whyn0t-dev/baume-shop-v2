@@ -15,6 +15,17 @@ import { useAuth } from "../lib/auth";
 import { getAdminTable, deleteAdminItem, formatApiError } from "../lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { useCallback } from "react";
+
+const STATUS_LABELS = {
+	pending: "Non traitée",
+	processing: "En traitement",
+	shipped: "Expédiée",
+	delivered: "Livrée",
+	cancelled: "Annulée",
+	refunded: "Remboursée",
+	paid: "Payée",
+};
 
 const SECTIONS = [
 	{ key: "products", label: "Produits", icon: Package },
@@ -32,25 +43,28 @@ export default function DashBoardAdmin() {
 
 	const isAdmin = user?.role === "admin";
 
-	const loadData = async (table = active) => {
-		setLoading(true);
+	const loadData = useCallback(
+		async (table = active) => {
+			setLoading(true);
 
-		try {
-			const data = await getAdminTable(table, 300);
-			setRows(Array.isArray(data) ? data : []);
-		} catch (err) {
-			toast.error("Erreur admin", { description: formatApiError(err) });
-			setRows([]);
-		} finally {
-			setLoading(false);
-		}
-	};
+			try {
+				const data = await getAdminTable(table, 300);
+				setRows(Array.isArray(data) ? data : []);
+			} catch (err) {
+				toast.error("Erreur admin", { description: formatApiError(err) });
+				setRows([]);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[active],
+	);
 
 	useEffect(() => {
 		if (status === "authenticated" && isAdmin) {
 			loadData(active);
 		}
-	}, [active, status, isAdmin]);
+	}, [active, status, isAdmin, loadData]);
 
 	const handleDelete = async (id) => {
 		if (!window.confirm("Supprimer cet élément ?")) return;
@@ -190,7 +204,7 @@ function AdminTable({ table, rows, onDelete }) {
 			/>
 		);
 	}
-  
+
 	if (table === "orders") {
 		return (
 			<Table
@@ -199,7 +213,7 @@ function AdminTable({ table, rows, onDelete }) {
 					`#${String(o.id).slice(0, 8).toUpperCase()}`,
 					o.email || o.customer_email || "-",
 					`${Number(o.total || o.amount || 0).toFixed(2)} ${o.currency || "CHF"}`,
-					o.status || "-",
+					<StatusBadge status={o.status} />,
 					o.created_at
 						? new Date(o.created_at).toLocaleDateString("fr-CH")
 						: "-",
@@ -306,5 +320,44 @@ function DeleteButton({ onClick }) {
 		>
 			<Trash2 className="h-4 w-4" />
 		</button>
+	);
+}
+
+function StatusBadge({ status }) {
+	const map = {
+		pending: {
+			label: "Non traitée",
+			class: "bg-yellow-100 text-yellow-900 border-yellow-200",
+		},
+		processing: {
+			label: "En traitement",
+			class: "bg-blue-100 text-blue-900 border-blue-200",
+		},
+		shipped: {
+			label: "Expédiée",
+			class: "bg-purple-100 text-purple-900 border-purple-200",
+		},
+		delivered: {
+			label: "Livrée",
+			class: "bg-emerald-100 text-emerald-900 border-emerald-200",
+		},
+		cancelled: {
+			label: "Annulée",
+			class: "bg-red-100 text-red-900 border-red-200",
+		},
+		refunded: {
+			label: "Remboursée",
+			class: "bg-gray-200 text-gray-800 border-gray-300",
+		},
+	};
+
+	const s = map[status] || map.pending;
+
+	return (
+		<span
+			className={`inline-flex items-center rounded-md border px-2 py-1 text-[12px] font-medium ${s.class}`}
+		>
+			{s.label}
+		</span>
 	);
 }

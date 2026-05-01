@@ -185,3 +185,9 @@ export function updateOrderStatus(orderId, status) {
 export function refundOrder(orderId) {
   return callOrderFunction("refund-order", { orderId });
 }
+export function updateOrderItemStatus(itemId, fulfillmentStatus) {
+  return callOrderFunction("update-order-item-status", {
+    itemId,
+    fulfillmentStatus,
+  });
+}

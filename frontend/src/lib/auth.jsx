@@ -27,6 +27,16 @@ export function AuthProvider({ children }) {
 	}, []);
 	useEffect(() => {
 		const token = localStorage.getItem("access_token");
+		const expiresAt = Number(localStorage.getItem("session_expires_at"));
+
+		if (expiresAt && Date.now() > expiresAt) {
+			localStorage.removeItem("access_token");
+			localStorage.removeItem("refresh_token");
+			localStorage.removeItem("session_expires_at");
+			setUser(null);
+			setStatus("guest");
+			return;
+		}
 
 		if (token) {
 			refreshMe();
@@ -35,22 +45,20 @@ export function AuthProvider({ children }) {
 		}
 	}, [refreshMe]);
 
-	const login = useCallback(async (email, password) => {
+	const login = async (email, password, options = {}) => {
 		const data = await loginUser({ email, password });
 
-		if (data.access_token) {
-			localStorage.setItem("access_token", data.access_token);
+		localStorage.setItem("access_token", data.access_token);
+
+		if (options.expiresInHours) {
+			const expiresAt = Date.now() + options.expiresInHours * 60 * 60 * 1000;
+			localStorage.setItem("session_expires_at", String(expiresAt));
+		} else {
+			localStorage.removeItem("session_expires_at");
 		}
 
-		if (data.refresh_token) {
-			localStorage.setItem("refresh_token", data.refresh_token);
-		}
-
-		setUser(data.user);
-		setStatus("authenticated");
-
-		return data.user;
-	}, []);
+		await refreshMe();
+	};
 
 	const register = useCallback(async (payload) => {
 		const data = await registerUser(payload);
@@ -72,12 +80,11 @@ export function AuthProvider({ children }) {
 	const logout = useCallback(async () => {
 		try {
 			await logoutUser();
-		} catch {
-			// ignore
-		}
+		} catch {}
 
 		localStorage.removeItem("access_token");
 		localStorage.removeItem("refresh_token");
+		localStorage.removeItem("session_expires_at");
 
 		setUser(null);
 		setStatus("guest");
