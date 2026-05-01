@@ -1320,6 +1320,28 @@ async def list_admin_table(
     return result.data or []
 
 
+@api_router.get("/ecom/admin/orders/{order_id}")
+async def get_admin_order(
+    order_id: str,
+    profile=Depends(require_admin),
+):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*, order_items(*)")
+        .eq("id", order_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    order = result.data[0]
+    order["items"] = order.get("order_items", [])
+
+    return order
+
+
 @api_router.get("/ecom/admin/{table}/{item_id}")
 async def get_admin_item(
     table: str,
