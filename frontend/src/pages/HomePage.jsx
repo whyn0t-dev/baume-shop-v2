@@ -28,10 +28,11 @@ export default function HomePage() {
   const { addItem } = useCart();
 
   useEffect(() => {
-    getCategories("besoin").then(setNeeds).catch(() => { });
-    getReviews().then((r) => setReviews(r.slice(0, 3))).catch(() => { });
-    getGuides().then((g) => setGuides(g.slice(0, 3))).catch(() => { });
-    getExperts().then(setExperts).catch(() => { });
+    getCategories("besoin").then(setNeeds).catch(() => {});
+    getProducts({ bestseller: true }).then((p) => setBestsellers(p.slice(0, 4))).catch(() => {});
+    getReviews().then((r) => setReviews(r.slice(0, 3))).catch(() => {});
+    getGuides().then((g) => setGuides(g.slice(0, 3))).catch(() => {});
+    getExperts().then(setExperts).catch(() => {});
   }, []);
 
   return (
@@ -43,7 +44,7 @@ export default function HomePage() {
         <div className="baume-container py-6 grid grid-cols-1 md:grid-cols-3 gap-3">
           <Link
             to="/shop/besoin"
-            className="group rounded-2xl border border-baume-border bg-baume-ivory px-5 py-5 flex items-center justify-between hover:shadow-sm transition-all"
+            className="group rounded-2xl border border-baume-border bg-baume-white px-5 py-5 flex items-center justify-between hover:bg-baume-ivory hover:shadow-sm transition-all"
           >
             <div>
               <p className="font-editorial text-[22px] text-baume-charcoal">Je cherche une solution</p>
@@ -54,7 +55,7 @@ export default function HomePage() {
 
           <Link
             to="/shop/produit"
-            className="group rounded-2xl border border-baume-border bg-baume-ivory px-5 py-5 flex items-center justify-between hover:shadow-sm transition-all"
+            className="group rounded-2xl border border-baume-border bg-baume-white px-5 py-5 flex items-center justify-between hover:bg-baume-ivory hover:shadow-sm transition-all"
           >
             <div>
               <p className="font-editorial text-[22px] text-baume-charcoal">Je veux voir les produits</p>
@@ -65,7 +66,7 @@ export default function HomePage() {
 
           <Link
             to="/ateliers"
-            className="group rounded-2xl bg-baume-burgundy px-5 py-5 flex items-center justify-between text-baume-white hover:shadow-md transition-all"
+            className="group rounded-2xl bg-baume-burgundy px-5 py-5 flex items-center justify-between text-baume-white hover:bg-baume-burgundyDark hover:shadow-md transition-all"
           >
             <div>
               <p className="font-editorial text-[22px]">Nos ateliers</p>
@@ -95,7 +96,7 @@ export default function HomePage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               to="/shop/besoin"
-              className="h-12 px-7 inline-flex items-center gap-2 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:opacity-90 transition-opacity"
+              className="h-12 px-7 inline-flex items-center gap-2 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark transition-colors"
             >
               Trouver par besoin <ArrowRight className="h-4 w-4" />
             </Link>
@@ -212,7 +213,7 @@ export default function HomePage() {
             </p>
             <Link
               to="/guides"
-              className="mt-8 inline-flex items-center gap-2 h-12 px-7 rounded-full border border-baume-burgundy text-baume-burgundy font-semibold text-[15px] hover:bg-baume-burgundy/5 transition-colors"
+              className="mt-8 inline-flex items-center gap-2 h-12 px-7 rounded-full border border-baume-burgundy text-baume-burgundy font-semibold text-[15px] hover:bg-baume-white transition-colors"
             >
               Lire les guides <ArrowRight className="h-4 w-4" />
             </Link>
@@ -227,7 +228,7 @@ export default function HomePage() {
       </section>
 
       {/* Ateliers & experts */}
-      <section className="bg-baume-taupe/20 border-y border-baume-border">
+      <section className="bg-baume-taupe/25 border-y border-baume-border">
         <div className="baume-container py-16 md:py-24">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
             <div>
@@ -266,7 +267,7 @@ export default function HomePage() {
             />
           </div>
 
-          <div className="absolute inset-0 bg-gradient-to-tr from-black/65 via-black/35 to-transparent flex flex-col justify-end p-6 md:p-14">
+          <div className="absolute inset-0 bg-gradient-to-tr from-baume-burgundy/90 via-baume-burgundy/55 to-transparent flex flex-col justify-end p-6 md:p-14">
             <p className="text-[12px] uppercase tracking-[0.2em] text-baume-white/80 font-semibold mb-3">
               Boutique
             </p>
@@ -298,7 +299,7 @@ export default function HomePage() {
               </Link>
               <Link
                 to="/contact"
-                className="h-12 px-7 inline-flex items-center rounded-full border border-baume-white/70 text-baume-white font-semibold text-[15px] hover:bg-white/10 transition-colors"
+                className="h-12 px-7 inline-flex items-center rounded-full border border-baume-white/70 text-baume-white font-semibold text-[15px] hover:bg-baume-white/10 transition-colors"
               >
                 Prendre rendez-vous
               </Link>

@@ -5,7 +5,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        editorial: ["Cormorant Garamond", "Georgia", "serif"],
+        editorial: ["Inter", "ui-sans-serif", "system-ui"],
         sans: ["Inter", "ui-sans-serif", "system-ui"],
       },
       colors: {
@@ -22,14 +22,14 @@ module.exports = {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         baume: {
-          burgundy: "#4D1E19",
-          burgundyDark: "#3D1814",
+          burgundy: "#3D2A2A",
+          burgundyDark: "#2A1717",
           charcoal: "#111111",
           white: "#FFFFFF",
-          ivory: "#F7F3EE",
-          taupe: "#C0B4A6",
-          taupeWarm: "#AFA08F",
-          border: "#E7DDD3",
+          ivory: "#F3E3AC",
+          taupe: "#D3B1A0",
+          taupeWarm: "#B5866B",
+          border: "#D3B1A0",
         },
       },
       borderRadius: {

@@ -27,6 +27,8 @@ import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
 import { MentionsLegalesPage, CgvPage, PrivacyPage } from "./pages/LegalPages";
 import DashBoardAdmin from "./pages/DashBoardAdmin";
 import OrderItems from "./pages/OrderItems";
+import SiteLoader from "./components/SiteLoader";
+import NosExperts from "./pages/NosExperts";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -61,6 +63,7 @@ function AdminRoute({ children }) {
 function AppShell() {
   return (
     <>
+      <SiteLoader />
       <ScrollToTop />
       <Header />
       <main>
@@ -89,6 +92,7 @@ function AppShell() {
           <Route path="/mentions-legales" element={<MentionsLegalesPage />} />
           <Route path="/cgv" element={<CgvPage />} />
           <Route path="/confidentialite" element={<PrivacyPage />} />
+          <Route path="/experts" element={<NosExperts />} />
           <Route
             path="/admin"
             element={
