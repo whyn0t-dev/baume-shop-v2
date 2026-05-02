@@ -10,22 +10,13 @@ import {
 	Trash2,
 	RefreshCw,
 	ShieldCheck,
+	Pencil,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { getAdminTable, deleteAdminItem, formatApiError } from "../lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { useCallback } from "react";
-
-const STATUS_LABELS = {
-	pending: "Non traitée",
-	processing: "En traitement",
-	shipped: "Expédiée",
-	delivered: "Livrée",
-	cancelled: "Annulée",
-	refunded: "Remboursée",
-	paid: "Payée",
-};
 
 const SECTIONS = [
 	{ key: "products", label: "Produits", icon: Package },
@@ -199,7 +190,17 @@ function AdminTable({ table, rows, onDelete }) {
 					`${Number(p.price || 0).toFixed(2)} ${p.currency || "CHF"}`,
 					p.stock ?? 0,
 					p.status,
-					<DeleteButton onClick={() => onDelete(p.id)} />,
+					<div className="flex items-center gap-2">
+						<Link
+							to={`/admin/produits/${p.id}/modifier`}
+							className="h-9 w-9 rounded-full border border-baume-border inline-flex items-center justify-center text-baume-charcoal hover:bg-baume-ivory transition"
+							title="Modifier"
+						>
+							<Pencil className="h-4 w-4" />
+						</Link>
+
+						<DeleteButton onClick={() => onDelete(p.id)} />
+					</div>,
 				])}
 			/>
 		);
@@ -315,7 +316,9 @@ function Table({ columns, rows }) {
 function DeleteButton({ onClick }) {
 	return (
 		<button
+			type="button"
 			onClick={onClick}
+			title="Supprimer"
 			className="h-9 w-9 rounded-full border border-baume-border inline-flex items-center justify-center text-baume-burgundy hover:bg-baume-burgundy hover:text-baume-white transition"
 		>
 			<Trash2 className="h-4 w-4" />
