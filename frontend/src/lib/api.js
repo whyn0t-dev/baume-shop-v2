@@ -1,5 +1,4 @@
 import axios from "axios";
-import { api, formatApiError } from "../lib/api";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
