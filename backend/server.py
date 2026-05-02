@@ -18,6 +18,8 @@ import os
 import logging
 import uuid
 import asyncio
+import requests
+
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
@@ -1614,6 +1616,72 @@ async def upload_image(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/ecom/admin/migrate-images")
+async def migrate_images(profile=Depends(require_admin)):
+    products = await asyncio.to_thread(
+        lambda: supabase.table("products").select("*").execute()
+    )
+
+    for product in products.data:
+        product_id = product["id"]
+
+        urls = []
+
+        # image principale
+        if product.get("image"):
+            urls.append(product["image"])
+
+        # gallery
+        if product.get("gallery"):
+            urls.extend(product["gallery"])
+
+        for index, url in enumerate(urls):
+            try:
+                # télécharger image externe
+                response = requests.get(url)
+                if response.status_code != 200:
+                    continue
+
+                file_path = f"products/{product_id}/{uuid.uuid4()}.jpg"
+
+                # upload dans Supabase Storage
+                await asyncio.to_thread(
+                    lambda: supabase.storage.from_("product-images").upload(
+                        file_path, response.content
+                    )
+                )
+
+                public_url = supabase.storage.from_("product-images").get_public_url(
+                    file_path
+                )
+
+                # insert en DB
+                await sb_insert(
+                    "product_images",
+                    {
+                        "product_id": product_id,
+                        "storage_path": file_path,
+                        "public_url": public_url,
+                        "position": index + 1,
+                        "alt_text": product.get("title"),
+                    },
+                )
+
+                # si première image → image principale
+                if index == 0:
+                    await sb_update(
+                        "products",
+                        {"image": public_url},
+                        "id",
+                        product_id,
+                    )
+
+            except Exception as e:
+                print("Erreur:", e)
+
+    return {"success": True}
 
 
 api_router.include_router(auth_router)

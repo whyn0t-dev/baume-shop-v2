@@ -205,3 +205,6 @@ export const archiveAdminProduct = (productId) =>
 
 export const deleteAdminProduct = (productId) =>
   api.delete(`/ecom/admin/products/${productId}`).then((r) => r.data);
+
+export const getProductImages = (productId) =>
+  api.get(`/products/${productId}/images`).then((r) => normalizeArray(r.data));
