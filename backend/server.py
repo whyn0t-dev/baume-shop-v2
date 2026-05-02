@@ -1619,7 +1619,7 @@ async def upload_image(file: UploadFile = File(...)):
 
 
 @api_router.post("/ecom/admin/migrate-images")
-async def migrate_images(profile=Depends(require_admin)):
+async def migrate_images():
     products = await asyncio.to_thread(
         lambda: supabase.table("products").select("*").execute()
     )
