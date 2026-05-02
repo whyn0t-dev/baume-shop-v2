@@ -95,8 +95,22 @@ function AppShell() {
           <Route path="/cgv" element={<CgvPage />} />
           <Route path="/confidentialite" element={<PrivacyPage />} />
           <Route path="/experts" element={<NosExperts />} />
-          <Route path="/admin/produits/nouveau" element={<AdminProductCreate />} />
-          <Route path="/admin/produits/:productId" element={<AdminProductEdit />} />
+          <Route
+            path="/admin/produits/nouveau"
+            element={
+              <AdminRoute>
+                <AdminProductCreate />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/produits/:productId/modifier"
+            element={
+              <AdminRoute>
+                <AdminProductEdit />
+              </AdminRoute>
+            }
+          />
           <Route
             path="/admin"
             element={

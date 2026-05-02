@@ -21,6 +21,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
+from fastapi import UploadFile, File
 
 import stripe
 
@@ -1588,6 +1589,31 @@ async def delete_admin_item(
 
     await sb_delete(table, "id", item_id)
     return {"status": "deleted"}
+
+
+@api_router.post("/upload/image")
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        file_bytes = await file.read()
+
+        file_path = f"products/{uuid.uuid4()}-{file.filename}"
+
+        # ✅ IMPORTANT : nom du bucket
+        res = await asyncio.to_thread(
+            lambda: supabase.storage.from_("product-images").upload(
+                file_path, file_bytes, {"content-type": file.content_type}
+            )
+        )
+
+        public_url = supabase.storage.from_("product-images").get_public_url(file_path)
+
+        return {
+            "path": file_path,
+            "url": public_url,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 api_router.include_router(auth_router)
