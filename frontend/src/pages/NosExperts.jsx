@@ -8,7 +8,7 @@ const EXPERTS = [
 		offer: "Bilan Ménopause Offert",
 		description:
 			"45 min pour comprendre ce qui se passe et repartir avec un plan d’action concret.",
-		code: "+41 79 950 90 99",
+		code: "BAUME_LORIS",
 		contactType: "Téléphone",
 		contactIcon: Phone,
 		image: "/images/image-loris-cavalieri.webp",
