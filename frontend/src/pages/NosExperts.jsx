@@ -1,5 +1,14 @@
-import React from "react";
-import { Mail, Phone, ArrowRight, Sparkles, Heart, Copy } from "lucide-react";
+import React, { useState } from "react";
+import {
+	Mail,
+	Phone,
+	ArrowRight,
+	Sparkles,
+	Heart,
+	Copy,
+	ChevronDown,
+	Gift,
+} from "lucide-react";
 
 const EXPERTS = [
 	{
@@ -63,6 +72,15 @@ const EXPERTS = [
 ];
 
 export default function NosExperts() {
+	const [openItems, setOpenItems] = useState({});
+
+	function toggleItem(expertName, sectionTitle) {
+		setOpenItems((current) => ({
+			...current,
+			[expertName]: current[expertName] === sectionTitle ? null : sectionTitle,
+		}));
+	}
+
 	return (
 		<main className="bg-baume-white text-baume-charcoal">
 			<section className="relative overflow-hidden bg-baume-ivory">
@@ -78,100 +96,134 @@ export default function NosExperts() {
 						</h1>
 
 						<p className="mt-6 max-w-2xl text-[17px] md:text-[19px] leading-[30px] text-baume-charcoal/70">
-							Des experts qui vous ressemblent, choisis pour leur écoute,
-							leur douceur et leur capacité à accompagner les transitions du
-							corps avec justesse.
+							Des experts qui vous ressemblent, choisis pour leur écoute, leur
+							douceur et leur capacité à accompagner les transitions du corps
+							avec justesse.
 						</p>
 					</div>
 				</div>
 			</section>
 
 			<section className="w-full px-6 lg:px-10 py-16 md:py-24">
-				<div className="grid grid-cols-1 gap-12">
+				<div className="grid grid-cols-1 gap-14">
 					{EXPERTS.map((expert, index) => {
 						const ContactIcon = expert.contactIcon;
+						const openedSection = openItems[expert.name];
 
 						return (
 							<article
 								key={expert.name}
-								className="rounded-[32px] border border-baume-border bg-baume-white overflow-hidden shadow-[0_18px_60px_rgba(61,42,42,0.08)]"
+								className="rounded-[36px] border border-baume-border bg-baume-white overflow-hidden shadow-[0_18px_60px_rgba(61,42,42,0.08)]"
 							>
 								<div
-									className={`grid grid-cols-1 lg:grid-cols-12 ${
+									className={`grid grid-cols-1 lg:grid-cols-12 gap-0 ${
 										index % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
 									}`}
 								>
-									<div className="lg:col-span-5 bg-baume-ivory">
-										<img
-											src={expert.image}
-											alt={expert.name}
-											className="h-[360px] lg:h-full min-h-[520px] w-full object-cover"
-										/>
+									<div className="lg:col-span-5 flex items-center justify-center p-8">
+										<div className="flex flex-col items-center text-center">
+											<div className="w-[220px] h-[220px] rounded-full overflow-hidden shadow-[0_18px_45px_rgba(61,42,42,0.15)]">
+												<img
+													src={expert.image}
+													alt={expert.name}
+													className="w-full h-full object-cover"
+												/>
+											</div>
+										</div>
 									</div>
 
 									<div className="lg:col-span-7 p-7 md:p-10 lg:p-12">
-										<div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+										<div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
 											<div>
-												<p className="text-[12px] uppercase tracking-[0.22em] text-baume-burgundy/70 font-semibold">
-													{expert.offer}
-												</p>
 												<h2 className="mt-3 text-[34px] md:text-[46px] font-semibold leading-tight text-baume-burgundy">
 													{expert.name}
 												</h2>
+
 												<p className="mt-3 text-[16px] leading-[25px] text-baume-charcoal/65 max-w-2xl">
 													{expert.role}
 												</p>
 											</div>
 
-											<div className="rounded-2xl bg-baume-ivory px-5 py-4 border border-baume-border shrink-0">
-												<p className="text-[12px] uppercase tracking-[0.16em] text-baume-charcoal/50 font-semibold">
-													Code / contact
+											<div className="rounded-[24px] bg-baume-burgundy text-baume-white p-5 border border-baume-burgundy shadow-[0_14px_35px_rgba(61,42,42,0.18)] shrink-0 xl:min-w-[260px]">
+												<p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.16em] text-baume-taupe font-semibold">
+													<Gift className="h-4 w-4" />
+													Code promo
 												</p>
-												<p className="mt-2 flex items-center gap-2 text-[15px] font-semibold text-baume-burgundy">
-													<ContactIcon className="h-4 w-4" />
+
+												<p className="mt-3 rounded-full bg-baume-white px-4 py-3 text-center text-[18px] font-semibold tracking-[0.08em] text-baume-burgundy">
 													{expert.code}
+												</p>
+
+												<p className="mt-3 flex items-center gap-2 text-[13px] text-baume-white/70">
+													<ContactIcon className="h-4 w-4 text-baume-taupe" />
+													{expert.contactType}
 												</p>
 											</div>
 										</div>
 
-										<div className="mt-8 rounded-[24px] bg-baume-burgundy text-baume-white p-6">
+										<div className="mt-8 rounded-[24px] bg-baume-ivory border border-baume-border p-6">
 											<div className="flex items-start gap-3">
-												<Heart className="h-5 w-5 text-baume-taupe shrink-0 mt-1" />
+												<Heart className="h-5 w-5 text-baume-burgundy shrink-0 mt-1" />
 												<div>
-													<h3 className="text-[22px] font-semibold">
+													<h3 className="text-[22px] font-semibold text-baume-burgundy">
 														{expert.offer}
 													</h3>
-													<p className="mt-2 text-[15px] leading-[24px] text-baume-white/75">
+													<p className="mt-2 text-[15px] leading-[24px] text-baume-charcoal/70">
 														{expert.description}
 													</p>
 												</div>
 											</div>
 										</div>
 
-										<div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-5">
-											{expert.sections.map((section) => (
-												<div
-													key={section.title}
-													className="rounded-[22px] border border-baume-border bg-baume-ivory/45 p-5"
-												>
-													<h3 className="text-[18px] font-semibold text-baume-burgundy">
-														{section.title}
-													</h3>
-													<p className="mt-3 text-[14px] leading-[23px] text-baume-charcoal/70">
-														{section.text}
-													</p>
-												</div>
-											))}
+										<div className="mt-8 space-y-3">
+											{expert.sections.map((section) => {
+												const isOpen = openedSection === section.title;
+
+												return (
+													<div
+														key={section.title}
+														className="rounded-[22px] border border-baume-border bg-baume-white overflow-hidden"
+													>
+														<button
+															type="button"
+															onClick={() =>
+																toggleItem(expert.name, section.title)
+															}
+															className="w-full px-5 py-5 flex items-center justify-between gap-4 text-left hover:bg-baume-ivory/60 transition-colors"
+														>
+															<span className="text-[18px] font-semibold text-baume-burgundy">
+																{section.title}
+															</span>
+
+															<ChevronDown
+																className={`h-5 w-5 text-baume-burgundy shrink-0 transition-transform ${
+																	isOpen ? "rotate-180" : ""
+																}`}
+															/>
+														</button>
+
+														{isOpen && (
+															<div className="px-5 pb-5">
+																<p className="text-[14px] leading-[24px] text-baume-charcoal/70">
+																	{section.text}
+																</p>
+															</div>
+														)}
+													</div>
+												);
+											})}
 										</div>
 
 										<div className="mt-8 flex flex-col sm:flex-row gap-3">
 											<button
 												type="button"
-												onClick={() => navigator.clipboard?.writeText(expert.code)}
+												onClick={() =>
+													navigator.clipboard?.writeText(expert.code)
+												}
 												className="h-12 px-6 rounded-full border border-baume-border text-baume-charcoal font-semibold text-[14px] inline-flex items-center justify-center gap-2 hover:bg-baume-ivory transition-colors"
 											>
 												<Copy className="h-4 w-4" />
-												Copier le code
+												Copier le code promo
 											</button>
 
 											<a

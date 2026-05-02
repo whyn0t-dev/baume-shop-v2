@@ -1303,6 +1303,220 @@ async def get_public_item(table: str, item_id: str):
     return item
 
 
+@api_router.post("/ecom/admin/products/create")
+async def create_admin_product(
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    product_data = payload.get("product", {})
+    options = payload.get("options", [])
+    variants = payload.get("variants", [])
+    images = payload.get("images", [])
+    collections = payload.get("collections", [])
+
+    if not product_data.get("title"):
+        raise HTTPException(status_code=400, detail="Le titre est obligatoire.")
+
+    if not product_data.get("slug"):
+        raise HTTPException(status_code=400, detail="Le slug est obligatoire.")
+
+    product_data["name"] = product_data.get("name") or product_data.get("title")
+    product_data["updated_at"] = now_iso()
+
+    try:
+        created = await sb_insert("products", product_data)
+        product = created.data[0]
+        product_id = product["id"]
+
+        clean_options = [
+            {
+                "product_id": product_id,
+                "name": option.get("name"),
+                "position": option.get("position", 1),
+            }
+            for option in options
+            if option.get("name")
+        ]
+
+        if clean_options:
+            await sb_insert("product_options", clean_options)
+
+        clean_variants = [
+            {
+                "product_id": product_id,
+                "title": variant.get("title"),
+                "sku": variant.get("sku") or None,
+                "barcode": variant.get("barcode") or None,
+                "price": variant.get("price", 0),
+                "compare_at_price": variant.get("compare_at_price"),
+                "cost_price": variant.get("cost_price"),
+                "weight_grams": variant.get("weight_grams", 0),
+                "option1": variant.get("option1") or None,
+                "option2": variant.get("option2") or None,
+                "option3": variant.get("option3") or None,
+                "active": variant.get("active", True),
+            }
+            for variant in variants
+            if variant.get("title")
+        ]
+
+        if clean_variants:
+            await sb_insert("product_variants", clean_variants)
+
+        clean_images = [
+            {
+                "product_id": product_id,
+                "storage_path": image.get("storage_path"),
+                "public_url": image.get("public_url") or None,
+                "alt_text": image.get("alt_text") or product_data.get("title"),
+                "position": image.get("position", 1),
+            }
+            for image in images
+            if image.get("storage_path")
+        ]
+
+        if clean_images:
+            await sb_insert("product_images", clean_images)
+
+        clean_collections = [
+            {
+                "product_id": product_id,
+                "collection_id": collection_id,
+            }
+            for collection_id in collections
+            if collection_id
+        ]
+
+        if clean_collections:
+            await sb_insert("product_collections", clean_collections)
+
+        return {
+            "success": True,
+            "product_id": product_id,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.patch("/ecom/admin/products/{product_id}")
+async def update_admin_product(
+    product_id: str,
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    product_data = payload.get("product", {})
+    options = payload.get("options", [])
+    variants = payload.get("variants", [])
+    images = payload.get("images", [])
+    collections = payload.get("collections", [])
+
+    product_data["updated_at"] = now_iso()
+
+    try:
+        await sb_update("products", product_data, "id", product_id)
+
+        await sb_delete("product_options", "product_id", product_id)
+        await sb_delete("product_variants", "product_id", product_id)
+        await sb_delete("product_images", "product_id", product_id)
+        await sb_delete("product_collections", "product_id", product_id)
+
+        clean_options = [
+            {
+                "product_id": product_id,
+                "name": option.get("name"),
+                "position": option.get("position", 1),
+            }
+            for option in options
+            if option.get("name")
+        ]
+
+        if clean_options:
+            await sb_insert("product_options", clean_options)
+
+        clean_variants = [
+            {
+                "product_id": product_id,
+                "title": variant.get("title"),
+                "sku": variant.get("sku") or None,
+                "barcode": variant.get("barcode") or None,
+                "price": variant.get("price", 0),
+                "compare_at_price": variant.get("compare_at_price"),
+                "cost_price": variant.get("cost_price"),
+                "weight_grams": variant.get("weight_grams", 0),
+                "option1": variant.get("option1") or None,
+                "option2": variant.get("option2") or None,
+                "option3": variant.get("option3") or None,
+                "active": variant.get("active", True),
+            }
+            for variant in variants
+            if variant.get("title")
+        ]
+
+        if clean_variants:
+            await sb_insert("product_variants", clean_variants)
+
+        clean_images = [
+            {
+                "product_id": product_id,
+                "storage_path": image.get("storage_path"),
+                "public_url": image.get("public_url") or None,
+                "alt_text": image.get("alt_text"),
+                "position": image.get("position", 1),
+            }
+            for image in images
+            if image.get("storage_path")
+        ]
+
+        if clean_images:
+            await sb_insert("product_images", clean_images)
+
+        clean_collections = [
+            {
+                "product_id": product_id,
+                "collection_id": collection_id,
+            }
+            for collection_id in collections
+            if collection_id
+        ]
+
+        if clean_collections:
+            await sb_insert("product_collections", clean_collections)
+
+        return {"success": True, "product_id": product_id}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.patch("/ecom/admin/products/{product_id}/archive")
+async def archive_admin_product(
+    product_id: str,
+    profile=Depends(require_admin),
+):
+    await sb_update(
+        "products",
+        {
+            "status": "archived",
+            "available": False,
+            "updated_at": now_iso(),
+        },
+        "id",
+        product_id,
+    )
+
+    return {"success": True, "status": "archived"}
+
+
+@api_router.delete("/ecom/admin/products/{product_id}")
+async def delete_admin_product(
+    product_id: str,
+    profile=Depends(require_admin),
+):
+    await sb_delete("products", "id", product_id)
+    return {"success": True, "status": "deleted"}
+
+
 @api_router.get("/ecom/admin/{table}")
 async def list_admin_table(
     table: str,

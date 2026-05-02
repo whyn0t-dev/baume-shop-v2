@@ -1,4 +1,5 @@
 import axios from "axios";
+import { api, formatApiError } from "../lib/api";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -191,3 +192,17 @@ export function updateOrderItemStatus(itemId, fulfillmentStatus) {
     fulfillmentStatus,
   });
 }
+export const createAdminProduct = (payload) =>
+  api.post("/ecom/admin/products/create", payload).then((r) => r.data);
+
+export const getAdminProductFull = (productId) =>
+  api.get(`/products/${productId}/full`).then((r) => r.data);
+
+export const updateAdminProduct = (productId, payload) =>
+  api.patch(`/ecom/admin/products/${productId}`, payload).then((r) => r.data);
+
+export const archiveAdminProduct = (productId) =>
+  api.patch(`/ecom/admin/products/${productId}/archive`).then((r) => r.data);
+
+export const deleteAdminProduct = (productId) =>
+  api.delete(`/ecom/admin/products/${productId}`).then((r) => r.data);

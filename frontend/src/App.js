@@ -29,6 +29,8 @@ import DashBoardAdmin from "./pages/DashBoardAdmin";
 import OrderItems from "./pages/OrderItems";
 import SiteLoader from "./components/SiteLoader";
 import NosExperts from "./pages/NosExperts";
+import AdminProductCreate from "./pages/AdminProductCreate";
+import AdminProductEdit from "./pages/AdminProductEdit";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -93,6 +95,8 @@ function AppShell() {
           <Route path="/cgv" element={<CgvPage />} />
           <Route path="/confidentialite" element={<PrivacyPage />} />
           <Route path="/experts" element={<NosExperts />} />
+          <Route path="/admin/produits/nouveau" element={<AdminProductCreate />} />
+          <Route path="/admin/produits/:productId" element={<AdminProductEdit />} />
           <Route
             path="/admin"
             element={
