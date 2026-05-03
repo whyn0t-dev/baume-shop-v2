@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb";
 import ExpertCard from "../components/ExpertCard";
 import { getExperts, getWorkshops, createWorkshopBooking } from "../lib/api";
@@ -11,8 +12,10 @@ export default function AteliersPage() {
 
 	const [paymentPopup, setPaymentPopup] = useState(null);
 
+	const location = useLocation();
+
 	useEffect(() => {
-		const params = new URLSearchParams(window.location.search);
+		const params = new URLSearchParams(location.search);
 		const bookingStatus = params.get("booking_status");
 
 		if (!bookingStatus) return;
@@ -44,8 +47,12 @@ export default function AteliersPage() {
 			});
 		}
 
+		getWorkshops()
+			.then(setWorkshops)
+			.catch(() => {});
+
 		window.history.replaceState({}, "", "/ateliers");
-	}, []);
+	}, [location.search]);
 
 	useEffect(() => {
 		function handleFreeSuccess() {

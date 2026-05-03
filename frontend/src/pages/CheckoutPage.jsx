@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useCart } from "../lib/cart";
 import { useAuth } from "../lib/auth";
-import { createCheckout } from "../lib/api";
+import { createCheckout, getShippingMethods } from "../lib/api";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
@@ -15,24 +15,33 @@ import {
 import { ShieldCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const COUNTRIES = [
-	{ code: "CH", name: "Suisse", fee: 6.9, threshold: 60 },
-	{ code: "FR", name: "France", fee: 12.9, threshold: 90 },
-	{ code: "BE", name: "Belgique", fee: 12.9, threshold: 90 },
-	{ code: "DE", name: "Allemagne", fee: 12.9, threshold: 90 },
-	{ code: "IT", name: "Italie", fee: 12.9, threshold: 90 },
-	{ code: "ES", name: "Espagne", fee: 12.9, threshold: 90 },
-	{ code: "AT", name: "Autriche", fee: 12.9, threshold: 90 },
-	{ code: "NL", name: "Pays-Bas", fee: 12.9, threshold: 90 },
-	{ code: "LU", name: "Luxembourg", fee: 12.9, threshold: 90 },
-];
-
 export default function CheckoutPage() {
 	const { items, subtotal } = useCart();
 	const { user, isAuth } = useAuth();
 	const navigate = useNavigate();
 	const [step, setStep] = useState(1);
 	const [loading, setLoading] = useState(false);
+
+	const [shippingMethods, setShippingMethods] = useState([]);
+	const [shippingLoading, setShippingLoading] = useState(false);
+
+	useEffect(() => {
+		setShippingLoading(true);
+
+		getShippingMethods()
+			.then((data) => {
+				setShippingMethods(data);
+
+				if (data.length > 0 && !data.some((m) => m.country === form.country)) {
+					setForm((f) => ({ ...f, country: data[0].country }));
+				}
+			})
+			.catch(() => {
+				toast.error("Impossible de charger les méthodes de livraison");
+			})
+			.finally(() => setShippingLoading(false));
+	}, []);
+
 	const [form, setForm] = useState({
 		email: "",
 		first_name: "",
@@ -61,10 +70,20 @@ export default function CheckoutPage() {
 		}
 	}, [isAuth, user]);
 
-	const country =
-		COUNTRIES.find((c) => c.code === form.country) || COUNTRIES[0];
-	const shipping = subtotal >= country.threshold ? 0 : country.fee;
+	const shippingMethod =
+		shippingMethods.find((m) => m.country === form.country) ||
+		shippingMethods[0];
+
+	const shippingThreshold = Number(
+		shippingMethod?.free_shipping_threshold || 0,
+	);
+
+	const shippingFee = Number(shippingMethod?.price || 0);
+
+	const shipping = subtotal >= shippingThreshold ? 0 : shippingFee;
 	const total = subtotal + shipping;
+
+	const countryName = shippingMethod?.name || form.country;
 
 	if (items.length === 0 && !loading) {
 		return (
@@ -335,9 +354,9 @@ export default function CheckoutPage() {
 											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
-											{COUNTRIES.map((c) => (
-												<SelectItem key={c.code} value={c.code}>
-													{c.name}
+											{shippingMethods.map((method) => (
+												<SelectItem key={method.id} value={method.country}>
+													{method.name}
 												</SelectItem>
 											))}
 										</SelectContent>
@@ -391,7 +410,7 @@ export default function CheckoutPage() {
 									</p>
 									<p className="text-[13px] text-baume-charcoal/75">
 										{form.address}, {form.postal_code} {form.city},{" "}
-										{country.name}
+										{countryName}
 									</p>
 								</div>
 							</div>
@@ -419,7 +438,7 @@ export default function CheckoutPage() {
 							) : (
 								<button
 									onClick={pay}
-									disabled={loading}
+									disabled={loading || shippingLoading || !shippingMethod}
 									data-testid="checkout-pay-button"
 									className="h-12 px-8 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[14px] hover:bg-baume-burgundyDark disabled:opacity-60 inline-flex items-center gap-2"
 								>
@@ -469,7 +488,7 @@ export default function CheckoutPage() {
 							</div>
 							<div className="flex justify-between">
 								<span className="text-baume-charcoal/70">
-									Livraison ({country.name})
+									Livraison ({countryName})
 								</span>
 								<span>
 									{shipping === 0 ? "Offerte" : `${shipping.toFixed(2)} CHF`}

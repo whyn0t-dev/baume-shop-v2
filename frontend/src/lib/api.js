@@ -229,3 +229,10 @@ export const updateAdminWorkshop = (id, payload) =>
 
 export const deleteAdminWorkshop = (id) =>
   api.delete(`/ecom/admin/workshops/${id}`).then((r) => r.data);
+
+export const getShippingMethods = (country) =>
+  api
+    .get("/shipping-methods", {
+      params: country ? { country } : {},
+    })
+    .then((r) => normalizeArray(r.data));
