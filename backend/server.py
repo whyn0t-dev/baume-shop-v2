@@ -1511,6 +1511,37 @@ async def archive_admin_product(
     return {"success": True, "status": "archived"}
 
 
+@api_router.get("/ecom/admin/storage/product-images")
+async def list_product_bucket_images(profile=Depends(require_admin)):
+    try:
+        files = await asyncio.to_thread(
+            lambda: supabase.storage.from_("product-images").list()
+        )
+
+        images = []
+
+        for file in files:
+            name = file.get("name")
+
+            if not name:
+                continue
+
+            public_url = supabase.storage.from_("product-images").get_public_url(name)
+
+            images.append(
+                {
+                    "name": name,
+                    "storage_path": name,
+                    "public_url": public_url,
+                }
+            )
+
+        return images
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.delete("/ecom/admin/products/{product_id}")
 async def delete_admin_product(
     product_id: str,
@@ -1591,37 +1622,6 @@ async def delete_admin_item(
 
     await sb_delete(table, "id", item_id)
     return {"status": "deleted"}
-
-
-@api_router.get("/ecom/admin/storage/product-images")
-async def list_product_bucket_images(profile=Depends(require_admin)):
-    try:
-        files = await asyncio.to_thread(
-            lambda: supabase.storage.from_("product-images").list()
-        )
-
-        images = []
-
-        for file in files:
-            name = file.get("name")
-
-            if not name:
-                continue
-
-            public_url = supabase.storage.from_("product-images").get_public_url(name)
-
-            images.append(
-                {
-                    "name": name,
-                    "storage_path": name,
-                    "public_url": public_url,
-                }
-            )
-
-        return images
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @api_router.post("/upload/image")

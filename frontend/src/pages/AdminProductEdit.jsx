@@ -123,8 +123,10 @@ export default function AdminProductEdit() {
 					})),
 				images: images
 					.filter((img) => img.storage_path?.trim() || img.public_url?.trim())
-					.sort((a, b) => Number(a.position || 1) - Number(b.position || 1)),
-				collections: selectedCollections,
+					.map((img, index) => ({
+						...img,
+						position: index + 1,
+					})),
 			};
 
 			await updateAdminProduct(productId, payload);
@@ -197,24 +199,106 @@ export default function AdminProductEdit() {
 					</div>
 				</div>
 
-				<section className="rounded-[24px] border border-baume-border bg-baume-ivory/40 p-5">
-					<div className="flex items-center justify-between gap-4 mb-4">
-						<h2 className="text-[22px] font-semibold text-baume-burgundy">
-							Images du produit
-						</h2>
+				<section className="rounded-[28px] border border-baume-border bg-baume-ivory/45 p-6">
+					<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+						<div>
+							<p className="text-[11px] uppercase tracking-[0.22em] text-baume-burgundy/70 font-semibold">
+								Galerie
+							</p>
+							<h2 className="mt-1 text-[24px] font-semibold text-baume-burgundy">
+								Images du produit
+							</h2>
+						</div>
 
 						<button
 							type="button"
 							onClick={() => setShowImagePicker(true)}
-							className="h-10 px-4 rounded-full border border-baume-border bg-baume-white text-[14px] font-semibold"
+							className="h-11 px-5 rounded-full bg-baume-white border border-baume-border text-[14px] font-semibold hover:border-baume-burgundy transition"
 						>
 							+ Ajouter une image
 						</button>
 					</div>
 
+					<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+						{images.map((img, index) => {
+							const src = img.public_url || img.storage_path;
+
+							return (
+								<div
+									key={`${src}-${index}`}
+									draggable
+									onDragStart={(e) =>
+										e.dataTransfer.setData("imageIndex", String(index))
+									}
+									onDragOver={(e) => e.preventDefault()}
+									onDrop={(e) => {
+										const fromIndex = Number(
+											e.dataTransfer.getData("imageIndex"),
+										);
+										const toIndex = index;
+
+										if (fromIndex === toIndex) return;
+
+										const next = [...images];
+										const [moved] = next.splice(fromIndex, 1);
+										next.splice(toIndex, 0, moved);
+
+										setImages(
+											next.map((image, i) => ({
+												...image,
+												position: i + 1,
+											})),
+										);
+									}}
+									className="group relative cursor-grab active:cursor-grabbing rounded-[22px] border border-baume-border bg-baume-white p-2 shadow-sm hover:shadow-md transition"
+								>
+									<div className="aspect-square overflow-hidden rounded-[18px] bg-baume-ivory">
+										{src ? (
+											<img
+												src={src}
+												alt={img.alt_text || product.title || ""}
+												className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+											/>
+										) : (
+											<div className="h-full w-full flex items-center justify-center text-[13px] text-baume-charcoal/45">
+												Image vide
+											</div>
+										)}
+									</div>
+
+									<div className="mt-3 flex items-center justify-between gap-2">
+										<span className="h-8 min-w-8 px-3 rounded-full bg-baume-burgundy text-baume-white text-[12px] font-semibold inline-flex items-center justify-center">
+											#{index + 1}
+										</span>
+
+										<button
+											type="button"
+											onClick={() =>
+												setImages(images.filter((_, i) => i !== index))
+											}
+											className="h-8 px-3 rounded-full bg-red-50 text-red-700 text-[12px] font-semibold hover:bg-red-100"
+										>
+											Retirer
+										</button>
+									</div>
+								</div>
+							);
+						})}
+
+						{images.length === 0 && (
+							<button
+								type="button"
+								onClick={() => setShowImagePicker(true)}
+								className="min-h-[190px] rounded-[22px] border border-dashed border-baume-border bg-baume-white/70 text-baume-burgundy font-semibold hover:bg-baume-white transition"
+							>
+								+ Choisir une image
+							</button>
+						)}
+					</div>
+
 					{showImagePicker && (
-						<div className="mt-6 rounded-[22px] border border-baume-border bg-baume-white p-5">
-							<div className="flex items-center justify-between mb-4">
+						<div className="mt-6 rounded-[24px] border border-baume-border bg-baume-white p-5">
+							<div className="flex items-center justify-between gap-4 mb-4">
 								<h3 className="text-[18px] font-semibold text-baume-burgundy">
 									Choisir une image du bucket
 								</h3>
@@ -222,13 +306,13 @@ export default function AdminProductEdit() {
 								<button
 									type="button"
 									onClick={() => setShowImagePicker(false)}
-									className="text-[14px] font-semibold text-baume-charcoal/60"
+									className="h-9 px-4 rounded-full bg-baume-ivory text-[13px] font-semibold"
 								>
 									Fermer
 								</button>
 							</div>
 
-							<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+							<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[420px] overflow-y-auto pr-2">
 								{bucketImages.map((img) => (
 									<button
 										key={img.storage_path}
@@ -245,13 +329,15 @@ export default function AdminProductEdit() {
 											]);
 											setShowImagePicker(false);
 										}}
-										className="rounded-2xl overflow-hidden border border-baume-border bg-baume-ivory hover:ring-2 hover:ring-baume-burgundy"
+										className="group rounded-[20px] border border-baume-border bg-baume-ivory p-2 hover:border-baume-burgundy transition"
 									>
-										<img
-											src={img.public_url}
-											alt={img.name}
-											className="h-32 w-full object-cover"
-										/>
+										<div className="aspect-square overflow-hidden rounded-[16px] bg-baume-white">
+											<img
+												src={img.public_url}
+												alt={img.name}
+												className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+											/>
+										</div>
 									</button>
 								))}
 							</div>
@@ -297,87 +383,6 @@ export default function AdminProductEdit() {
 						value={product.image || ""}
 						onChange={(v) => setProduct({ ...product, image: v })}
 					/>
-					<div className="md:col-span-2 rounded-[22px] border border-baume-border bg-baume-ivory/40 p-5">
-						<div className="flex items-center justify-between gap-4 mb-4">
-							<h3 className="text-[20px] font-semibold text-baume-burgundy">
-								Ordre d’affichage des images
-							</h3>
-						</div>
-
-						<div className="space-y-4">
-							{images.length === 0 && (
-								<p className="text-[14px] text-baume-charcoal/60">
-									Aucune image dans la galerie.
-								</p>
-							)}
-
-							{images.map((img, index) => (
-								<div
-									key={index}
-									className="grid grid-cols-1 md:grid-cols-[90px_1fr_1fr_90px_auto] gap-3 items-end rounded-2xl border border-baume-border bg-baume-white p-4"
-								>
-									<div>
-										<p className="mb-2 text-[13px] font-semibold text-baume-charcoal/70">
-											Aperçu
-										</p>
-
-										{img.public_url || img.storage_path ? (
-											<img
-												src={img.public_url || img.storage_path}
-												alt={img.alt_text || ""}
-												className="h-[70px] w-[70px] rounded-xl object-cover border border-baume-border"
-											/>
-										) : (
-											<div className="h-[70px] w-[70px] rounded-xl border border-baume-border bg-baume-ivory" />
-										)}
-									</div>
-
-									<div>
-										<p className="mb-2 text-[13px] font-semibold text-baume-charcoal/70">
-											Image
-										</p>
-										<p className="h-12 rounded-2xl border border-baume-border bg-baume-ivory px-4 flex items-center text-[13px] text-baume-charcoal/60 truncate">
-											{img.public_url || img.storage_path || "Image vide"}
-										</p>
-									</div>
-
-									<Input
-										label="Texte alternatif"
-										value={img.alt_text || ""}
-										onChange={(v) => {
-											const next = [...images];
-											next[index] = { ...next[index], alt_text: v };
-											setImages(next);
-										}}
-									/>
-
-									<Input
-										label="Position"
-										type="number"
-										value={img.position || index + 1}
-										onChange={(v) => {
-											const next = [...images];
-											next[index] = {
-												...next[index],
-												position: Number(v || index + 1),
-											};
-											setImages(next);
-										}}
-									/>
-
-									<button
-										type="button"
-										onClick={() =>
-											setImages(images.filter((_, i) => i !== index))
-										}
-										className="h-12 px-4 rounded-full bg-red-100 text-red-800 text-[13px] font-semibold hover:bg-red-200"
-									>
-										Supprimer
-									</button>
-								</div>
-							))}
-						</div>
-					</div>
 					<Input
 						label="Statut"
 						value={product.status || ""}
