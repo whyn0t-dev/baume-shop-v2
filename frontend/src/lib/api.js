@@ -211,3 +211,21 @@ export const getProductImages = (productId) =>
 
 export const getProductBucketImages = () =>
   api.get("/ecom/admin/storage/product-images").then((r) => r.data);
+
+export const getWorkshops = () =>
+  api.get("/workshops").then((r) => normalizeArray(r.data));
+
+export const getWorkshop = (slug) =>
+  api.get(`/workshops/${slug}`).then((r) => r.data);
+
+export const createWorkshopBooking = (payload) =>
+  api.post("/workshops/book", payload).then((r) => r.data);
+
+export const createAdminWorkshop = (payload) =>
+  api.post("/ecom/admin/workshops", payload).then((r) => r.data);
+
+export const updateAdminWorkshop = (id, payload) =>
+  api.patch(`/ecom/admin/workshops/${id}`, payload).then((r) => r.data);
+
+export const deleteAdminWorkshop = (id) =>
+  api.delete(`/ecom/admin/workshops/${id}`).then((r) => r.data);

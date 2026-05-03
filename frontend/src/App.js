@@ -31,6 +31,7 @@ import SiteLoader from "./components/SiteLoader";
 import NosExperts from "./pages/NosExperts";
 import AdminProductCreate from "./pages/AdminProductCreate";
 import AdminProductEdit from "./pages/AdminProductEdit";
+import AdminWorkshopForm from "./pages/AdminWorkshopForm";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -95,6 +96,8 @@ function AppShell() {
           <Route path="/cgv" element={<CgvPage />} />
           <Route path="/confidentialite" element={<PrivacyPage />} />
           <Route path="/experts" element={<NosExperts />} />
+          <Route path="/admin/ateliers/nouveau" element={<AdminWorkshopForm />} />
+          <Route path="/admin/ateliers/:id/modifier" element={<AdminWorkshopForm />} />
           <Route
             path="/admin/produits/nouveau"
             element={

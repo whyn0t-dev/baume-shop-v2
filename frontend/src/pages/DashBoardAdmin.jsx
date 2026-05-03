@@ -11,6 +11,8 @@ import {
 	RefreshCw,
 	ShieldCheck,
 	Pencil,
+	Plus,
+	CalendarDays,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { getAdminTable, deleteAdminItem, formatApiError } from "../lib/api";
@@ -20,6 +22,8 @@ import { useCallback } from "react";
 
 const SECTIONS = [
 	{ key: "products", label: "Produits", icon: Package },
+	{ key: "workshops", label: "Ateliers", icon: CalendarDays },
+	{ key: "workshop_bookings", label: "Réservations", icon: CalendarDays },
 	{ key: "orders", label: "Commandes", icon: ShoppingCart },
 	{ key: "profiles", label: "Utilisateurs", icon: Users },
 	{ key: "discounts", label: "Réductions", icon: Percent },
@@ -151,14 +155,36 @@ export default function DashBoardAdmin() {
 
 				<main className="p-5 lg:p-8">
 					<div className="rounded-3xl border border-baume-border bg-baume-white overflow-hidden">
-						<div className="px-5 py-4 border-b border-baume-border flex items-center justify-between">
+						<div className="px-5 py-4 border-b border-baume-border flex items-center justify-between gap-4">
 							<h2 className="font-editorial text-[30px] text-baume-charcoal">
 								{SECTIONS.find((s) => s.key === active)?.label}
 							</h2>
 
-							<span className="text-[13px] text-baume-charcoal/60">
-								{rows.length} élément{rows.length > 1 ? "s" : ""}
-							</span>
+							<div className="flex items-center gap-3">
+								<span className="text-[13px] text-baume-charcoal/60">
+									{rows.length} élément{rows.length > 1 ? "s" : ""}
+								</span>
+
+								{active === "products" && (
+									<Link
+										to="/admin/produits/nouveau"
+										className="h-10 px-4 rounded-full bg-baume-burgundy text-baume-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition"
+									>
+										<Plus className="h-4 w-4" />
+										Ajouter un produit
+									</Link>
+								)}
+
+								{active === "workshops" && (
+									<Link
+										to="/admin/ateliers/nouveau"
+										className="h-10 px-4 rounded-full bg-baume-burgundy text-baume-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition"
+									>
+										<Plus className="h-4 w-4" />
+										Ajouter un atelier
+									</Link>
+								)}
+							</div>
 						</div>
 
 						{loading ? (
@@ -201,6 +227,59 @@ function AdminTable({ table, rows, onDelete }) {
 
 						<DeleteButton onClick={() => onDelete(p.id)} />
 					</div>,
+				])}
+			/>
+		);
+	}
+
+	if (table === "workshops") {
+		return (
+			<Table
+				columns={[
+					"Titre",
+					"Experte",
+					"Date",
+					"Prix",
+					"Places",
+					"Actif",
+					"Actions",
+				]}
+				rows={rows.map((w) => [
+					w.title || "-",
+					w.expert_name || "-",
+					w.starts_at ? new Date(w.starts_at).toLocaleString("fr-CH") : "-",
+					`${Number(w.price || 0).toFixed(2)} ${w.currency || "CHF"}`,
+					`${Number(w.reserved_count || 0)} / ${Number(w.capacity || 0)}`,
+					w.active ? "Oui" : "Non",
+					<div className="flex items-center gap-2">
+						<Link
+							to={`/admin/ateliers/${w.id}/modifier`}
+							className="h-9 w-9 rounded-full border border-baume-border inline-flex items-center justify-center text-baume-charcoal hover:bg-baume-ivory transition"
+							title="Modifier"
+						>
+							<Pencil className="h-4 w-4" />
+						</Link>
+
+						<DeleteButton onClick={() => onDelete(w.id)} />
+					</div>,
+				])}
+			/>
+		);
+	}
+
+	if (table === "workshop_bookings") {
+		return (
+			<Table
+				columns={["Client", "Email", "Places", "Montant", "Statut", "Date"]}
+				rows={rows.map((b) => [
+					`${b.first_name || ""} ${b.last_name || ""}`.trim() || "-",
+					b.email || "-",
+					b.quantity || 1,
+					`${Number(b.amount || 0).toFixed(2)} ${b.currency || "CHF"}`,
+					<StatusBadge status={b.status} />,
+					b.created_at
+						? new Date(b.created_at).toLocaleDateString("fr-CH")
+						: "-",
 				])}
 			/>
 		);

@@ -20,7 +20,7 @@ import uuid
 import asyncio
 import requests
 
-from auth import require_admin
+from models import WorkshopBookingRequest, AdminWorkshopRequest
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -1293,6 +1293,8 @@ ADMIN_TABLES = {
     "payment_transactions",
     "profiles",
     "stripe_webhook_events",
+    "workshops",
+    "workshop_bookings",
 }
 
 
@@ -1554,6 +1556,155 @@ async def list_product_bucket_images(profile=Depends(require_admin)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/workshops")
+async def list_workshops():
+    result = await asyncio.to_thread(
+        lambda: supabase.table("workshops")
+        .select("*")
+        .eq("active", True)
+        .order("starts_at")
+        .execute()
+    )
+
+    return result.data or []
+
+
+@api_router.get("/workshops/{slug}")
+async def get_workshop(slug: str):
+    workshop = await sb_select_one("workshops", "slug", slug)
+
+    if not workshop or not workshop.get("active"):
+        raise HTTPException(status_code=404, detail="Atelier introuvable")
+
+    return workshop
+
+
+@api_router.post("/workshops/book")
+async def book_workshop(payload: WorkshopBookingRequest):
+    workshop = await sb_select_one("workshops", "id", payload.workshop_id)
+
+    if not workshop or not workshop.get("active"):
+        raise HTTPException(status_code=404, detail="Atelier introuvable")
+
+    available = int(workshop["capacity"]) - int(workshop.get("reserved_count", 0))
+
+    if payload.quantity > available:
+        raise HTTPException(status_code=400, detail="Plus assez de places disponibles")
+
+    amount = round(float(workshop.get("price", 0)) * payload.quantity, 2)
+
+    booking_data = {
+        "id": str(uuid.uuid4()),
+        "workshop_id": payload.workshop_id,
+        "first_name": payload.first_name,
+        "last_name": payload.last_name,
+        "email": payload.email,
+        "phone": payload.phone,
+        "quantity": payload.quantity,
+        "amount": amount,
+        "currency": workshop.get("currency", "CHF"),
+        "status": "pending",
+        "created_at": now_iso(),
+    }
+
+    inserted = await sb_insert("workshop_bookings", booking_data)
+    booking = inserted.data[0]
+
+    if amount <= 0:
+        await sb_update(
+            "workshop_bookings",
+            {"status": "confirmed"},
+            "id",
+            booking["id"],
+        )
+
+        await sb_update(
+            "workshops",
+            {
+                "reserved_count": int(workshop.get("reserved_count", 0))
+                + payload.quantity,
+                "updated_at": now_iso(),
+            },
+            "id",
+            payload.workshop_id,
+        )
+
+        return {"status": "confirmed", "booking_id": booking["id"]}
+
+    session = await asyncio.to_thread(
+        stripe.checkout.Session.create,
+        mode="payment",
+        customer_email=payload.email,
+        success_url=f"{payload.origin_url.rstrip('/')}/ateliers/confirmation?booking_id={booking['id']}",
+        cancel_url=f"{payload.origin_url.rstrip('/')}/ateliers",
+        metadata={
+            "type": "workshop_booking",
+            "booking_id": booking["id"],
+            "workshop_id": payload.workshop_id,
+        },
+        line_items=[
+            {
+                "price_data": {
+                    "currency": "chf",
+                    "product_data": {
+                        "name": workshop["title"],
+                    },
+                    "unit_amount": int(round(float(workshop["price"]) * 100)),
+                },
+                "quantity": payload.quantity,
+            }
+        ],
+    )
+
+    await sb_update(
+        "workshop_bookings",
+        {"stripe_checkout_session_id": session.id},
+        "id",
+        booking["id"],
+    )
+
+    return {"url": session.url, "booking_id": booking["id"]}
+
+
+@api_router.post("/ecom/admin/workshops")
+async def create_admin_workshop(
+    payload: AdminWorkshopRequest,
+    profile=Depends(require_admin),
+):
+    data = payload.model_dump()
+    data["id"] = str(uuid.uuid4())
+    data["created_at"] = now_iso()
+    data["updated_at"] = now_iso()
+
+    inserted = await sb_insert("workshops", data)
+
+    return inserted.data[0]
+
+
+@api_router.patch("/ecom/admin/workshops/{workshop_id}")
+async def update_admin_workshop(
+    workshop_id: str,
+    payload: AdminWorkshopRequest,
+    profile=Depends(require_admin),
+):
+    data = payload.model_dump()
+    data["updated_at"] = now_iso()
+
+    await sb_update("workshops", data, "id", workshop_id)
+
+    return {"success": True, "id": workshop_id}
+
+
+@api_router.delete("/ecom/admin/workshops/{workshop_id}")
+async def delete_admin_workshop(
+    workshop_id: str,
+    profile=Depends(require_admin),
+):
+    await sb_delete("workshops", "id", workshop_id)
+
+    return {"success": True}
 
 
 @api_router.delete("/ecom/admin/products/{product_id}")
