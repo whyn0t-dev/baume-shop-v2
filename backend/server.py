@@ -1637,8 +1637,8 @@ async def book_workshop(payload: WorkshopBookingRequest):
         stripe.checkout.Session.create,
         mode="payment",
         customer_email=payload.email,
-        success_url=f"{payload.origin_url.rstrip('/')}/ateliers/confirmation?booking_id={booking['id']}",
-        cancel_url=f"{payload.origin_url.rstrip('/')}/ateliers",
+        success_url=f"{payload.origin_url.rstrip('/')}/ateliers?booking_status=success&booking_id={booking['id']}",
+        cancel_url=f"{payload.origin_url.rstrip('/')}/ateliers?booking_status=failed&booking_id={booking['id']}",
         metadata={
             "type": "workshop_booking",
             "booking_id": booking["id"],
