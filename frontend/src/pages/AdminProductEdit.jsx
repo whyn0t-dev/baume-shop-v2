@@ -6,6 +6,7 @@ import {
 	archiveAdminProduct,
 	deleteAdminProduct,
 	formatApiError,
+	getProductBucketImages,
 } from "../lib/api";
 
 export default function AdminProductEdit() {
@@ -20,6 +21,9 @@ export default function AdminProductEdit() {
 	const [variants, setVariants] = useState([]);
 	const [images, setImages] = useState([]);
 	const [selectedCollections, setSelectedCollections] = useState([]);
+
+	const [bucketImages, setBucketImages] = useState([]);
+	const [showImagePicker, setShowImagePicker] = useState(false);
 
 	const loadProduct = useCallback(async () => {
 		try {
@@ -76,6 +80,12 @@ export default function AdminProductEdit() {
 		loadProduct();
 	}, [loadProduct]);
 
+	useEffect(() => {
+		getProductBucketImages()
+			.then(setBucketImages)
+			.catch(() => setBucketImages([]));
+	}, []);
+
 	async function handleSubmit(e) {
 		e.preventDefault();
 		setSaving(true);
@@ -111,7 +121,9 @@ export default function AdminProductEdit() {
 						option3: v.option3 || "",
 						active: v.active ?? true,
 					})),
-				images: images.filter((img) => img.storage_path?.trim()),
+				images: images
+					.filter((img) => img.storage_path?.trim() || img.public_url?.trim())
+					.sort((a, b) => Number(a.position || 1) - Number(b.position || 1)),
 				collections: selectedCollections,
 			};
 
@@ -193,66 +205,58 @@ export default function AdminProductEdit() {
 
 						<button
 							type="button"
-							onClick={() => {
-								const url = window.prompt("Colle l’URL de l’image :");
-
-								if (!url) return;
-
-								setImages([
-									...images,
-									{
-										storage_path: url,
-										public_url: url,
-										alt_text: product.title || "",
-										position: images.length + 1,
-									},
-								]);
-							}}
+							onClick={() => setShowImagePicker(true)}
 							className="h-10 px-4 rounded-full border border-baume-border bg-baume-white text-[14px] font-semibold"
 						>
 							+ Ajouter une image
 						</button>
 					</div>
 
-					<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-						{product.image && (
-							<div className="relative rounded-2xl overflow-hidden border">
-								<img src={product.image} className="h-32 w-full object-cover" />
-								<span className="absolute top-2 left-2 bg-baume-burgundy text-white px-2 py-1 text-xs rounded">
-									Principale
-								</span>
-							</div>
-						)}
+					{showImagePicker && (
+						<div className="mt-6 rounded-[22px] border border-baume-border bg-baume-white p-5">
+							<div className="flex items-center justify-between mb-4">
+								<h3 className="text-[18px] font-semibold text-baume-burgundy">
+									Choisir une image du bucket
+								</h3>
 
-						{images.map((img, index) => {
-							const src = img.public_url || img.storage_path;
-
-							return (
-								<div
-									key={index}
-									className="relative rounded-2xl overflow-hidden border"
+								<button
+									type="button"
+									onClick={() => setShowImagePicker(false)}
+									className="text-[14px] font-semibold text-baume-charcoal/60"
 								>
-									{src ? (
-										<img src={src} className="h-32 w-full object-cover" />
-									) : (
-										<div className="h-32 flex items-center justify-center text-sm text-gray-400">
-											Image vide
-										</div>
-									)}
+									Fermer
+								</button>
+							</div>
 
+							<div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+								{bucketImages.map((img) => (
 									<button
+										key={img.storage_path}
 										type="button"
-										onClick={() =>
-											setImages(images.filter((_, i) => i !== index))
-										}
-										className="absolute top-2 right-2 bg-white rounded-full w-6 h-6"
+										onClick={() => {
+											setImages([
+												...images,
+												{
+													storage_path: img.storage_path,
+													public_url: img.public_url,
+													alt_text: product.title || "",
+													position: images.length + 1,
+												},
+											]);
+											setShowImagePicker(false);
+										}}
+										className="rounded-2xl overflow-hidden border border-baume-border bg-baume-ivory hover:ring-2 hover:ring-baume-burgundy"
 									>
-										×
+										<img
+											src={img.public_url}
+											alt={img.name}
+											className="h-32 w-full object-cover"
+										/>
 									</button>
-								</div>
-							);
-						})}
-					</div>
+								))}
+							</div>
+						</div>
+					)}
 				</section>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-5">

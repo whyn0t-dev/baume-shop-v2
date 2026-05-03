@@ -208,3 +208,6 @@ export const deleteAdminProduct = (productId) =>
 
 export const getProductImages = (productId) =>
   api.get(`/products/${productId}/images`).then((r) => normalizeArray(r.data));
+
+export const getProductBucketImages = () =>
+  api.get("/ecom/admin/storage/product-images").then((r) => r.data);
