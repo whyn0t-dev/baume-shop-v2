@@ -39,7 +39,7 @@ async def login(payload: LoginRequest):
         supabase.table("profiles")
         .select("*")
         .eq("id", result.user.id)
-        .single()
+        .maybe_single()
         .execute()
     )
 
@@ -109,7 +109,10 @@ async def get_current_user(request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="Non authentifié")
 
-    user = supabase.auth.get_user(token)
+    try:
+        user = supabase.auth.get_user(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Session expirée ou invalide")
 
     if not user or not user.user:
         raise HTTPException(status_code=401, detail="Token invalide")
@@ -131,16 +134,18 @@ async def get_optional_user(request: Request):
 
 
 async def get_current_profile(user=Depends(get_current_user)):
-    result = supabase.table("profiles").select("*").eq("id", user.id).single().execute()
+    try:
+        result = (
+            supabase.table("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .maybe_single()
+            .execute()
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Profil inaccessible")
 
     if not result.data:
         raise HTTPException(status_code=404, detail="Profil introuvable")
 
     return result.data
-
-
-async def require_admin(profile=Depends(get_current_profile)):
-    if profile.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Accès refusé")
-
-    return profile

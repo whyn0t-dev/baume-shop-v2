@@ -70,6 +70,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Baume API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://baumeshop-v2.weblax.fr",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 api_router = APIRouter(prefix="/api")
 
 
@@ -1658,14 +1670,3 @@ _cors_origins = [
     for o in os.environ.get("CORS_ORIGINS", FRONTEND_URL).split(",")
     if o.strip()
 ]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://baumeshop-v2.weblax.fr",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)

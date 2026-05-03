@@ -59,7 +59,6 @@ export default function AdminProductEdit() {
 				colors: data.colors || [],
 				sizes: data.sizes || [],
 				benefits: data.benefits || [],
-				gallery: data.gallery || [],
 				needs: data.needs || [],
 			});
 
@@ -93,15 +92,39 @@ export default function AdminProductEdit() {
 		try {
 			const payload = {
 				product: {
-					...product,
+					title: product.title,
 					name: product.name || product.title,
+					slug: product.slug,
+					description: product.description,
+					vendor: product.vendor,
+					product_type: product.product_type,
+					product_category: product.product_category,
+					status: product.status,
+					seo_title: product.seo_title,
+					seo_description: product.seo_description,
+					available: product.available,
+					tagline: product.tagline,
+					stock: Number(product.stock || 0),
+					featured: product.featured,
+					bestseller: product.bestseller,
+					flux: product.flux,
 					price: product.price ? Number(product.price) : null,
 					compare_price: product.compare_price
 						? Number(product.compare_price)
 						: null,
-					stock: Number(product.stock || 0),
+					currency: product.currency || "CHF",
+					image:
+						images[0]?.public_url || images[0]?.storage_path || product.image,
 					rating: Number(product.rating || 0),
 					reviews_count: Number(product.reviews_count || 0),
+					composition: product.composition,
+					usage: product.usage,
+					how_to_use: product.how_to_use,
+					fabrication: product.fabrication,
+					colors: product.colors || [],
+					sizes: product.sizes || [],
+					benefits: product.benefits || [],
+					needs: product.needs || [],
 				},
 				options: options.filter((o) => o.name?.trim()),
 				variants: variants
