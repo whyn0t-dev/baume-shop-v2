@@ -149,3 +149,10 @@ async def get_current_profile(user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Profil introuvable")
 
     return result.data
+
+
+async def require_admin(profile=Depends(get_current_profile)):
+    if profile.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    return profile

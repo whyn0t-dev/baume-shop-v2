@@ -23,6 +23,17 @@ import {
 } from "../lib/api";
 
 export default function OrderItems() {
+	const baume = {
+		burgundy: "#3D2A2A",
+		burgundyDark: "#2A1717",
+		charcoal: "#111111",
+		white: "#FFFFFF",
+		ivory: "#F3E3AC",
+		taupe: "#D3B1A0",
+		taupeWarm: "#B5866B",
+		border: "#D3B1A0",
+	};
+
 	const { orderId } = useParams();
 	const { user, status } = useAuth();
 
@@ -98,13 +109,13 @@ export default function OrderItems() {
 		[user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
 		"Client";
 	return (
-		<div className="min-h-screen bg-[#f1f1f1] text-[#303030]">
-			<header className="sticky top-0 z-10 border-b border-[#d4d4d4] bg-[#f1f1f1]/95 backdrop-blur px-4 md:px-6 py-3">
+		<div className="min-h-screen bg-baume-ivory/30 text-baume-charcoal">
+			<header className="sticky top-0 z-10 border-b border-baume-border bg-baume-ivory/95 backdrop-blur px-4 md:px-6 py-3">
 				<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
 					<div>
 						<Link
 							to="/admin"
-							className="inline-flex items-center gap-1 text-[13px] text-[#555] hover:text-black mb-1"
+							className="inline-flex items-center gap-1 text-[13px] text-baume-burgundy hover:text-baume-burgundyDark mb-1"
 						>
 							<ArrowLeft className="h-4 w-4" />
 							Commandes
@@ -116,7 +127,7 @@ export default function OrderItems() {
 							<StatusBadge status={currentStatus} />
 						</div>
 
-						<p className="text-[12px] text-[#6b6b6b] mt-1">
+						<p className="text-[12px] text-baume-taupeWarm mt-1">
 							{order.created_at
 								? new Date(order.created_at).toLocaleString("fr-CH")
 								: "Date inconnue"}{" "}
@@ -162,16 +173,16 @@ export default function OrderItems() {
 							Livraison standard
 						</div>
 
-						<div className="rounded-lg border border-[#ddd] overflow-hidden bg-white">
+						<div className="rounded-lg border border-baume-border overflow-hidden bg-white">
 							{items.length === 0 ? (
-								<div className="p-5 text-[13px] text-[#777]">
+								<div className="p-5 text-[13px] text-baume-taupeWarm">
 									Aucun article trouvé pour cette commande.
 								</div>
 							) : (
 								items.map((item) => (
 									<div
 										key={item.id}
-										className="px-4 py-3 flex items-center gap-3 justify-between border-b border-[#eee] last:border-b-0"
+										className="px-4 py-3 flex items-center gap-3 justify-between border-b border-baume-border last:border-b-0"
 									>
 										<div className="h-12 w-12 rounded-md bg-[#f6f6f6] border border-[#e5e5e5] flex items-center justify-center shrink-0">
 											<Package className="h-5 w-5 text-[#777]" />
@@ -213,8 +224,8 @@ export default function OrderItems() {
 											disabled={item.fulfillment_status === "fulfilled"}
 											className={`h-8 px-3 rounded-md text-[12px] font-semibold ml-3 ${
 												item.fulfillment_status === "fulfilled"
-													? "bg-emerald-100 text-emerald-700 cursor-default"
-													: "bg-[#303030] text-white hover:bg-black"
+													? "bg-baume-taupe/30 text-baume-burgundyDark cursor-default"
+													: "bg-baume-burgundy text-white hover:bg-baume-burgundyDark"
 											}`}
 										>
 											{item.fulfillment_status === "fulfilled"
@@ -233,7 +244,7 @@ export default function OrderItems() {
 							Payée
 						</Badge>
 
-						<div className="mt-4 rounded-lg border border-[#ddd] overflow-hidden bg-white">
+						<div className="mt-4 rounded-lg border border-baume-border overflow-hidden bg-white">
 							<SummaryLine
 								label="Sous-total"
 								detail={`${items.length} article${items.length > 1 ? "s" : ""}`}
@@ -385,7 +396,7 @@ export default function OrderItems() {
 
 function Loading() {
 	return (
-		<div className="min-h-screen bg-[#f1f1f1] flex items-center justify-center">
+		<div className="min-h-screen bg-baume-ivory/30 flex items-center justify-center">
 			<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
 		</div>
 	);
@@ -393,7 +404,7 @@ function Loading() {
 
 function Panel({ children }) {
 	return (
-		<section className="rounded-xl border border-[#d8d8d8] bg-white p-4 shadow-sm">
+		<section className="rounded-xl border border-baume-border bg-white p-4 shadow-sm">
 			{children}
 		</section>
 	);
@@ -401,9 +412,11 @@ function Panel({ children }) {
 
 function SidePanel({ title, children }) {
 	return (
-		<section className="rounded-xl border border-[#d8d8d8] bg-white p-4 shadow-sm">
+		<section className="rounded-xl border border-baume-border bg-white p-4 shadow-sm">
 			<div className="flex items-center justify-between mb-3">
-				<h2 className="text-[14px] font-semibold">{title}</h2>
+				<h2 className="text-[14px] font-semibold text-baume-burgundyDark">
+					{title}
+				</h2>
 				<MoreHorizontal className="h-4 w-4 text-[#777]" />
 			</div>
 			{children}
@@ -414,8 +427,8 @@ function SidePanel({ title, children }) {
 function Badge({ children, tone = "gray" }) {
 	const styles =
 		tone === "yellow"
-			? "bg-yellow-100 text-yellow-900 border-yellow-200"
-			: "bg-[#eeeeee] text-[#444] border-[#dddddd]";
+			? "bg-baume-ivory text-baume-burgundyDark border-baume-taupe"
+			: "bg-baume-taupe/25 text-baume-burgundyDark border-baume-border";
 
 	return (
 		<span
@@ -440,7 +453,7 @@ function ActionMenu({
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold inline-flex items-center gap-2"
+				className="h-9 px-4 rounded-lg bg-baume-burgundy hover:bg-baume-burgundyDark text-white text-[13px] font-semibold inline-flex items-center gap-2"
 			>
 				Modifier la commande
 				<ChevronDown className="h-3.5 w-3.5" />
@@ -466,12 +479,12 @@ function ActionMenu({
 function ActionButton({ children, onClick, tone = "neutral" }) {
 	const styles =
 		tone === "primary"
-			? "bg-[#303030] hover:bg-black text-white"
+			? "bg-baume-burgundy hover:bg-baume-burgundyDark text-white"
 			: tone === "success"
-				? "bg-emerald-600 hover:bg-emerald-700 text-white"
+				? "bg-baume-taupeWarm hover:bg-baume-burgundy text-white"
 				: tone === "danger"
-					? "bg-red-600 hover:bg-red-700 text-white"
-					: "bg-[#e4e4e4] hover:bg-[#dcdcdc] text-[#303030]";
+					? "bg-red-700 hover:bg-red-800 text-white"
+					: "bg-baume-taupe/40 hover:bg-baume-taupe text-baume-burgundyDark";
 
 	return (
 		<button
@@ -555,27 +568,27 @@ function StatusBadge({ status }) {
 	const map = {
 		pending: {
 			label: "Non traitée",
-			class: "bg-yellow-100 text-yellow-900 border-yellow-200",
+			class: "bg-baume-ivory text-baume-burgundyDark border-baume-taupe",
 		},
 		processing: {
 			label: "En traitement",
-			class: "bg-blue-100 text-blue-900 border-blue-200",
+			class: "bg-baume-taupe/30 text-baume-burgundyDark border-baume-border",
 		},
 		shipped: {
 			label: "Expédiée",
-			class: "bg-purple-100 text-purple-900 border-purple-200",
+			class: "bg-baume-taupe text-baume-burgundyDark border-baume-taupeWarm",
 		},
 		delivered: {
 			label: "Livrée",
-			class: "bg-emerald-100 text-emerald-900 border-emerald-200",
+			class: "bg-baume-burgundy text-white border-baume-burgundyDark",
 		},
 		cancelled: {
 			label: "Annulée",
-			class: "bg-red-100 text-red-900 border-red-200",
+			class: "bg-red-100 text-red-800 border-red-300",
 		},
 		refunded: {
 			label: "Remboursée",
-			class: "bg-gray-200 text-gray-800 border-gray-300",
+			class: "bg-baume-charcoal text-white border-baume-charcoal",
 		},
 	};
 

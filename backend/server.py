@@ -20,6 +20,8 @@ import uuid
 import asyncio
 import requests
 
+from auth import require_admin
+
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
