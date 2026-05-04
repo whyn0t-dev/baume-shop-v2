@@ -1,11 +1,11 @@
 import axios from "axios";
 
-console.log("BACKEND URL =", process.env.REACT_APP_BACKEND_URL);
+console.log("BACKEND URL =", import.meta.env.VITE_BACKEND_URL);
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL;
+const BASE_URL = import.meta.env.VITE_BACKEND_URL;
 
 if (!BASE_URL) {
-  throw new Error("REACT_APP_BACKEND_URL manquant");
+  throw new Error("VITE_APP_BACKEND_URL manquant");
 }
 
 const API = `${BASE_URL}/api`;
@@ -76,7 +76,7 @@ export const submitContact = (payload) =>
 export const createCheckout = (payload) =>
   axios
     .post(
-      `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/create-checkout-session`,
+      `${process.env.VITE_APP_SUPABASE_URL}/functions/v1/create-checkout-session`,
       payload,
       {
         headers: {
@@ -91,7 +91,7 @@ export const getCheckoutStatus = (sessionId) =>
 
 // Auth
 export const authApi = axios.create({
-  baseURL: `${process.env.REACT_APP_BACKEND_URL}/api/auth`,
+  baseURL: `${import.meta.env.VITE_BACKEND_URL}/api/auth`,
   withCredentials: true,
 });
 
@@ -159,7 +159,7 @@ async function callOrderFunction(name, payload) {
   const token = localStorage.getItem("access_token");
 
   const res = await fetch(
-    `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/${name}`,
+    `${process.env.VITE_APP_SUPABASE_URL}/functions/v1/${name}`,
     {
       method: "POST",
       headers: {
