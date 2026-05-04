@@ -3,7 +3,7 @@
 import os
 import requests
 
-BASE = os.environ.get("VITE_APP_BACKEND_URL") or "http://localhost:8000"
+BASE = os.environ.get("REACT_APP_BACKEND_URL") or "http://localhost:8000"
 BASE = BASE.rstrip("/")
 API = f"{BASE}/api"
 
