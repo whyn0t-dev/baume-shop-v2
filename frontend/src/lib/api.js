@@ -1,6 +1,12 @@
 import axios from "axios";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BASE_URL = process.env.REACT_APP_BACKEND_URL;
+
+if (!BASE_URL) {
+  throw new Error("REACT_APP_BACKEND_URL manquant");
+}
+
+const API = `${BASE_URL}/api`;
 
 export const api = axios.create({ baseURL: API, withCredentials: true });
 
@@ -83,7 +89,7 @@ export const getCheckoutStatus = (sessionId) =>
 
 // Auth
 export const authApi = axios.create({
-  baseURL: `${import.meta.env.REACT_APP_BACKEND_URL}/api/auth`,
+  baseURL: `${process.env.REACT_APP_BACKEND_URL}/api`,
   withCredentials: true,
 });
 
