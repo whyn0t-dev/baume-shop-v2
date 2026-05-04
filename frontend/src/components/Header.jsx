@@ -393,6 +393,8 @@ function ExpertsMegaMenu({ onClose }) {
 }
 
 function MobileDrawer({ onNavigate }) {
+	const { isAuth, user } = useAuth();
+
 	return (
 		<div className="h-full flex flex-col">
 			<div className="px-6 py-6 border-b border-baume-border">
@@ -437,6 +439,12 @@ function MobileDrawer({ onNavigate }) {
 					À propos
 				</MobileLink>
 
+				<MobileLink to={isAuth ? "/compte" : "/connexion"} onClick={onNavigate}>
+					{isAuth
+						? `Mon compte${user?.first_name ? ` · ${user.first_name}` : ""}`
+						: "Se connecter"}
+				</MobileLink>
+
 				<div className="mt-8 rounded-3xl bg-baume-ivory/70 border border-baume-border p-5">
 					<p className="text-[13px] font-semibold text-baume-burgundy uppercase tracking-[0.16em]">
 						Besoin d’aide ?
@@ -456,7 +464,6 @@ function MobileDrawer({ onNavigate }) {
 		</div>
 	);
 }
-
 function MobileLink({ to, onClick, children }) {
 	return (
 		<Link
