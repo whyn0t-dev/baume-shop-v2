@@ -186,6 +186,7 @@ class Product(BaseModel):
     image: str
     gallery: List[str] = []
     product_category: str
+    product_type: Optional[str] = None  # ← AJOUTER CETTE LIGNE
     needs: List[str] = []
     flux: Optional[str] = None
     usage: Optional[str] = None
