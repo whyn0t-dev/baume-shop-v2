@@ -13,6 +13,7 @@ export default function ProductCard({ product, onQuickAdd }) {
     >
       {/* IMAGE */}
       <Link
+        to={`/produit/${product.slug}`}
         className="block aspect-[4/5] bg-baume-ivory overflow-hidden"
       >
         <img
