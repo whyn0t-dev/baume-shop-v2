@@ -37,11 +37,9 @@ import { toast } from "sonner";
 // Pour ajouter un nouveau type, dupliquer un bloc et adapter match + sections.
 
 const CUSTOM_SECTIONS = [
-
 	// ── Culotte Menstruelle / Protection Menstruelle ──────────────────────────
 	{
-		match: (p) =>
-			["Culotte-Menstruelle", "Protection Menstruelle"].includes(p.product_type),
+		match: (p) => p.product_category === "culottes-menstruelles",
 		sections: [
 			{
 				id: "cm-guide-flux",
@@ -49,7 +47,8 @@ const CUSTOM_SECTIONS = [
 				content: (
 					<div className="space-y-3">
 						<p className="text-[13px] leading-[22px] text-baume-charcoal/70">
-							Chaque culotte est conçue pour un niveau d'absorption précis. Voici comment choisir selon votre flux :
+							Chaque culotte est conçue pour un niveau d'absorption précis.
+							Voici comment choisir selon votre flux :
 						</p>
 						<div className="grid grid-cols-3 gap-2">
 							{[
@@ -80,11 +79,20 @@ const CUSTOM_SECTIONS = [
 					<div className="space-y-2">
 						{[
 							{ icon: "🧊", text: "Rincer à l'eau froide après utilisation" },
-							{ icon: "🫧", text: "Laver à 30°C en machine, sans assouplissant" },
-							{ icon: "💨", text: "Sécher à l'air libre — ne pas mettre au sèche-linge" },
+							{
+								icon: "🫧",
+								text: "Laver à 30°C en machine, sans assouplissant",
+							},
+							{
+								icon: "💨",
+								text: "Sécher à l'air libre — ne pas mettre au sèche-linge",
+							},
 							{ icon: "♻️", text: "Dure jusqu'à 150 cycles de lavage" },
 						].map((item, i) => (
-							<div key={i} className="flex items-start gap-2 text-[13px] text-baume-charcoal/75">
+							<div
+								key={i}
+								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
 							</div>
@@ -97,8 +105,16 @@ const CUSTOM_SECTIONS = [
 				title: "Certifications",
 				content: (
 					<div className="flex flex-wrap gap-2">
-						{["OEKO-TEX®", "Coton bio", "Sans perturbateurs endocriniens", "Testé dermato"].map((c) => (
-							<span key={c} className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/70 font-medium">
+						{[
+							"OEKO-TEX®",
+							"Coton bio",
+							"Sans perturbateurs endocriniens",
+							"Testé dermato",
+						].map((c) => (
+							<span
+								key={c}
+								className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/70 font-medium"
+							>
 								{c}
 							</span>
 						))}
@@ -110,8 +126,7 @@ const CUSTOM_SECTIONS = [
 
 	// ── Cup / Disque Menstruel ────────────────────────────────────────────────
 	{
-		match: (p) =>
-			["Cup", "Disque-Menstruel", "Protection Interne"].includes(p.product_type),
+		match: (p) => p.product_category === "cups-disques",
 		sections: [
 			{
 				id: "cup-comparaison",
@@ -120,8 +135,12 @@ const CUSTOM_SECTIONS = [
 					<div className="rounded-2xl overflow-hidden border border-baume-border text-[12px]">
 						<div className="grid grid-cols-3 bg-baume-ivory text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
 							<div className="p-2.5" />
-							<div className="p-2.5 border-l border-baume-border text-center">Cup</div>
-							<div className="p-2.5 border-l border-baume-border text-center">Disque</div>
+							<div className="p-2.5 border-l border-baume-border text-center">
+								Cup
+							</div>
+							<div className="p-2.5 border-l border-baume-border text-center">
+								Disque
+							</div>
 						</div>
 						{[
 							{ label: "Port", cup: "Jusqu'à 8h", disc: "Jusqu'à 12h" },
@@ -129,10 +148,17 @@ const CUSTOM_SECTIONS = [
 							{ label: "Pose", cup: "Pliage", disc: "Insertion plate" },
 							{ label: "Capacité", cup: "Moyenne", disc: "Grande" },
 						].map((row, i) => (
-							<div key={i} className={`grid grid-cols-3 border-t border-baume-border ${i % 2 === 0 ? "bg-white" : "bg-baume-ivory/50"}`}>
+							<div
+								key={i}
+								className={`grid grid-cols-3 border-t border-baume-border ${i % 2 === 0 ? "bg-white" : "bg-baume-ivory/50"}`}
+							>
 								<div className="p-2.5 text-baume-charcoal/60">{row.label}</div>
-								<div className="p-2.5 border-l border-baume-border text-center text-baume-charcoal/80">{row.cup}</div>
-								<div className="p-2.5 border-l border-baume-border text-center text-baume-charcoal/80">{row.disc}</div>
+								<div className="p-2.5 border-l border-baume-border text-center text-baume-charcoal/80">
+									{row.cup}
+								</div>
+								<div className="p-2.5 border-l border-baume-border text-center text-baume-charcoal/80">
+									{row.disc}
+								</div>
 							</div>
 						))}
 					</div>
@@ -144,12 +170,18 @@ const CUSTOM_SECTIONS = [
 				content: (
 					<div className="space-y-2">
 						{[
-							{ icon: "🫙", text: "Stériliser dans l'eau bouillante 5 min avant chaque cycle" },
+							{
+								icon: "🫙",
+								text: "Stériliser dans l'eau bouillante 5 min avant chaque cycle",
+							},
 							{ icon: "🧼", text: "Nettoyer au savon doux entre chaque pose" },
 							{ icon: "📦", text: "Conserver dans la pochette tissu fournie" },
 							{ icon: "📅", text: "Durée de vie estimée : 5 à 10 ans" },
 						].map((item, i) => (
-							<div key={i} className="flex items-start gap-2 text-[13px] text-baume-charcoal/75">
+							<div
+								key={i}
+								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
 							</div>
@@ -162,18 +194,26 @@ const CUSTOM_SECTIONS = [
 
 	// ── Maillot Menstruel ─────────────────────────────────────────────────────
 	{
-		match: (p) =>
-			["Maillot Menstruel", "Maillot-Menstruel"].includes(p.product_type),
+		match: (p) => p.product_category === "maillots-menstruels",
 		sections: [
 			{
 				id: "maillot-fonctionnement",
 				title: "Comment ça fonctionne ?",
 				content: (
 					<div className="space-y-3 text-[13px] leading-[21px] text-baume-charcoal/75">
-						<p>La doublure intégrée absorbe les flux légers directement dans le maillot — sans tampon, sans serviette.</p>
+						<p>
+							La doublure intégrée absorbe les flux légers directement dans le
+							maillot — sans tampon, sans serviette.
+						</p>
 						<div className="rounded-xl bg-baume-ivory border border-baume-border p-3 space-y-1.5">
-							<p className="font-semibold text-baume-charcoal text-[12px] uppercase tracking-wider">Idéal pour</p>
-							{["Piscine & baignade en mer", "Flux léger ou fin de règles", "En complément d'une cup ou d'un disque"].map((t, i) => (
+							<p className="font-semibold text-baume-charcoal text-[12px] uppercase tracking-wider">
+								Idéal pour
+							</p>
+							{[
+								"Piscine & baignade en mer",
+								"Flux léger ou fin de règles",
+								"En complément d'une cup ou d'un disque",
+							].map((t, i) => (
 								<div key={i} className="flex items-center gap-2">
 									<span className="h-1 w-1 rounded-full bg-baume-burgundy shrink-0" />
 									<span>{t}</span>
@@ -192,9 +232,15 @@ const CUSTOM_SECTIONS = [
 							{ icon: "🌊", text: "Rincer à l'eau froide après chaque bain" },
 							{ icon: "🧺", text: "Laver à 30°C sans assouplissant" },
 							{ icon: "☀️", text: "Sécher à l'ombre — éviter le sèche-linge" },
-							{ icon: "🚫", text: "Ne pas repasser ni utiliser d'eau de Javel" },
+							{
+								icon: "🚫",
+								text: "Ne pas repasser ni utiliser d'eau de Javel",
+							},
 						].map((item, i) => (
-							<div key={i} className="flex items-start gap-2 text-[13px] text-baume-charcoal/75">
+							<div
+								key={i}
+								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
 							</div>
@@ -207,7 +253,7 @@ const CUSTOM_SECTIONS = [
 
 	// ── Serviettes Lavables ───────────────────────────────────────────────────
 	{
-		match: (p) => p.product_type === "Serviettes-Lavables",
+		match: (p) => p.product_category === "serviettes-lavables",
 		sections: [
 			{
 				id: "sl-guide",
@@ -216,16 +262,35 @@ const CUSTOM_SECTIONS = [
 					<div className="space-y-3 text-[13px] text-baume-charcoal/75">
 						<div className="grid grid-cols-3 gap-2 text-center">
 							{[
-								{ step: "1", label: "Poser", desc: "Fixer avec la pression sur le sous-vêtement" },
-								{ step: "2", label: "Changer", desc: "Toutes les 4 à 6h selon le flux" },
-								{ step: "3", label: "Laver", desc: "Rincer froid, machine à 30°C" },
+								{
+									step: "1",
+									label: "Poser",
+									desc: "Fixer avec la pression sur le sous-vêtement",
+								},
+								{
+									step: "2",
+									label: "Changer",
+									desc: "Toutes les 4 à 6h selon le flux",
+								},
+								{
+									step: "3",
+									label: "Laver",
+									desc: "Rincer froid, machine à 30°C",
+								},
 							].map((s) => (
-								<div key={s.step} className="rounded-xl bg-baume-ivory border border-baume-border p-3">
+								<div
+									key={s.step}
+									className="rounded-xl bg-baume-ivory border border-baume-border p-3"
+								>
 									<div className="w-6 h-6 rounded-full bg-baume-burgundy text-baume-white text-[11px] font-bold flex items-center justify-center mx-auto mb-1.5">
 										{s.step}
 									</div>
-									<p className="font-semibold text-baume-charcoal text-[12px]">{s.label}</p>
-									<p className="text-[11px] mt-1 leading-[16px] opacity-75">{s.desc}</p>
+									<p className="font-semibold text-baume-charcoal text-[12px]">
+										{s.label}
+									</p>
+									<p className="text-[11px] mt-1 leading-[16px] opacity-75">
+										{s.desc}
+									</p>
 								</div>
 							))}
 						</div>
@@ -237,14 +302,16 @@ const CUSTOM_SECTIONS = [
 
 	// ── Aromathérapie ─────────────────────────────────────────────────────────
 	{
-		match: (p) => p.product_type === "Aromathérapie",
+		match: (p) => p.product_category === "aromatherapie",
 		sections: [
 			{
 				id: "aroma-precautions",
 				title: "Précautions d'usage",
 				content: (
 					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-charcoal/75">
-						<p className="font-semibold text-baume-charcoal">⚠️ À lire avant utilisation</p>
+						<p className="font-semibold text-baume-charcoal">
+							⚠️ À lire avant utilisation
+						</p>
 						{[
 							"Usage externe uniquement — ne pas ingérer",
 							"Tenir hors de portée des enfants",
@@ -264,8 +331,17 @@ const CUSTOM_SECTIONS = [
 				title: "Zones d'application",
 				content: (
 					<div className="flex flex-wrap gap-2">
-						{["Poignets", "Tempes", "Bas du ventre", "Plexus solaire", "Nuque"].map((z) => (
-							<span key={z} className="text-[12px] px-3 py-1.5 rounded-full bg-baume-taupe/30 border border-baume-border text-baume-charcoal/80">
+						{[
+							"Poignets",
+							"Tempes",
+							"Bas du ventre",
+							"Plexus solaire",
+							"Nuque",
+						].map((z) => (
+							<span
+								key={z}
+								className="text-[12px] px-3 py-1.5 rounded-full bg-baume-taupe/30 border border-baume-border text-baume-charcoal/80"
+							>
 								{z}
 							</span>
 						))}
@@ -277,8 +353,7 @@ const CUSTOM_SECTIONS = [
 
 	// ── Compléments alimentaires ──────────────────────────────────────────────
 	{
-		match: (p) =>
-			["Complement-Cycle", "Complement-Post-Partum"].includes(p.product_type),
+		match: (p) => p.product_category === "bien-etre-gourmand",
 		sections: [
 			{
 				id: "compl-cure",
@@ -291,14 +366,22 @@ const CUSTOM_SECTIONS = [
 								{ label: "Prise", value: "Matin" },
 								{ label: "Avec", value: "Un grand verre d'eau" },
 							].map((item) => (
-								<div key={item.label} className="rounded-xl bg-baume-ivory border border-baume-border p-3">
-									<p className="text-baume-charcoal/50 text-[11px] uppercase tracking-wider mb-1">{item.label}</p>
-									<p className="font-semibold text-baume-charcoal">{item.value}</p>
+								<div
+									key={item.label}
+									className="rounded-xl bg-baume-ivory border border-baume-border p-3"
+								>
+									<p className="text-baume-charcoal/50 text-[11px] uppercase tracking-wider mb-1">
+										{item.label}
+									</p>
+									<p className="font-semibold text-baume-charcoal">
+										{item.value}
+									</p>
 								</div>
 							))}
 						</div>
 						<p className="text-[12px] text-baume-charcoal/55 leading-[18px]">
-							Résultats visibles généralement à partir de 3 à 4 semaines. Nous recommandons 2 à 3 cures par an.
+							Résultats visibles généralement à partir de 3 à 4 semaines. Nous
+							recommandons 2 à 3 cures par an.
 						</p>
 					</div>
 				),
@@ -327,8 +410,7 @@ const CUSTOM_SECTIONS = [
 
 	// ── Soins Intimes (Lubrifiants, Crèmes, Baumes, Huiles) ──────────────────
 	{
-		match: (p) =>
-			["Soin-Intime", "Soin Intime", "Lubrifiant"].includes(p.product_type),
+		match: (p) => p.product_category === "soins-corps-visage",
 		sections: [
 			{
 				id: "soin-compat",
@@ -348,14 +430,16 @@ const CUSTOM_SECTIONS = [
 								value: product.slug?.includes("silicone") ? "✗ Non" : "✓ Oui",
 							},
 							{ label: "Peaux sensibles", value: "✓ Oui" },
-							{ label: "Usage interne",   value: "✓ Oui" },
+							{ label: "Usage interne", value: "✓ Oui" },
 						].map((item) => (
 							<div
 								key={item.label}
 								className="flex items-center justify-between rounded-xl bg-baume-ivory border border-baume-border px-3 py-2 gap-2"
 							>
 								<span className="text-baume-charcoal/65">{item.label}</span>
-								<span className="font-semibold text-baume-charcoal shrink-0">{item.value}</span>
+								<span className="font-semibold text-baume-charcoal shrink-0">
+									{item.value}
+								</span>
 							</div>
 						))}
 					</div>
@@ -370,7 +454,9 @@ const CUSTOM_SECTIONS = [
 							"Moins c'est plus."
 						</p>
 						<p className="text-[13px] leading-[21px] text-baume-charcoal/70">
-							Commencez par une petite quantité et ajustez selon vos besoins. La plupart de nos soins sont concentrés — quelques gouttes suffisent pour un effet optimal.
+							Commencez par une petite quantité et ajustez selon vos besoins. La
+							plupart de nos soins sont concentrés — quelques gouttes suffisent
+							pour un effet optimal.
 						</p>
 					</div>
 				),
@@ -380,15 +466,22 @@ const CUSTOM_SECTIONS = [
 
 	// ── Coffrets ─────────────────────────────────────────────────────────────
 	{
-		match: (p) => p.product_type === "Coffret",
+		match: (p) => p.product_category === "moments-brillants",
 		sections: [
 			{
 				id: "coffret-contenu",
 				title: "Ce qui est inclus",
 				content: (
 					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-charcoal/75">
-						<p className="text-[11px] uppercase tracking-wider text-baume-burgundy font-semibold mb-3">Contenu du coffret</p>
-						{["Produits soigneusement sélectionnés", "Emballage cadeau inclus", "Livret d'accompagnement", "Carte personnalisable"].map((item, i) => (
+						<p className="text-[11px] uppercase tracking-wider text-baume-burgundy font-semibold mb-3">
+							Contenu du coffret
+						</p>
+						{[
+							"Produits soigneusement sélectionnés",
+							"Emballage cadeau inclus",
+							"Livret d'accompagnement",
+							"Carte personnalisable",
+						].map((item, i) => (
 							<div key={i} className="flex items-center gap-2">
 								<span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy shrink-0" />
 								<span>{item}</span>
@@ -402,10 +495,22 @@ const CUSTOM_SECTIONS = [
 				title: "Offrir ce coffret",
 				content: (
 					<div className="space-y-2 text-[13px] text-baume-charcoal/70">
-						<p>Chaque coffret est expédié dans un emballage cadeau prêt à offrir. Vous pouvez y ajouter un message personnalisé lors du passage en caisse.</p>
+						<p>
+							Chaque coffret est expédié dans un emballage cadeau prêt à offrir.
+							Vous pouvez y ajouter un message personnalisé lors du passage en
+							caisse.
+						</p>
 						<div className="flex flex-wrap gap-2 mt-2">
-							{["Anniversaire", "Naissance", "Saint-Valentin", "Fête des mères"].map((o) => (
-								<span key={o} className="text-[11px] px-2.5 py-1 rounded-full bg-baume-taupe/30 border border-baume-border text-baume-charcoal/70">
+							{[
+								"Anniversaire",
+								"Naissance",
+								"Saint-Valentin",
+								"Fête des mères",
+							].map((o) => (
+								<span
+									key={o}
+									className="text-[11px] px-2.5 py-1 rounded-full bg-baume-taupe/30 border border-baume-border text-baume-charcoal/70"
+								>
 									{o}
 								</span>
 							))}
@@ -416,20 +521,31 @@ const CUSTOM_SECTIONS = [
 		],
 	},
 
-	// ── Accessoire / Bien-Être ────────────────────────────────────────────────
+	// ── Accessoire ────────────────────────────────────────────────
 	{
-		match: (p) =>
-			["Accessoire", "Accessoire Bien-Être"].includes(p.product_type),
+		match: (p) => p.product_category === "accessoires",
 		sections: [
 			{
 				id: "acc-matiere",
 				title: "Matières & traçabilité",
 				content: (
 					<div className="space-y-2 text-[13px] text-baume-charcoal/75">
-						<p>Nos accessoires sont fabriqués avec des matières certifiées et traçables, sélectionnées pour leur douceur et leur impact réduit sur l'environnement.</p>
+						<p>
+							Nos accessoires sont fabriqués avec des matières certifiées et
+							traçables, sélectionnées pour leur douceur et leur impact réduit
+							sur l'environnement.
+						</p>
 						<div className="flex flex-wrap gap-2 mt-2">
-							{["GOTS certifié", "Polyester recyclé", "Sans BPA", "Fabrication EU"].map((c) => (
-								<span key={c} className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/65">
+							{[
+								"GOTS certifié",
+								"Polyester recyclé",
+								"Sans BPA",
+								"Fabrication EU",
+							].map((c) => (
+								<span
+									key={c}
+									className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/65"
+								>
 									{c}
 								</span>
 							))}
@@ -440,10 +556,79 @@ const CUSTOM_SECTIONS = [
 		],
 	},
 
+	// ── Bouillottes / Ambiance & Rituels ───────────────────────────────
+	{
+		match: (p) => p.product_category === "ambiance-rituels",
+		sections: [
+			{
+				id: "rituel-utilisation",
+				title: "Comment utiliser votre bouillotte ?",
+				content: (
+					<div className="space-y-2 text-[13px] text-baume-charcoal/75">
+						{[
+							"Remplir avec de l’eau chaude (non bouillante)",
+							"Refermer soigneusement le bouchon",
+							"Appliquer sur le bas du ventre ou les zones de tension",
+							"Utiliser 15 à 20 minutes pour un effet optimal",
+						].map((t, i) => (
+							<div key={i} className="flex items-start gap-2">
+								<span className="h-1 w-1 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
+								<span>{t}</span>
+							</div>
+						))}
+					</div>
+				),
+			},
+			{
+				id: "rituel-bienfaits",
+				title: "Bienfaits de la chaleur",
+				content: (
+					<div className="space-y-2 text-[13px] text-baume-charcoal/75">
+						{[
+							"Soulage les douleurs menstruelles",
+							"Détend les muscles et réduit les tensions",
+							"Favorise la circulation sanguine",
+							"Apporte une sensation immédiate de confort",
+						].map((t, i) => (
+							<div key={i} className="flex items-start gap-2">
+								<span className="h-1 w-1 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
+								<span>{t}</span>
+							</div>
+						))}
+					</div>
+				),
+			},
+			{
+				id: "rituel-securite",
+				title: "Précautions d’usage",
+				content: (
+					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-charcoal/75">
+						<p className="font-semibold text-baume-charcoal">
+							⚠️ À utiliser en toute sécurité
+						</p>
+						{[
+							"Ne pas utiliser d’eau bouillante",
+							"Ne pas appliquer directement sur la peau sans protection",
+							"Vérifier l’absence de fuite avant utilisation",
+							"Tenir hors de portée des enfants",
+						].map((t, i) => (
+							<div key={i} className="flex items-start gap-2">
+								<span className="h-1 w-1 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
+								<span>{t}</span>
+							</div>
+						))}
+					</div>
+				),
+			},
+		],
+	},
+
 	// ── Prêt-à-porter / Sous-vêtements ───────────────────────────────────────
 	{
 		match: (p) =>
-			["Prêt À Porter", "Sous-Vêtement", "Maillot De Bain"].includes(p.product_type),
+			["pret-a-porter", "sous-vetements", "maillots-non-menstruels"].includes(
+				p.product_category,
+			),
 		sections: [
 			{
 				id: "pap-entretien",
@@ -451,12 +636,24 @@ const CUSTOM_SECTIONS = [
 				content: (
 					<div className="space-y-2">
 						{[
-							{ icon: "🧺", text: "Lavage délicat à 30°C, retourner le vêtement" },
-							{ icon: "💨", text: "Séchage à plat ou sur cintre — éviter le sèche-linge" },
+							{
+								icon: "🧺",
+								text: "Lavage délicat à 30°C, retourner le vêtement",
+							},
+							{
+								icon: "💨",
+								text: "Séchage à plat ou sur cintre — éviter le sèche-linge",
+							},
 							{ icon: "🚫", text: "Ne pas repasser sur la matière principale" },
-							{ icon: "📦", text: "Plier et ranger dans un tiroir — éviter les cintres pour les tricots" },
+							{
+								icon: "📦",
+								text: "Plier et ranger dans un tiroir — éviter les cintres pour les tricots",
+							},
 						].map((item, i) => (
-							<div key={i} className="flex items-start gap-2 text-[13px] text-baume-charcoal/75">
+							<div
+								key={i}
+								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
 							</div>
@@ -470,19 +667,32 @@ const CUSTOM_SECTIONS = [
 				content: (
 					<div className="rounded-2xl overflow-hidden border border-baume-border text-[12px]">
 						<div className="grid grid-cols-4 bg-baume-ivory text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
-							{["Taille", "Tour de taille", "Tour de hanches", "Bonnet"].map((h) => (
-								<div key={h} className="p-2.5 border-r last:border-r-0 border-baume-border">{h}</div>
-							))}
+							{["Taille", "Tour de taille", "Tour de hanches", "Bonnet"].map(
+								(h) => (
+									<div
+										key={h}
+										className="p-2.5 border-r last:border-r-0 border-baume-border"
+									>
+										{h}
+									</div>
+								),
+							)}
 						</div>
 						{[
 							["XS", "60–64 cm", "86–90 cm", "85B–90B"],
-							["S",  "64–68 cm", "90–94 cm", "90B–95C"],
-							["M",  "68–72 cm", "94–98 cm", "95C–100C"],
-							["L",  "72–78 cm", "98–104 cm","100D–105D"],
+							["S", "64–68 cm", "90–94 cm", "90B–95C"],
+							["M", "68–72 cm", "94–98 cm", "95C–100C"],
+							["L", "72–78 cm", "98–104 cm", "100D–105D"],
 						].map((row, i) => (
-							<div key={i} className={`grid grid-cols-4 border-t border-baume-border ${i % 2 === 0 ? "bg-white" : "bg-baume-ivory/40"}`}>
+							<div
+								key={i}
+								className={`grid grid-cols-4 border-t border-baume-border ${i % 2 === 0 ? "bg-white" : "bg-baume-ivory/40"}`}
+							>
 								{row.map((cell, j) => (
-									<div key={j} className="p-2.5 border-r last:border-r-0 border-baume-border text-baume-charcoal/80">
+									<div
+										key={j}
+										className="p-2.5 border-r last:border-r-0 border-baume-border text-baume-charcoal/80"
+									>
 										{cell}
 									</div>
 								))}
@@ -552,12 +762,15 @@ export default function ProductPage() {
 	// Sections personnalisées applicables à ce produit
 	const customSections = useMemo(() => {
 		if (!product) return [];
-		return CUSTOM_SECTIONS.filter((cs) => cs.match(product))
+
+		const matched = CUSTOM_SECTIONS.filter((cs) => cs.match(product));
+		return matched
 			.flatMap((cs) => cs.sections)
 			.map((section) => ({
 				...section,
-				// Si la section a un _buildContent, on le résout maintenant avec le vrai produit
-				content: section._buildContent ? section._buildContent(product) : section.content,
+				content: section._buildContent
+					? section._buildContent(product)
+					: section.content,
 			}));
 	}, [product]);
 
@@ -626,7 +839,6 @@ export default function ProductPage() {
 					{/* ── Colonne droite — défile librement ── */}
 					<div className="lg:col-span-5">
 						<div className="flex flex-col gap-4">
-
 							{/* ── Carte produit principale ── */}
 							<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8 shadow-sm">
 								<div className="flex flex-wrap items-center gap-2 mb-5">
@@ -787,41 +999,12 @@ export default function ProductPage() {
 										disabled={!product.available}
 										className="flex-1 h-12 px-6 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 									>
-										{product.available ? "Ajouter à ma routine" : "Indisponible"}
+										{product.available
+											? "Ajouter à ma routine"
+											: "Indisponible"}
 									</button>
 								</div>
 							</div>
-
-							{/* ── Sections personnalisées (colonne droite) ── */}
-							{customSections.map((section) => (
-								<div
-									key={section.id}
-									className="rounded-3xl border border-baume-border bg-baume-white p-6 shadow-sm"
-								>
-									<p className="text-[12px] uppercase tracking-[0.18em] text-baume-burgundy font-semibold mb-3">
-										Exclusif
-									</p>
-									<h3 className="font-editorial text-[20px] text-baume-charcoal mb-4">
-										{section.title}
-									</h3>
-
-									{/* Images optionnelles */}
-									{section.images?.length > 0 && (
-										<div className="grid grid-cols-2 gap-2 mb-4">
-											{section.images.map((src, i) => (
-												<img
-													key={i}
-													src={src}
-													alt={`${section.title} ${i + 1}`}
-													className="w-full h-32 object-cover rounded-xl"
-												/>
-											))}
-										</div>
-									)}
-
-									{section.content}
-								</div>
-							))}
 
 							{/* ── Peut-être associé avec ce produit ── */}
 							{related.length > 0 && (
@@ -879,11 +1062,23 @@ export default function ProductPage() {
 							{/* ── Infos livraison / retours — horizontal ── */}
 							<div className="rounded-3xl border border-baume-border bg-baume-white p-5 shadow-sm">
 								<div className="flex items-center justify-center gap-6 flex-wrap">
-									<InfoChip icon={Truck} title="Livraison 2 à 5 jours" sub="Offerte dès 60 CHF" />
+									<InfoChip
+										icon={Truck}
+										title="Livraison 2 à 5 jours"
+										sub="Offerte dès 60 CHF"
+									/>
 									<div className="hidden sm:block w-px h-10 bg-baume-border" />
-									<InfoChip icon={Store} title="Retrait boutique" sub="Rue du Rhône 15, GE" />
+									<InfoChip
+										icon={Store}
+										title="Retrait boutique"
+										sub="Rue du Rhône 15, GE"
+									/>
 									<div className="hidden sm:block w-px h-10 bg-baume-border" />
-									<InfoChip icon={ShieldCheck} title="Retours 30 jours" sub="Gratuit en Suisse" />
+									<InfoChip
+										icon={ShieldCheck}
+										title="Retours 30 jours"
+										sub="Gratuit en Suisse"
+									/>
 								</div>
 							</div>
 
@@ -904,18 +1099,54 @@ export default function ProductPage() {
 							</div>
 
 							{/* ── Accordéons fins — style éditorial ── */}
-							<Accordion type="single" collapsible className="divide-y divide-baume-border border-t border-baume-border">
+							<Accordion
+								type="single"
+								collapsible
+								className="divide-y divide-baume-border border-t border-baume-border"
+							>
 								{[
-									{ value: "composition", icon: <HeartIcon />, label: "Composition du produit", content: product.composition },
-									{ value: "livraison",   icon: <TruckIcon />,  label: "Livraisons & Retours",  content: "Livraison Suisse 2-3 jours (6.90 CHF, offerte dès 60 CHF). Europe 3-5 jours. Retrait boutique Genève. Retours sous 30 jours hors produits d'hygiène intime ouverts." },
-									{ value: "utilisation", icon: <CheckIcon />,  label: "Conseils d'utilisations", content: product.how_to_use },
-									{ value: "fabrication", icon: <GlobeIcon />,  label: "Provenance & Fabrication", content: product.fabrication },
-									{ value: "description", icon: <InfoIcon />,   label: "Description",            content: product.description },
+									{
+										value: "composition",
+										icon: <HeartIcon />,
+										label: "Composition du produit",
+										content: product.composition,
+									},
+									{
+										value: "livraison",
+										icon: <TruckIcon />,
+										label: "Livraisons & Retours",
+										content:
+											"Livraison Suisse 2-3 jours (6.90 CHF, offerte dès 60 CHF). Europe 3-5 jours. Retrait boutique Genève. Retours sous 30 jours hors produits d'hygiène intime ouverts.",
+									},
+									{
+										value: "utilisation",
+										icon: <CheckIcon />,
+										label: "Conseils d'utilisations",
+										content: product.how_to_use,
+									},
+									{
+										value: "fabrication",
+										icon: <GlobeIcon />,
+										label: "Provenance & Fabrication",
+										content: product.fabrication,
+									},
+									{
+										value: "description",
+										icon: <InfoIcon />,
+										label: "Description",
+										content: product.description,
+									},
 								].map(({ value, icon, label, content }) => (
-									<AccordionItem key={value} value={value} className="border-none">
+									<AccordionItem
+										key={value}
+										value={value}
+										className="border-none"
+									>
 										<AccordionTrigger className="py-4 hover:no-underline group [&>svg]:hidden">
 											<span className="flex items-center gap-3 flex-1">
-												<span className="text-baume-charcoal/50 shrink-0">{icon}</span>
+												<span className="text-baume-charcoal/50 shrink-0">
+													{icon}
+												</span>
 												<span className="font-editorial text-[17px] text-baume-charcoal group-data-[state=open]:text-baume-burgundy transition-colors">
 													{label}
 												</span>
@@ -928,7 +1159,6 @@ export default function ProductPage() {
 									</AccordionItem>
 								))}
 							</Accordion>
-
 						</div>
 					</div>
 				</div>
@@ -938,7 +1168,6 @@ export default function ProductPage() {
 			{allReviews.length > 0 && (
 				<section className="bg-baume-white border-y border-baume-border">
 					<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16">
-
 						{/* En-tête */}
 						<div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
 							<div>
@@ -950,7 +1179,8 @@ export default function ProductPage() {
 								</h2>
 							</div>
 							<p className="text-[14px] text-baume-charcoal/65">
-								{allReviews.length} avis affiché{allReviews.length > 1 ? "s" : ""}
+								{allReviews.length} avis affiché
+								{allReviews.length > 1 ? "s" : ""}
 							</p>
 						</div>
 
@@ -1050,6 +1280,91 @@ export default function ProductPage() {
 				</section>
 			)}
 
+			{/* ── Sections personnalisées pleine largeur ── */}
+			{customSections.length > 0 && (
+				<section className="bg-baume-white border-t border-baume-border">
+					<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16">
+						{/* Header éditorial */}
+						<div className="max-w-2xl mb-12">
+							<p className="text-[12px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold mb-3">
+								Conseils & détails
+							</p>
+							<h2 className="font-editorial text-[32px] md:text-[42px] text-baume-charcoal leading-tight">
+								Tout savoir sur ce produit
+							</h2>
+							<p className="mt-4 text-[15px] text-baume-charcoal/65 leading-[24px]">
+								Nos expertes vous guident pour tirer le meilleur de votre
+								produit, avec des conseils d’utilisation, d’entretien et de
+								choix adaptés à votre routine.
+							</p>
+						</div>
+
+						{/* Grid sections */}
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
+							{customSections.map((section) => (
+								<div
+									key={section.id}
+									className="rounded-3xl border border-baume-border bg-baume-ivory/40 p-6 md:p-7"
+								>
+									<h3 className="font-editorial text-[22px] text-baume-charcoal mb-4">
+										{section.title}
+									</h3>
+
+									{section.images?.length > 0 && (
+										<div className="grid grid-cols-2 gap-2 mb-4">
+											{section.images.map((src, i) => (
+												<img
+													key={i}
+													src={src}
+													alt={`${section.title} ${i + 1}`}
+													className="w-full h-32 object-cover rounded-xl"
+												/>
+											))}
+										</div>
+									)}
+
+									<div>{section.content}</div>
+								</div>
+							))}
+						</div>
+
+						{/* Bloc complémentaire (évite le vide) */}
+						<div className="mt-14 grid md:grid-cols-3 gap-6">
+							<div className="rounded-2xl border border-baume-border p-5 bg-baume-white">
+								<p className="font-semibold text-baume-charcoal text-[14px] mb-2">
+									💡 Astuce
+								</p>
+								<p className="text-[13px] text-baume-charcoal/65 leading-[22px]">
+									Pour des résultats optimaux, utilisez ce produit régulièrement
+									et intégrez-le dans une routine cohérente adaptée à votre
+									corps.
+								</p>
+							</div>
+
+							<div className="rounded-2xl border border-baume-border p-5 bg-baume-white">
+								<p className="font-semibold text-baume-charcoal text-[14px] mb-2">
+									🌿 Philosophie
+								</p>
+								<p className="text-[13px] text-baume-charcoal/65 leading-[22px]">
+									Nos produits privilégient des ingrédients sûrs, traçables et
+									respectueux de votre équilibre intime.
+								</p>
+							</div>
+
+							<div className="rounded-2xl border border-baume-border p-5 bg-baume-white">
+								<p className="font-semibold text-baume-charcoal text-[14px] mb-2">
+									🔁 Routine
+								</p>
+								<p className="text-[13px] text-baume-charcoal/65 leading-[22px]">
+									Associez ce produit avec d'autres essentiels pour créer une
+									routine bien-être complète et durable.
+								</p>
+							</div>
+						</div>
+					</div>
+				</section>
+			)}
+
 			{/* ── Produits associés (bas de page) ── */}
 			{related.length > 0 && (
 				<section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16">
@@ -1112,7 +1427,9 @@ function InfoChip({ icon: Icon, title, sub }) {
 			<span className="h-9 w-9 rounded-full bg-baume-ivory text-baume-burgundy inline-flex items-center justify-center">
 				<Icon className="h-4 w-4" />
 			</span>
-			<p className="text-[12px] font-semibold text-baume-charcoal leading-tight">{title}</p>
+			<p className="text-[12px] font-semibold text-baume-charcoal leading-tight">
+				{title}
+			</p>
 			<p className="text-[11px] text-baume-charcoal/55">{sub}</p>
 		</div>
 	);
@@ -1121,23 +1438,51 @@ function InfoChip({ icon: Icon, title, sub }) {
 // ─── Icônes fines pour accordéons ────────────────────────────────────────────
 function HeartIcon() {
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
 			<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
 		</svg>
 	);
 }
 function TruckIcon() {
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
 			<rect x="1" y="3" width="15" height="13" rx="1" />
 			<path d="M16 8h4l3 3v5h-7V8z" />
-			<circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
+			<circle cx="5.5" cy="18.5" r="2.5" />
+			<circle cx="18.5" cy="18.5" r="2.5" />
 		</svg>
 	);
 }
 function CheckIcon() {
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
 			<circle cx="12" cy="12" r="10" />
 			<path d="M9 12l2 2 4-4" />
 		</svg>
@@ -1145,7 +1490,16 @@ function CheckIcon() {
 }
 function GlobeIcon() {
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
 			<circle cx="12" cy="12" r="10" />
 			<path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
 		</svg>
@@ -1153,9 +1507,19 @@ function GlobeIcon() {
 }
 function InfoIcon() {
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
 			<circle cx="12" cy="12" r="10" />
-			<line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+			<line x1="12" y1="16" x2="12" y2="12" />
+			<line x1="12" y1="8" x2="12.01" y2="8" />
 		</svg>
 	);
 }
@@ -1163,12 +1527,29 @@ function PlusMinusIcon() {
 	return (
 		<>
 			<span className="ml-auto shrink-0 text-baume-charcoal/40 group-data-[state=open]:hidden">
-				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-					<line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+				<svg
+					width="13"
+					height="13"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					strokeLinecap="round"
+				>
+					<line x1="12" y1="5" x2="12" y2="19" />
+					<line x1="5" y1="12" x2="19" y2="12" />
 				</svg>
 			</span>
 			<span className="ml-auto shrink-0 text-baume-burgundy hidden group-data-[state=open]:inline">
-				<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+				<svg
+					width="13"
+					height="13"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.8"
+					strokeLinecap="round"
+				>
 					<line x1="5" y1="12" x2="19" y2="12" />
 				</svg>
 			</span>

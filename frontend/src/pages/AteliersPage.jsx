@@ -189,20 +189,6 @@ export default function AteliersPage() {
 					</div>
 				)}
 			</section>
-
-			<section className="bg-baume-white border-y border-baume-border">
-				<div className="baume-container py-16 md:py-20">
-					<h2 className="font-editorial text-[28px] md:text-[36px] text-baume-charcoal mb-8">
-						Notre équipe d'expertes
-					</h2>
-
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-						{experts.map((e) => (
-							<ExpertCard key={e.id} expert={e} />
-						))}
-					</div>
-				</div>
-			</section>
 			{selectedWorkshop && (
 				<WorkshopBookingModal
 					workshop={selectedWorkshop}

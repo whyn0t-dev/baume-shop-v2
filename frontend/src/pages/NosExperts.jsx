@@ -83,19 +83,20 @@ export default function NosExperts() {
 
 	return (
 		<main className="bg-baume-white text-baume-charcoal">
+			{/* HERO */}
 			<section className="relative overflow-hidden bg-baume-ivory">
-				<div className="w-full px-6 lg:px-10 py-20 md:py-28">
+				<div className="w-full px-6 lg:px-10 py-16 md:py-20">
 					<div className="max-w-5xl">
 						<p className="inline-flex items-center gap-2 rounded-full bg-baume-white px-4 py-2 text-[13px] font-semibold text-baume-burgundy border border-baume-border">
 							<Sparkles className="h-4 w-4" />
 							Nos coachs
 						</p>
 
-						<h1 className="mt-6 text-[42px] md:text-[68px] font-semibold leading-[0.95] tracking-tight text-baume-burgundy">
+						<h1 className="mt-4 text-[42px] md:text-[64px] font-semibold leading-[0.95] tracking-tight text-baume-burgundy">
 							Un accompagnement ancré dans votre réalité.
 						</h1>
 
-						<p className="mt-6 max-w-2xl text-[17px] md:text-[19px] leading-[30px] text-baume-charcoal/70">
+						<p className="mt-4 max-w-2xl text-[17px] md:text-[19px] leading-[30px] text-baume-charcoal/70">
 							Des experts qui vous ressemblent, choisis pour leur écoute, leur
 							douceur et leur capacité à accompagner les transitions du corps
 							avec justesse.
@@ -104,8 +105,9 @@ export default function NosExperts() {
 				</div>
 			</section>
 
-			<section className="w-full px-6 lg:px-10 py-16 md:py-24">
-				<div className="grid grid-cols-1 gap-14">
+			{/* EXPERTS */}
+			<section className="w-full px-6 lg:px-10 py-12 md:py-16">
+				<div className="grid grid-cols-1 gap-10 max-w-6xl mx-auto">
 					{EXPERTS.map((expert, index) => {
 						const ContactIcon = expert.contactIcon;
 						const openedSection = openItems[expert.name];
@@ -116,13 +118,14 @@ export default function NosExperts() {
 								className="rounded-[36px] border border-baume-border bg-baume-white overflow-hidden shadow-[0_18px_60px_rgba(61,42,42,0.08)]"
 							>
 								<div
-									className={`grid grid-cols-1 lg:grid-cols-12 gap-0 ${
+									className={`grid grid-cols-1 lg:grid-cols-12 ${
 										index % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
 									}`}
 								>
-									<div className="lg:col-span-5 flex items-center justify-center p-8">
+									{/* IMAGE */}
+									<div className="lg:col-span-4 flex items-center justify-center p-6">
 										<div className="flex flex-col items-center text-center">
-											<div className="w-[220px] h-[220px] rounded-full overflow-hidden shadow-[0_18px_45px_rgba(61,42,42,0.15)]">
+											<div className="w-[200px] h-[200px] rounded-full overflow-hidden shadow-[0_18px_45px_rgba(61,42,42,0.15)]">
 												<img
 													src={expert.image}
 													alt={expert.name}
@@ -132,36 +135,39 @@ export default function NosExperts() {
 										</div>
 									</div>
 
-									<div className="lg:col-span-7 p-7 md:p-10 lg:p-12">
-										<div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
+									{/* CONTENT */}
+									<div className="lg:col-span-8 p-6 md:p-8 lg:p-10">
+										<div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
 											<div>
-												<h2 className="mt-3 text-[34px] md:text-[46px] font-semibold leading-tight text-baume-burgundy">
+												<h2 className="mt-2 text-[34px] md:text-[40px] font-semibold leading-tight text-baume-burgundy">
 													{expert.name}
 												</h2>
 
-												<p className="mt-3 text-[16px] leading-[25px] text-baume-charcoal/65 max-w-2xl">
+												<p className="mt-2 text-[16px] leading-[25px] text-baume-charcoal/65 max-w-2xl">
 													{expert.role}
 												</p>
 											</div>
 
-											<div className="rounded-[24px] bg-baume-burgundy text-baume-white p-5 border border-baume-burgundy shadow-[0_14px_35px_rgba(61,42,42,0.18)] shrink-0 xl:min-w-[260px]">
+											{/* CODE PROMO */}
+											<div className="rounded-[24px] bg-baume-burgundy text-baume-white p-4 border border-baume-burgundy shadow-[0_14px_35px_rgba(61,42,42,0.18)] shrink-0 xl:min-w-[240px]">
 												<p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.16em] text-baume-taupe font-semibold">
 													<Gift className="h-4 w-4" />
 													Code promo
 												</p>
 
-												<p className="mt-3 rounded-full bg-baume-white px-4 py-3 text-center text-[18px] font-semibold tracking-[0.08em] text-baume-burgundy">
+												<p className="mt-2 rounded-full bg-baume-white px-4 py-3 text-center text-[18px] font-semibold tracking-[0.08em] text-baume-burgundy">
 													{expert.code}
 												</p>
 
-												<p className="mt-3 flex items-center gap-2 text-[13px] text-baume-white/70">
+												<p className="mt-2 flex items-center gap-2 text-[13px] text-baume-white/70">
 													<ContactIcon className="h-4 w-4 text-baume-taupe" />
 													{expert.contactType}
 												</p>
 											</div>
 										</div>
 
-										<div className="mt-8 rounded-[24px] bg-baume-ivory border border-baume-border p-6">
+										{/* OFFER */}
+										<div className="mt-6 rounded-[24px] bg-baume-ivory border border-baume-border p-5">
 											<div className="flex items-start gap-3">
 												<Heart className="h-5 w-5 text-baume-burgundy shrink-0 mt-1" />
 												<div>
@@ -175,23 +181,24 @@ export default function NosExperts() {
 											</div>
 										</div>
 
-										<div className="mt-8 space-y-3">
+										{/* ACCORDION */}
+										<div className="mt-6 space-y-2">
 											{expert.sections.map((section) => {
 												const isOpen = openedSection === section.title;
 
 												return (
 													<div
 														key={section.title}
-														className="rounded-[22px] border border-baume-border bg-baume-white overflow-hidden"
+														className="rounded-[20px] border border-baume-border bg-baume-white overflow-hidden"
 													>
 														<button
 															type="button"
 															onClick={() =>
 																toggleItem(expert.name, section.title)
 															}
-															className="w-full px-5 py-5 flex items-center justify-between gap-4 text-left hover:bg-baume-ivory/60 transition-colors"
+															className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-baume-ivory/60 transition-colors"
 														>
-															<span className="text-[18px] font-semibold text-baume-burgundy">
+															<span className="text-[17px] font-semibold text-baume-burgundy">
 																{section.title}
 															</span>
 
@@ -214,7 +221,8 @@ export default function NosExperts() {
 											})}
 										</div>
 
-										<div className="mt-8 flex flex-col sm:flex-row gap-3">
+										{/* CTA */}
+										<div className="mt-6 flex flex-col sm:flex-row gap-2">
 											<button
 												type="button"
 												onClick={() =>
