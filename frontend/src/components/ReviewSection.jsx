@@ -32,17 +32,26 @@ export default function ReviewSection({
 			return;
 		}
 		getUserOrder(product.id)
-			.then(({ order: o, review: r }) => {
+			.then((data) => {
+				console.log("ORDER STATUS", data);
+
+				const { has_ordered, order: o, review: r } = data;
+
+				setHasOrdered(!!has_ordered);
 				setOrder(o || null);
 				setExistingReview(r || null);
-				if (o && !r) setActiveTab("write");
+
+				if (has_ordered && !r) {
+					setActiveTab("write");
+				}
 			})
-			.catch(() => {})
+			.catch((err) => {
+				console.error("getUserOrder failed", err);
+			})
 			.finally(() => setLoadingOrder(false));
 	}, [user, status, product.id]);
 
-	const hasOrdered = !!order;
-	const canWrite = hasOrdered; // acheteur vérifié uniquement
+	const canWrite = hasOrdered;
 
 	const handleSubmit = async (reviewData) => {
 		await onNewReview?.(reviewData);
@@ -51,7 +60,10 @@ export default function ReviewSection({
 	};
 
 	return (
-		<section id="avis-clients" className="bg-baume-white border-t border-baume-border">
+		<section
+			id="avis-clients"
+			className="bg-baume-white border-t border-baume-border"
+		>
 			<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16">
 				{/* ── En-tête de section ─────────────────────────────────────── */}
 				<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">

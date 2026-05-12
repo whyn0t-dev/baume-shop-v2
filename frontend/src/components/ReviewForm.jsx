@@ -21,7 +21,7 @@ export default function ReviewForm({
 	const [hovered, setHovered] = useState(0);
 	const [title, setTitle] = useState(existingReview?.title ?? "");
 	const [body, setBody] = useState(existingReview?.body ?? "");
-	const [images, setImages] = useState(existingReview?.images ?? []);
+	const [images, setImages] = useState([]);
 	const [previews, setPreviews] = useState(existingReview?.images ?? []);
 	const [status, setStatus] = useState("idle"); // idle | loading | success | error
 	const [errors, setErrors] = useState({});
@@ -62,6 +62,10 @@ export default function ReviewForm({
 				setPreviews((prev) => [...prev, ev.target.result]);
 			reader.readAsDataURL(f);
 		});
+
+		if (fileRef.current) {
+			fileRef.current.value = "";
+		}
 	};
 
 	const removeImage = (index) => {
