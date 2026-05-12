@@ -3,12 +3,13 @@ import { useParams, Link } from "react-router-dom";
 import Breadcrumb from "../components/Breadcrumb";
 import ProductGallery from "../components/ProductGallery";
 import ProductCard from "../components/ProductCard";
-import ReviewCard from "../components/ReviewCard";
+import ReviewSection from "../components/ReviewSection";
 import {
 	getProduct,
 	getProducts,
 	getReviews,
 	getProductImages,
+	submitReview,
 } from "../lib/api";
 import { useCart } from "../lib/cart";
 import {
@@ -27,8 +28,6 @@ import {
 	MessageCircle,
 	ArrowRight,
 	Sparkles,
-	ChevronLeft,
-	ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -715,10 +714,7 @@ export default function ProductPage() {
 	const [size, setSize] = useState(null);
 	const [color, setColor] = useState(null);
 	const [qty, setQty] = useState(1);
-	const [reviewPage, setReviewPage] = useState(0);
 	const { addItem } = useCart();
-
-	const REVIEWS_PER_PAGE = 6;
 
 	useEffect(() => {
 		window.scrollTo({ top: 0, behavior: "instant" });
@@ -730,7 +726,6 @@ export default function ProductPage() {
 			setSize(null);
 			setColor(p.colors?.[0] || null);
 			setQty(1);
-			setReviewPage(0);
 
 			if (p.product_category) {
 				getProducts({ category: p.product_category, limit: 8 }).then((list) =>
@@ -773,23 +768,6 @@ export default function ProductPage() {
 					: section.content,
 			}));
 	}, [product]);
-
-	// Pagination des avis
-	const paginatedReviews = useMemo(() => {
-		const start = reviewPage * REVIEWS_PER_PAGE;
-		return allReviews.slice(start, start + REVIEWS_PER_PAGE);
-	}, [allReviews, reviewPage]);
-	const totalReviewPages = Math.ceil(allReviews.length / REVIEWS_PER_PAGE);
-
-	// Résumé des notes
-	const ratingBreakdown = useMemo(() => {
-		if (!allReviews.length) return [];
-		const counts = [5, 4, 3, 2, 1].map((star) => ({
-			star,
-			count: allReviews.filter((r) => Math.round(r.rating) === star).length,
-		}));
-		return counts;
-	}, [allReviews]);
 
 	if (!product) {
 		return (
@@ -1165,120 +1143,15 @@ export default function ProductPage() {
 			</section>
 
 			{/* ── Section avis clients avec résumé ── */}
-			{allReviews.length > 0 && (
-				<section className="bg-baume-white border-y border-baume-border">
-					<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16">
-						{/* En-tête */}
-						<div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
-							<div>
-								<p className="text-[12px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold mb-2">
-									Avis clients
-								</p>
-								<h2 className="font-editorial text-[30px] md:text-[40px] text-baume-charcoal">
-									Elles en parlent
-								</h2>
-							</div>
-							<p className="text-[14px] text-baume-charcoal/65">
-								{allReviews.length} avis affiché
-								{allReviews.length > 1 ? "s" : ""}
-							</p>
-						</div>
-
-						{/* Résumé note globale */}
-						<div className="mb-10 rounded-2xl bg-baume-ivory border border-baume-border p-6 flex flex-col sm:flex-row gap-8 items-center max-w-[600px]">
-							<div className="text-center shrink-0">
-								<p className="font-editorial text-[56px] leading-none text-baume-charcoal">
-									{product.rating?.toFixed(1)}
-								</p>
-								<div className="flex justify-center gap-0.5 mt-1">
-									{Array.from({ length: 5 }).map((_, i) => (
-										<Star
-											key={i}
-											className={`h-4 w-4 ${
-												i < Math.round(product.rating)
-													? "fill-baume-burgundy text-baume-burgundy"
-													: "text-baume-border"
-											}`}
-										/>
-									))}
-								</div>
-								<p className="text-[12px] text-baume-charcoal/50 mt-1">
-									sur {allReviews.length} avis
-								</p>
-							</div>
-
-							<div className="flex-1 w-full space-y-2">
-								{ratingBreakdown.map(({ star, count }) => {
-									const pct = allReviews.length
-										? Math.round((count / allReviews.length) * 100)
-										: 0;
-									return (
-										<div key={star} className="flex items-center gap-3">
-											<span className="text-[12px] text-baume-charcoal/60 w-4 text-right shrink-0">
-												{star}
-											</span>
-											<Star className="h-3 w-3 fill-baume-burgundy text-baume-burgundy shrink-0" />
-											<div className="flex-1 h-2 rounded-full bg-baume-border overflow-hidden">
-												<div
-													className="h-full bg-baume-burgundy rounded-full transition-all"
-													style={{ width: `${pct}%` }}
-												/>
-											</div>
-											<span className="text-[12px] text-baume-charcoal/60 w-7 shrink-0">
-												{pct}%
-											</span>
-										</div>
-									);
-								})}
-							</div>
-						</div>
-
-						{/* Grille des avis */}
-						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-							{paginatedReviews.map((r) => (
-								<ReviewCard key={r.id} review={r} />
-							))}
-						</div>
-
-						{/* Pagination */}
-						{totalReviewPages > 1 && (
-							<div className="mt-8 flex items-center justify-center gap-3">
-								<button
-									onClick={() => setReviewPage((p) => Math.max(0, p - 1))}
-									disabled={reviewPage === 0}
-									className="h-10 w-10 rounded-full border border-baume-border flex items-center justify-center text-baume-charcoal disabled:opacity-30 hover:border-baume-burgundy transition-colors"
-								>
-									<ChevronLeft className="h-4 w-4" />
-								</button>
-
-								{Array.from({ length: totalReviewPages }).map((_, i) => (
-									<button
-										key={i}
-										onClick={() => setReviewPage(i)}
-										className={`h-10 w-10 rounded-full text-[14px] font-medium transition-all ${
-											reviewPage === i
-												? "bg-baume-burgundy text-baume-white"
-												: "border border-baume-border text-baume-charcoal hover:border-baume-burgundy"
-										}`}
-									>
-										{i + 1}
-									</button>
-								))}
-
-								<button
-									onClick={() =>
-										setReviewPage((p) => Math.min(totalReviewPages - 1, p + 1))
-									}
-									disabled={reviewPage === totalReviewPages - 1}
-									className="h-10 w-10 rounded-full border border-baume-border flex items-center justify-center text-baume-charcoal disabled:opacity-30 hover:border-baume-burgundy transition-colors"
-								>
-									<ChevronRight className="h-4 w-4" />
-								</button>
-							</div>
-						)}
-					</div>
-				</section>
-			)}
+			<ReviewSection
+				product={product}
+				allReviews={allReviews}
+				onNewReview={async (data) => {
+					const newReview = await submitReview(data);
+					const updated = await getReviews(product.id);
+					setAllReviews(updated);
+				}}
+			/>
 
 			{/* ── Sections personnalisées pleine largeur ── */}
 			{customSections.length > 0 && (

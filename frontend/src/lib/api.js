@@ -242,3 +242,25 @@ export const getShippingMethods = (country) =>
       params: country ? { country } : {},
     })
     .then((r) => normalizeArray(r.data));
+
+// ── Reviews (acheteurs vérifiés) ──────────────────────────────────────────────
+
+// Vérifie si l'utilisateur connecté a commandé ce produit + récupère son avis existant
+export const getUserOrder = (productId) =>
+  api.get(`/products/${productId}/order-status`).then((r) => r.data);
+// Retourne : { has_ordered, order, review }
+
+// Soumet un nouvel avis
+export const submitReview = (payload) =>
+  api.post("/reviews", payload).then((r) => r.data);
+// payload : { product_id, rating, title, body }
+
+// Upload les photos d'un avis (appelé après submitReview si l'utilisateur a ajouté des images)
+export const uploadReviewImages = (reviewId, files) => {
+  const form = new FormData();
+  files.forEach((f) => form.append("files", f));
+  return api.post(`/reviews/${reviewId}/images`, form, {
+    headers: { "Content-Type": "multipart/form-data" },
+  }).then((r) => r.data);
+};
+// Retourne : { images: [...urls] }

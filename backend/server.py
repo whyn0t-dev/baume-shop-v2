@@ -250,6 +250,19 @@ class DiscountCheckRequest(BaseModel):
     code: str
 
 
+class ReviewSubmitRequest(BaseModel):
+    product_id: str
+    rating: float = Field(..., ge=1, le=5)
+    title: str = Field(..., min_length=1, max_length=120)
+    body: str = Field(..., min_length=20, max_length=800)
+
+
+class ReviewUpdateRequest(BaseModel):
+    rating: Optional[float] = Field(None, ge=1, le=5)
+    title: Optional[str] = Field(None, min_length=1, max_length=120)
+    body: Optional[str] = Field(None, min_length=20, max_length=800)
+
+
 # ---------- Startup / Seed ----------
 
 
@@ -519,6 +532,234 @@ async def list_reviews(product_id: Optional[str] = None, limit: int = 20):
 
     result = await asyncio.to_thread(run)
     return result.data or []
+
+
+# ── après list_reviews, avant list_guides ────────────────────────────────────
+
+
+async def _customer_bought_product(customer_id: str, product_id: str) -> Optional[dict]:
+    result = await asyncio.to_thread(
+        lambda: supabase.table("order_items")
+        .select("*, orders!inner(id, customer_id, status)")
+        .eq("product_id", product_id)
+        .eq("orders.customer_id", customer_id)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+async def _recalc_product_rating(product_id: str):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("reviews")
+        .select("rating")
+        .eq("product_id", product_id)
+        .eq("status", "published")
+        .execute()
+    )
+    rows = result.data or []
+    count = len(rows)
+    avg = round(sum(r["rating"] for r in rows) / count, 2) if count else 0.0
+    await sb_update(
+        "products",
+        {"rating": avg, "reviews_count": count, "updated_at": now_iso()},
+        "id",
+        product_id,
+    )
+
+
+@api_router.get("/products/{product_id}/order-status")
+async def get_product_order_status(
+    product_id: str,
+    profile=Depends(get_current_profile),
+):
+    customer = await get_or_create_customer(profile)
+    order_item = await _customer_bought_product(customer["id"], product_id)
+
+    if not order_item:
+        return {"has_ordered": False, "order": None, "review": None}
+
+    order_summary = {
+        "id": order_item["orders"]["id"],
+        "status": order_item["orders"]["status"],
+    }
+
+    review_result = await asyncio.to_thread(
+        lambda: supabase.table("reviews")
+        .select("*")
+        .eq("product_id", product_id)
+        .eq("customer_id", customer["id"])
+        .limit(1)
+        .execute()
+    )
+
+    return {
+        "has_ordered": True,
+        "order": order_summary,
+        "review": review_result.data[0] if review_result.data else None,
+    }
+
+
+@api_router.post("/reviews")
+async def submit_review(
+    payload: ReviewSubmitRequest,
+    profile=Depends(get_current_profile),
+):
+    customer = await get_or_create_customer(profile)
+    customer_id = customer["id"]
+
+    order_item = await _customer_bought_product(customer_id, payload.product_id)
+    if not order_item:
+        raise HTTPException(
+            status_code=403,
+            detail="Vous devez avoir commandé ce produit pour laisser un avis.",
+        )
+
+    existing = await asyncio.to_thread(
+        lambda: supabase.table("reviews")
+        .select("id")
+        .eq("product_id", payload.product_id)
+        .eq("customer_id", customer_id)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        raise HTTPException(
+            status_code=409, detail="Vous avez déjà laissé un avis pour ce produit."
+        )
+
+    first = profile.get("first_name", "")
+    last = profile.get("last_name", "")
+    author = f"{first} {last}".strip() or profile.get("email", "Cliente")
+
+    review = {
+        "id": str(uuid.uuid4()),
+        "product_id": payload.product_id,
+        "customer_id": customer_id,
+        "order_id": order_item["orders"]["id"],
+        "author": author,
+        "rating": payload.rating,
+        "title": payload.title,
+        "body": payload.body,
+        "images": [],
+        "verified_purchase": True,
+        "status": "pending",
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+
+    inserted = await sb_insert("reviews", review)
+    return inserted.data[0]
+
+
+@api_router.patch("/reviews/{review_id}")
+async def update_review(
+    review_id: str,
+    payload: ReviewUpdateRequest,
+    profile=Depends(get_current_profile),
+):
+    customer = await get_or_create_customer(profile)
+    review = await sb_select_one("reviews", "id", review_id)
+
+    if not review:
+        raise HTTPException(status_code=404, detail="Avis introuvable")
+    if review.get("customer_id") != customer["id"]:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    updates["status"] = "pending"
+    updates["updated_at"] = now_iso()
+
+    await sb_update("reviews", updates, "id", review_id)
+    return await sb_select_one("reviews", "id", review_id)
+
+
+@api_router.post("/reviews/{review_id}/images")
+async def upload_review_images(
+    review_id: str,
+    files: List[UploadFile] = File(...),
+    profile=Depends(get_current_profile),
+):
+    customer = await get_or_create_customer(profile)
+    review = await sb_select_one("reviews", "id", review_id)
+
+    if not review:
+        raise HTTPException(status_code=404, detail="Avis introuvable")
+    if review.get("customer_id") != customer["id"]:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    current_images: list = review.get("images") or []
+
+    if len(current_images) + len(files) > 4:
+        raise HTTPException(status_code=400, detail=f"Limite de 4 photos atteinte.")
+
+    uploaded_urls = []
+    for f in files:
+        if not f.content_type.startswith("image/"):
+            raise HTTPException(
+                status_code=400, detail=f"{f.filename} n'est pas une image valide."
+            )
+
+        data = await f.read()
+        path = f"reviews/{review_id}/{uuid.uuid4()}-{f.filename}"
+
+        await asyncio.to_thread(
+            lambda p=path, d=data, ct=f.content_type: supabase.storage.from_(
+                "review-images"
+            ).upload(p, d, {"content-type": ct})
+        )
+
+        uploaded_urls.append(
+            supabase.storage.from_("review-images").get_public_url(path)
+        )
+
+    new_images = current_images + uploaded_urls
+    await sb_update(
+        "reviews", {"images": new_images, "updated_at": now_iso()}, "id", review_id
+    )
+    return {"images": new_images}
+
+
+@api_router.delete("/reviews/{review_id}")
+async def delete_review(
+    review_id: str,
+    profile=Depends(get_current_profile),
+):
+    customer = await get_or_create_customer(profile)
+    review = await sb_select_one("reviews", "id", review_id)
+
+    if not review:
+        raise HTTPException(status_code=404, detail="Avis introuvable")
+
+    if profile.get("role") != "admin" and review.get("customer_id") != customer["id"]:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    await sb_delete("reviews", "id", review_id)
+    await _recalc_product_rating(review["product_id"])
+    return {"status": "deleted"}
+
+
+@api_router.patch("/ecom/admin/reviews/{review_id}/moderate")
+async def moderate_review(
+    review_id: str,
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    new_status = payload.get("status")
+    if new_status not in ("published", "rejected"):
+        raise HTTPException(
+            status_code=400, detail="Statut invalide. Valeurs : published, rejected"
+        )
+
+    review = await sb_select_one("reviews", "id", review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Avis introuvable")
+
+    await sb_update(
+        "reviews", {"status": new_status, "updated_at": now_iso()}, "id", review_id
+    )
+    await _recalc_product_rating(review["product_id"])
+    return {"status": new_status, "review_id": review_id}
 
 
 @api_router.get("/guides")
