@@ -535,14 +535,25 @@ async def list_reviews(product_id: Optional[str] = None, limit: int = 20):
 
 
 # ── après list_reviews, avant list_guides ────────────────────────────────────
-
-
 async def _customer_bought_product(customer_id: str, product_id: str) -> Optional[dict]:
+    # 1. Récupérer les order_ids appartenant à ce customer
+    orders_res = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("id")
+        .eq("customer_id", customer_id)
+        .execute()
+    )
+    order_ids = [o["id"] for o in (orders_res.data or [])]
+
+    if not order_ids:
+        return None
+
+    # 2. Chercher un order_item sur ce produit dans ces commandes
     result = await asyncio.to_thread(
         lambda: supabase.table("order_items")
         .select("*, orders!inner(id, customer_id, status)")
         .eq("product_id", product_id)
-        .eq("orders.customer_id", customer_id)
+        .in_("order_id", order_ids)
         .limit(1)
         .execute()
     )
@@ -1179,17 +1190,24 @@ async def _decrease_stock_for_order(order: dict):
 
 async def _ensure_order_from_tx(session_id: str):
     tx = await sb_select_one("payment_transactions", "session_id", session_id)
-
     if not tx or tx.get("payment_status") != "paid":
         return None
 
     existing = await sb_select_one("orders", "stripe_checkout_session_id", session_id)
-
     if existing:
         return existing
 
+    # Résoudre le customer depuis le user_id de la transaction
+    customer_id = None
+    user_id = tx.get("user_id")
+    if user_id:
+        profile = await sb_select_one("profiles", "id", user_id)
+        if profile:
+            customer = await get_or_create_customer(profile)
+            customer_id = customer["id"]
+
     order_data = {
-        "customer_id": None,
+        "customer_id": customer_id,  # ← maintenant correctement renseigné
         "email": tx.get("email", ""),
         "subtotal": tx.get("subtotal", tx["amount"]),
         "shipping_total": tx.get("shipping", 0.0),

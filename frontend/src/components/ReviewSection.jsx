@@ -35,13 +35,12 @@ export default function ReviewSection({
 			.then((data) => {
 				console.log("ORDER STATUS", data);
 
-				const { has_ordered, order: o, review: r } = data;
+				const { order: o, review: r } = data;
 
-				setHasOrdered(!!has_ordered);
 				setOrder(o || null);
 				setExistingReview(r || null);
 
-				if (has_ordered && !r) {
+				if (o && !r) {
 					setActiveTab("write");
 				}
 			})
@@ -51,6 +50,7 @@ export default function ReviewSection({
 			.finally(() => setLoadingOrder(false));
 	}, [user, status, product.id]);
 
+	const hasOrdered = !!order;
 	const canWrite = hasOrdered;
 
 	const handleSubmit = async (reviewData) => {
