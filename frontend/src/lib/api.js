@@ -65,24 +65,24 @@ export const getGuide = (slug) =>
   api.get(`/guides/${slug}`).then((r) => r.data);
 
 export const getExperts = () =>
-  
-  export const submitContact = (payload) =>
-    api.post("/contact", payload).then((r) => r.data);
   api.get("/experts").then((r) => normalizeArray(r.data));
 
-// Checkout
-export const createCheckout = (payload) =>
-  axios
-    .post(
-      `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/create-checkout-session`,
-      payload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    )
-    .then((r) => r.data);
+export const submitContact = (payload) =>
+  api.post("/contact", payload).then((r) => r.data);
+api.get("/experts").then((r) => normalizeArray(r.data));
+
+// Checkoutexport const createCheckout = (payload) =>
+axios
+  .post(
+    `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/create-checkout-session`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  )
+  .then((r) => r.data);
 
 export const getCheckoutStatus = (sessionId) =>
   api.get(`/checkout/status/${sessionId}`).then((r) => r.data);
