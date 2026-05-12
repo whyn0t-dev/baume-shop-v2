@@ -65,10 +65,10 @@ export const getGuide = (slug) =>
   api.get(`/guides/${slug}`).then((r) => r.data);
 
 export const getExperts = () =>
+  
+  export const submitContact = (payload) =>
+    api.post("/contact", payload).then((r) => r.data);
   api.get("/experts").then((r) => normalizeArray(r.data));
-
-export const submitContact = (payload) =>
-  api.post("/contact", payload).then((r) => r.data);
 
 // Checkout
 export const createCheckout = (payload) =>
@@ -87,6 +87,9 @@ export const createCheckout = (payload) =>
 export const getCheckoutStatus = (sessionId) =>
   api.get(`/checkout/status/${sessionId}`).then((r) => r.data);
 
+export const fetchMe = () =>
+  api.get("/me").then((r) => r.data);
+
 // Auth
 export const authApi = axios.create({
   baseURL: `${process.env.REACT_APP_BACKEND_URL}/api`,
@@ -104,28 +107,25 @@ authApi.interceptors.request.use((config) => {
 });
 
 export const registerUser = (payload) =>
-  authApi.post("/register", payload).then((r) => r.data);
+  authApi.post("/auth/register", payload).then((r) => r.data);
 
 export const loginUser = (payload) =>
-  authApi.post("/login", payload).then((r) => r.data);
+  authApi.post("/auth/login", payload).then((r) => r.data);
 
 export const logoutUser = () =>
-  authApi.post("/logout").then((r) => r.data);
-
-export const fetchMe = () =>
-  api.get("/me").then((r) => r.data);
+  authApi.post("/auth/logout").then((r) => r.data);
 
 export const updateMe = (payload) =>
-  authApi.patch("/me", payload).then((r) => r.data);
+  authApi.patch("/auth/me", payload).then((r) => r.data);
 
 export const forgotPassword = (email) =>
-  authApi.post("/forgot-password", { email }).then((r) => r.data);
+  authApi.post("/auth/forgot-password", { email }).then((r) => r.data);
 
 export const resetPassword = (token, password) =>
-  authApi.post("/reset-password", { token, password }).then((r) => r.data);
+  authApi.post("/auth/reset-password", { token, password }).then((r) => r.data);
 
 export const refreshToken = () =>
-  authApi.post("/refresh").then((r) => r.data);
+  authApi.post("/auth/refresh").then((r) => r.data);
 
 // Orders
 export const getMyOrders = () =>

@@ -1076,6 +1076,25 @@ export default function ProductPage() {
 								</div>
 							</div>
 
+							{/* ── Laisser un avis ── */}
+							<div className="rounded-3xl border border-baume-border bg-baume-white p-5 flex items-center justify-between gap-4 shadow-sm">
+								<div>
+									<p className="text-[13px] font-semibold text-baume-charcoal">
+										Vous avez essayé ce produit ?
+									</p>
+									<p className="text-[12px] text-baume-charcoal/55 mt-0.5">
+										Partagez votre expérience avec la communauté.
+									</p>
+								</div>
+
+								<a
+									href="#avis-clients"
+									className="shrink-0 h-9 px-4 rounded-full bg-baume-burgundy text-baume-white text-[13px] font-semibold hover:bg-baume-burgundyDark transition-colors inline-flex items-center"
+								>
+									Laisser un avis
+								</a>
+							</div>
+
 							{/* ── Accordéons fins — style éditorial ── */}
 							<Accordion
 								type="single"

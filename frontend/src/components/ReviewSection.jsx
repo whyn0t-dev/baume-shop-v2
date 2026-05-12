@@ -51,7 +51,7 @@ export default function ReviewSection({
 	};
 
 	return (
-		<section className="bg-baume-white border-t border-baume-border">
+		<section id="avis-clients" className="bg-baume-white border-t border-baume-border">
 			<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-16">
 				{/* ── En-tête de section ─────────────────────────────────────── */}
 				<div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
