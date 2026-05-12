@@ -639,8 +639,8 @@ async def submit_review(
             status_code=409, detail="Vous avez déjà laissé un avis pour ce produit."
         )
 
-    first = profile.get("first_name", "")
-    last = profile.get("last_name", "")
+    first = profile.get("first_name") or ""
+    last = profile.get("last_name") or ""
     author = f"{first} {last}".strip() or profile.get("email", "Cliente")
 
     review = {
