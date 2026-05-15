@@ -177,6 +177,9 @@ export default function CheckoutPage() {
 				toast.error("Impossible de créer la session de paiement");
 			}
 		} catch (e) {
+			console.error("Erreur complète:", e); // ← ajouter
+			console.error("Message:", e?.message);
+			console.error("Response:", e?.response?.data);
 			toast.error("Erreur de paiement", {
 				description: e?.response?.data?.detail || e.message,
 			});

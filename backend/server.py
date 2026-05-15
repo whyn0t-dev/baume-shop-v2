@@ -1046,7 +1046,9 @@ async def _price_cart(
                     valid = False
             if usage_limit and used_count >= usage_limit:
                 valid = False
-            if discount.get("min_order_amount") and total < float(discount["min_order_amount"]):
+            if discount.get("min_order_amount") and total < float(
+                discount["min_order_amount"]
+            ):
                 valid = False
             if valid:
                 if discount["type"] == "percentage":
@@ -1085,9 +1087,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
     if country not in {"CH"} | EU_COUNTRIES:
         raise HTTPException(status_code=400, detail="Pays non desservi")
 
-    priced = await _price_cart(
-        payload.items, country, payload.discount_code
-    )  # ← discount_code ajouté ici
+    priced = await _price_cart(payload.items, country, payload.discount_code)
 
     origin = payload.origin_url.rstrip("/")
     success_url = f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
@@ -1101,58 +1101,67 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "email": email,
         "user_id": user_id or "",
         "items_count": str(sum(i.quantity for i in payload.items)),
-        "discount_code": priced["discount_code"] or "",  # ← ajouter
-        "discount_amount": str(priced["discount_amount"]),  # ← ajouter
+        "discount_code": priced["discount_code"] or "",
+        "discount_amount": str(priced["discount_amount"]),
     }
 
-    session = await asyncio.to_thread(
-        stripe.checkout.Session.create,
+    # ── Coupon Stripe pour la réduction ──────────────────────────────────
+    stripe_coupon_id = None
+    if priced["discount_amount"] > 0 and priced["discount_code"]:
+        try:
+            coupon = await asyncio.to_thread(
+                stripe.Coupon.create,
+                amount_off=int(round(priced["discount_amount"] * 100)),
+                currency="chf",
+                duration="once",
+                name=f"Réduction ({priced['discount_code']})",
+                max_redemptions=1,
+            )
+            stripe_coupon_id = coupon.id
+        except Exception as e:
+            logger.warning(f"Coupon Stripe création échouée: {e}")
+
+    # ── Line items (sans montant négatif) ─────────────────────────────────
+    stripe_line_items = [
+        {
+            "price_data": {
+                "currency": "chf",
+                "product_data": {"name": "Commande Baume"},
+                "unit_amount": int(round(priced["subtotal"] * 100)),
+            },
+            "quantity": 1,
+        }
+    ]
+
+    if priced["shipping"] > 0:
+        stripe_line_items.append(
+            {
+                "price_data": {
+                    "currency": "chf",
+                    "product_data": {"name": "Livraison"},
+                    "unit_amount": int(round(priced["shipping"] * 100)),
+                },
+                "quantity": 1,
+            }
+        )
+
+    # ── Paramètres session ────────────────────────────────────────────────
+    session_params = dict(
         mode="payment",
         payment_method_types=["card"],
         customer_email=email or None,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata=metadata,
-        line_items=[
-            {
-                "price_data": {
-                    "currency": "chf",
-                    "product_data": {"name": "Commande Baume"},
-                    "unit_amount": int(round(priced["subtotal"] * 100)),
-                },
-                "quantity": 1,
-            },
-            *(
-                [
-                    {
-                        "price_data": {
-                            "currency": "chf",
-                            "product_data": {
-                                "name": f"Réduction ({priced['discount_code']})"
-                            },
-                            "unit_amount": -int(round(priced["discount_amount"] * 100)),
-                        },
-                        "quantity": 1,
-                    }
-                ]
-                if priced["discount_amount"] > 0
-                else []
-            ),
-            *(
-                [
-                    {
-                        "price_data": {
-                            "currency": "chf",
-                            "product_data": {"name": "Livraison"},
-                            "unit_amount": int(round(priced["shipping"] * 100)),
-                        },
-                        "quantity": 1,
-                    }
-                ]
-                if priced["shipping"] > 0
-                else []
-            ),
-        ],
+        line_items=stripe_line_items,
+    )
+
+    if stripe_coupon_id:
+        session_params["discounts"] = [{"coupon": stripe_coupon_id}]
+
+    session = await asyncio.to_thread(
+        stripe.checkout.Session.create,
+        **session_params,
     )
 
     tx = {
@@ -1161,8 +1170,8 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "amount": priced["total"],
         "subtotal": priced["subtotal"],
         "shipping": priced["shipping"],
-        "discount_code": priced["discount_code"],  # ← ajouter
-        "discount_amount": priced["discount_amount"],  # ← ajouter
+        "discount_code": priced["discount_code"],
+        "discount_amount": priced["discount_amount"],
         "currency": "chf",
         "email": email,
         "user_id": user_id,

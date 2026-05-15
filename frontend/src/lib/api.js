@@ -73,17 +73,7 @@ api.get("/experts").then((r) => normalizeArray(r.data));
 
 // Checkout
 export const createCheckout = (payload) =>
-  axios
-    .post(
-      `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/create-checkout-session`,
-      payload,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    )
-    .then((r) => r.data);
+  api.post("/checkout/session", payload).then((r) => r.data);
 
 export const getCheckoutStatus = (sessionId) =>
   api.get(`/checkout/status/${sessionId}`).then((r) => r.data);

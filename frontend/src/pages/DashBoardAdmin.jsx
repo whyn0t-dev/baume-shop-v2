@@ -14,6 +14,7 @@ import {
 	Plus,
 	CalendarDays,
 	Star,
+	X,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
@@ -198,7 +199,7 @@ export default function DashBoardAdmin() {
 							<div className="py-24 flex justify-center">
 								<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
 							</div>
-						) : rows.length === 0 ? (
+						) : rows.length === 0 && active !== "discounts" ? (
 							<div className="p-10 text-center text-baume-charcoal/65">
 								Aucun élément trouvé.
 							</div>
