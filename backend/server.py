@@ -227,6 +227,7 @@ class CheckoutRequest(BaseModel):
     email: Optional[EmailStr] = None
     shipping_country: Optional[str] = "CH"
     shipping_address: Optional[Dict[str, Any]] = None
+    discount_code: Optional[str] = None  # ← ajouter
 
 
 class AddressRequest(BaseModel):
@@ -964,7 +965,11 @@ SHIPPING_RULES = {
 EU_COUNTRIES = {"FR", "BE", "DE", "IT", "ES", "AT", "NL", "LU"}
 
 
-async def _price_cart(items: List[CheckoutItem], country: str) -> Dict[str, Any]:
+async def _price_cart(
+    items: List[CheckoutItem],
+    country: str,
+    discount_code: Optional[str] = None,
+) -> Dict[str, Any]:
     total = 0.0
     line_items = []
 
@@ -1012,13 +1017,54 @@ async def _price_cart(items: List[CheckoutItem], country: str) -> Dict[str, Any]
     if total <= 0:
         raise HTTPException(status_code=400, detail="Panier vide")
 
+    # ── Réduction ──────────────────────────────────────────────────────────────
+    discount_amount = 0.0
+    applied_code = None
+
+    if discount_code:
+        discount = await sb_select_one("discounts", "code", discount_code.upper())
+        if discount and discount.get("active"):
+            now = datetime.now(timezone.utc)
+
+            starts = discount.get("starts_at")
+            ends = discount.get("ends_at")
+            usage_limit = discount.get("usage_limit")
+            used_count = discount.get("used_count") or 0
+
+            valid = True
+            if starts:
+                dt = datetime.fromisoformat(starts)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                if dt > now:
+                    valid = False
+            if ends:
+                dt = datetime.fromisoformat(ends)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                if dt < now:
+                    valid = False
+            if usage_limit and used_count >= usage_limit:
+                valid = False
+
+            if valid:
+                if discount["type"] == "percentage":
+                    discount_amount = round(total * float(discount["value"]) / 100, 2)
+                elif discount["type"] == "fixed":
+                    discount_amount = min(float(discount["value"]), total)
+                applied_code = discount_code.upper()
+
+    # ── Livraison (calculée sur le total après réduction) ──────────────────────
+    discounted_total = round(total - discount_amount, 2)
     rule = SHIPPING_RULES.get(country, SHIPPING_RULES["default"])
-    shipping = 0.0 if total >= rule["threshold"] else rule["fee"]
-    grand_total = round(total + shipping, 2)
+    shipping = 0.0 if discounted_total >= rule["threshold"] else rule["fee"]
+    grand_total = round(discounted_total + shipping, 2)
 
     return {
         "line_items": line_items,
         "subtotal": round(total, 2),
+        "discount_amount": discount_amount,
+        "discount_code": applied_code,
         "shipping": shipping,
         "total": grand_total,
     }
@@ -1038,7 +1084,9 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
     if country not in {"CH"} | EU_COUNTRIES:
         raise HTTPException(status_code=400, detail="Pays non desservi")
 
-    priced = await _price_cart(payload.items, country)
+    priced = await _price_cart(
+        payload.items, country, payload.discount_code
+    )  # ← discount_code ajouté ici
 
     origin = payload.origin_url.rstrip("/")
     success_url = f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
@@ -1052,6 +1100,8 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "email": email,
         "user_id": user_id or "",
         "items_count": str(sum(i.quantity for i in payload.items)),
+        "discount_code": priced["discount_code"] or "",  # ← ajouter
+        "discount_amount": str(priced["discount_amount"]),  # ← ajouter
     }
 
     session = await asyncio.to_thread(
@@ -1066,13 +1116,41 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
             {
                 "price_data": {
                     "currency": "chf",
-                    "product_data": {
-                        "name": "Commande Baume",
-                    },
-                    "unit_amount": int(round(priced["total"] * 100)),
+                    "product_data": {"name": "Commande Baume"},
+                    "unit_amount": int(round(priced["subtotal"] * 100)),
                 },
                 "quantity": 1,
-            }
+            },
+            *(
+                [
+                    {
+                        "price_data": {
+                            "currency": "chf",
+                            "product_data": {
+                                "name": f"Réduction ({priced['discount_code']})"
+                            },
+                            "unit_amount": -int(round(priced["discount_amount"] * 100)),
+                        },
+                        "quantity": 1,
+                    }
+                ]
+                if priced["discount_amount"] > 0
+                else []
+            ),
+            *(
+                [
+                    {
+                        "price_data": {
+                            "currency": "chf",
+                            "product_data": {"name": "Livraison"},
+                            "unit_amount": int(round(priced["shipping"] * 100)),
+                        },
+                        "quantity": 1,
+                    }
+                ]
+                if priced["shipping"] > 0
+                else []
+            ),
         ],
     )
 
@@ -1082,6 +1160,8 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "amount": priced["total"],
         "subtotal": priced["subtotal"],
         "shipping": priced["shipping"],
+        "discount_code": priced["discount_code"],  # ← ajouter
+        "discount_amount": priced["discount_amount"],  # ← ajouter
         "currency": "chf",
         "email": email,
         "user_id": user_id,
@@ -1102,7 +1182,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "session_id": session.id,
         "total": priced["total"],
     }
-
+ 
 
 async def _decrease_stock_for_order(order: dict):
     items = order.get("items", [])
@@ -1400,6 +1480,33 @@ async def stripe_webhook(request: Request):
     }
 
 
+@api_router.get("/discounts/{code}")
+async def get_discount(code: str):
+    discount = await sb_select_one("discounts", "code", code.upper())
+
+    if not discount or not discount.get("active"):
+        raise HTTPException(status_code=404, detail="Code promo invalide")
+
+    # Vérifier les dates
+    now = datetime.now(timezone.utc)
+    if (
+        discount.get("starts_at")
+        and datetime.fromisoformat(discount["starts_at"]) > now
+    ):
+        raise HTTPException(status_code=404, detail="Code promo pas encore actif")
+    if discount.get("ends_at") and datetime.fromisoformat(discount["ends_at"]) < now:
+        raise HTTPException(status_code=404, detail="Code promo expiré")
+
+    # Vérifier la limite d'usage
+    if (
+        discount.get("usage_limit")
+        and discount.get("used_count", 0) >= discount["usage_limit"]
+    ):
+        raise HTTPException(status_code=404, detail="Code promo épuisé")
+
+    return discount
+
+
 # ---------- Collections ----------
 
 
@@ -1470,16 +1577,6 @@ async def list_shipping_methods(country: Optional[str] = None):
 
     result = await asyncio.to_thread(run)
     return result.data or []
-
-
-@api_router.get("/discounts/{code}")
-async def get_discount(code: str):
-    discount = await sb_select_one("discounts", "code", code.upper())
-
-    if not discount or not discount.get("active"):
-        raise HTTPException(status_code=404, detail="Code promo invalide")
-
-    return discount
 
 
 # ---------- Pages / Store Settings ----------

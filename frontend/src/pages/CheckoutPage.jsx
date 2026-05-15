@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useCart } from "../lib/cart";
 import { useAuth } from "../lib/auth";
 import { createCheckout, getShippingMethods } from "../lib/api";
@@ -19,6 +19,9 @@ export default function CheckoutPage() {
 	const { items, subtotal } = useCart();
 	const { user, isAuth } = useAuth();
 	const navigate = useNavigate();
+	const location = useLocation(); // ← ajouter
+	const discountCode = location.state?.discountCode || null; // ← ajouter
+	const discountAmount = Number(location.state?.discountAmount || 0); // ← ajouter
 	const [step, setStep] = useState(1);
 	const [loading, setLoading] = useState(false);
 
@@ -81,7 +84,8 @@ export default function CheckoutPage() {
 	const shippingFee = Number(shippingMethod?.price || 0);
 
 	const shipping = subtotal >= shippingThreshold ? 0 : shippingFee;
-	const total = subtotal + shipping;
+	const totalAfterDiscount = Math.max(0, subtotal - discountAmount);
+	const total = totalAfterDiscount + shipping;
 
 	const countryName = shippingMethod?.name || form.country;
 
@@ -152,6 +156,8 @@ export default function CheckoutPage() {
 				email: form.email,
 				shipping_country: form.country,
 				shipping_total: shipping,
+				discount_code: discountCode, // ← ajouter
+				discount_amount: discountAmount, // ← ajouter
 				shipping_address: {
 					name: `${form.first_name} ${form.last_name}`.trim(),
 					first_name: form.first_name,
@@ -486,6 +492,13 @@ export default function CheckoutPage() {
 								<span className="text-baume-charcoal/70">Sous-total</span>
 								<span>{subtotal.toFixed(2)} CHF</span>
 							</div>
+							{/* ← ajouter */}
+							{discountAmount > 0 && (
+								<div className="flex justify-between text-emerald-700">
+									<span>Réduction ({discountCode})</span>
+									<span>−{discountAmount.toFixed(2)} CHF</span>
+								</div>
+							)}
 							<div className="flex justify-between">
 								<span className="text-baume-charcoal/70">
 									Livraison ({countryName})
