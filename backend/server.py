@@ -20,6 +20,7 @@ import uuid
 import asyncio
 import requests
 import json
+import httpx
 
 from models import WorkshopBookingRequest, AdminWorkshopRequest
 
@@ -1371,15 +1372,19 @@ async def _ensure_order_from_tx(session_id: str):
 
     email = order.get("email")
     if email:
-        first_name = "cliente"
-        if user_id:
-            profile = await sb_select_one("profiles", "id", user_id)
-            if profile:
-                first_name = profile.get("first_name", "cliente")
         try:
-            await send_order_confirmation(email, first_name, order)
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{SUPABASE_URL}/functions/v1/send-order-email",
+                    json={"order_id": order["id"]},
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10,
+                )
         except Exception as e:
-            logger.error(f"Order confirmation email failed: {e}")
+            logger.error(f"send-order-email failed: {e}")
 
     return order
 

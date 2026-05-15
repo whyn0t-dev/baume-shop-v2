@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useCart } from "../lib/cart";
 import { useAuth } from "../lib/auth";
 import { createCheckout, getShippingMethods } from "../lib/api";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+
 import {
 	Select,
 	SelectContent,
@@ -14,6 +15,59 @@ import {
 } from "../components/ui/select";
 import { ShieldCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+function useGooglePlaces(onSelect, country) {
+	const inputRef = useRef(null);
+	const autocompleteRef = useRef(null);
+
+	useEffect(() => {
+		if (!window.google || !inputRef.current) return;
+
+		autocompleteRef.current = new window.google.maps.places.Autocomplete(
+			inputRef.current,
+			{
+				types: ["address"],
+				fields: ["address_components"],
+				componentRestrictions: country ? { country } : undefined, // ← ajouter
+			},
+		);
+
+		autocompleteRef.current.addListener("place_changed", () => {
+			const place = autocompleteRef.current.getPlace();
+			if (!place.address_components) return;
+
+			const get = (type) =>
+				place.address_components.find((c) => c.types.includes(type))
+					?.long_name || "";
+			const getShort = (type) =>
+				place.address_components.find((c) => c.types.includes(type))
+					?.short_name || "";
+
+			const streetNumber = get("street_number");
+			const route = get("route");
+
+			onSelect({
+				address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
+				city:
+					get("locality") ||
+					get("administrative_area_level_2") ||
+					get("postal_town"),
+				postal_code: get("postal_code"),
+				country: getShort("country"),
+			});
+		});
+
+		return () => {
+			if (autocompleteRef.current) {
+				window.google.maps.event.clearInstanceListeners(
+					autocompleteRef.current,
+				);
+			}
+		};
+	}, [country]); // ← ajouter country dans les dépendances
+
+	return inputRef;
+}
 
 export default function CheckoutPage() {
 	const { items, subtotal } = useCart();
@@ -55,6 +109,21 @@ export default function CheckoutPage() {
 		country: "CH",
 		phone: "",
 	});
+
+	const addressInputRef = useGooglePlaces(
+		({ address, city, postal_code, country }) => {
+			setForm((f) => ({
+				...f,
+				address,
+				city,
+				postal_code,
+				country: shippingMethods.some((m) => m.country === country)
+					? country
+					: f.country,
+			}));
+		},
+		form.country, // ← ajouter
+	);
 
 	// Pre-fill from authenticated user profile
 	useEffect(() => {
@@ -309,11 +378,14 @@ export default function CheckoutPage() {
 									</Label>
 									<Input
 										id="addr"
+										ref={addressInputRef}
 										data-testid="checkout-address"
 										value={form.address}
 										onChange={(e) =>
 											setForm({ ...form, address: e.target.value })
 										}
+										placeholder="Commencez à taper votre adresse..."
+										autoComplete="off"
 										className="mt-1.5 h-12 rounded-lg border-baume-border"
 									/>
 								</div>
