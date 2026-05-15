@@ -79,7 +79,7 @@ export const getCheckoutStatus = (sessionId) =>
   api.get(`/checkout/status/${sessionId}`).then((r) => r.data);
 
 export const fetchMe = () =>
-  api.get("/me").then((r) => r.data);
+  api.get("/me").then((r) => r.data).catch(() => null); // ← ajouter le catch
 
 // Auth
 export const authApi = axios.create({

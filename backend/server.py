@@ -19,6 +19,7 @@ import logging
 import uuid
 import asyncio
 import requests
+import json
 
 from models import WorkshopBookingRequest, AdminWorkshopRequest
 
@@ -1103,6 +1104,22 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "items_count": str(sum(i.quantity for i in payload.items)),
         "discount_code": priced["discount_code"] or "",
         "discount_amount": str(priced["discount_amount"]),
+        # ← ajouter ces deux lignes
+        "cart_items": json.dumps(
+            [
+                {
+                    "product_id": item["product_id"],
+                    "name": item["name"],
+                    "price": item["unit_price"],
+                    "quantity": item["quantity"],
+                    "size": item.get("size"),
+                    "color": item.get("color"),
+                    "sku": None,
+                }
+                for item in priced["line_items"]
+            ]
+        ),
+        "shipping_address": json.dumps(payload.shipping_address or {}),
     }
 
     # ── Coupon Stripe pour la réduction ──────────────────────────────────
@@ -1287,7 +1304,6 @@ async def _ensure_order_from_tx(session_id: str):
     if existing:
         return existing
 
-    # Résoudre le customer depuis le user_id de la transaction
     customer_id = None
     user_id = tx.get("user_id")
     if user_id:
@@ -1297,12 +1313,13 @@ async def _ensure_order_from_tx(session_id: str):
             customer_id = customer["id"]
 
     order_data = {
-        "customer_id": customer_id,  # ← maintenant correctement renseigné
+        "customer_id": customer_id,
         "email": tx.get("email", ""),
         "subtotal": tx.get("subtotal", tx["amount"]),
         "shipping_total": tx.get("shipping", 0.0),
         "tax_total": 0,
-        "discount_total": 0,
+        "discount_total": tx.get("discount_amount", 0.0),  # ← corriger
+        "discount_code": tx.get("discount_code"),  # ← ajouter
         "total": tx["amount"],
         "currency": tx.get("currency", "chf").upper(),
         "stripe_checkout_session_id": session_id,
@@ -1316,36 +1333,53 @@ async def _ensure_order_from_tx(session_id: str):
     try:
         inserted_order = await sb_insert("orders", order_data)
     except Exception as e:
-        # FIX: handle race condition — another process may have inserted concurrently
-        logger.warning(
-            f"Order insert failed for session {session_id}: {e}. Fetching existing."
-        )
+        logger.warning(f"Order insert failed for session {session_id}: {e}.")
         return await sb_select_one("orders", "stripe_checkout_session_id", session_id)
 
     order = inserted_order.data[0]
-    order["items"] = tx.get("items", [])
+    line_items = tx.get("items", [])
+
+    # ← ajouter ce bloc pour insérer les order_items
+    if line_items:
+        order_items = [
+            {
+                "order_id": order["id"],
+                "product_id": item.get("product_id"),
+                "product_title": item.get("name"),
+                "variant_title": " · ".join(
+                    filter(None, [item.get("size"), item.get("color")])
+                )
+                or None,
+                "sku": item.get("sku"),
+                "quantity": item.get("quantity", 1),
+                "unit_price": item.get("unit_price", 0),
+                "total_price": item.get("subtotal", 0),
+            }
+            for item in line_items
+        ]
+        try:
+            await sb_insert("order_items", order_items)
+        except Exception as e:
+            logger.error(f"Order items insert failed: {e}")
+
+    order["items"] = line_items
 
     try:
         await _decrease_stock_for_order(order)
     except Exception as e:
-        logger.error(f"Stock decrement failed for order {order.get('id')}: {e}")
+        logger.error(f"Stock decrement failed: {e}")
 
     email = order.get("email")
-
     if email:
         first_name = "cliente"
-
-        if order.get("user_id"):
-            profile = await sb_select_one("profiles", "id", order["user_id"])
+        if user_id:
+            profile = await sb_select_one("profiles", "id", user_id)
             if profile:
                 first_name = profile.get("first_name", "cliente")
-
         try:
             await send_order_confirmation(email, first_name, order)
         except Exception as e:
-            logger.error(
-                f"Order confirmation email failed for order {order.get('id')}: {e}"
-            )
+            logger.error(f"Order confirmation email failed: {e}")
 
     return order
 
