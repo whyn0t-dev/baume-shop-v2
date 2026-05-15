@@ -373,6 +373,19 @@ function AdminTable({ table, rows, onDelete }) {
 	);
 }
 function ReviewsSection({ rows, onDelete }) {
+	const [productMap, setProductMap] = useState({});
+
+	useEffect(() => {
+		getAdminTable("products", 200)
+			.then((prods) => {
+				const m = {};
+				prods.forEach((p) => {
+					m[p.id] = p.name || p.title;
+				});
+				setProductMap(m);
+			})
+			.catch(() => {});
+	}, []);
 	const [filter, setFilter] = useState("all");
 	const [sort, setSort] = useState("recent");
 

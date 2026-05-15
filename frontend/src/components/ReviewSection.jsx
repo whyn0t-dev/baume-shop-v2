@@ -3,6 +3,7 @@ import ReviewForm from "./ReviewForm";
 import ReviewCard from "../components/ReviewCard";
 import { getUserOrder } from "../lib/api"; // à adapter selon votre API
 import { useAuth } from "../lib/auth"; // hook retournant { user }
+import { Star } from "lucide-react";
 
 // ─── Section avis vérifiés (à insérer dans ProductPage) ─────────────────────
 // Ce composant est autonome : il vérifie si l'utilisateur connecté
@@ -17,6 +18,7 @@ export default function ReviewSection({
 	product,
 	allReviews = [],
 	onNewReview,
+	reviewStats,
 }) {
 	const { user, status } = useAuth();
 	const [order, setOrder] = useState(null);
@@ -74,6 +76,23 @@ export default function ReviewSection({
 						<h2 className="font-editorial text-[30px] md:text-[38px] text-baume-charcoal leading-tight">
 							Ce qu'elles en pensent
 						</h2>
+						{reviewStats?.count > 0 && (
+							<div className="flex items-center gap-2 mt-2">
+								{Array.from({ length: 5 }).map((_, i) => (
+									<Star
+										key={i}
+										className={`h-4 w-4 ${
+											i < reviewStats.average
+												? "fill-baume-burgundy text-baume-burgundy"
+												: "text-baume-border"
+										}`}
+									/>
+								))}
+								<span className="text-[14px] text-baume-charcoal/60">
+									{reviewStats.average}/5 · {reviewStats.count} avis
+								</span>
+							</div>
+						)}
 					</div>
 
 					{/* ── Bouton "Laisser un avis" (acheteur uniquement) ── */}

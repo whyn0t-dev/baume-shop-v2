@@ -257,13 +257,16 @@ export default function AccountPage() {
 											</p>
 
 											<p className="mt-2 text-[13px] text-baume-charcoal/80">
-												{o.items?.length || 0} article
-												{(o.items?.length || 0) > 1 ? "s" : ""} ·{" "}
+												{o.order_items?.length || 0} article
+												{(o.order_items || [])
+													.map((i) => i.name)
+													.slice(0, 2)
+													.join(", ")}
 												{(o.items || [])
 													.map((i) => i.name)
 													.slice(0, 2)
 													.join(", ")}
-												{(o.items?.length || 0) > 2 ? "…" : ""}
+												{(o.order_items?.length || 0) > 1 ? "s" : ""}
 											</p>
 										</div>
 

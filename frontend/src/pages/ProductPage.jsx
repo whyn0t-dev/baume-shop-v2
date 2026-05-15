@@ -768,6 +768,15 @@ export default function ProductPage() {
 					: section.content,
 			}));
 	}, [product]);
+	const reviewStats = useMemo(() => {
+		if (!allReviews.length) return { count: 0, average: 0 };
+
+		const count = allReviews.length;
+		const total = allReviews.reduce((sum, r) => sum + r.rating, 0);
+		const average = Math.round(total / count);
+
+		return { count, average };
+	}, [allReviews]);
 
 	if (!product) {
 		return (
@@ -850,7 +859,7 @@ export default function ProductPage() {
 											<Star
 												key={i}
 												className={`h-4 w-4 ${
-													i < Math.round(product.rating)
+													i < reviewStats.average
 														? "fill-baume-burgundy text-baume-burgundy"
 														: "text-baume-border"
 												}`}
@@ -858,7 +867,8 @@ export default function ProductPage() {
 										))}
 									</div>
 									<span className="text-baume-charcoal/60">
-										{product.rating?.toFixed(1)} · {product.reviews_count} avis
+										{reviewStats.average > 0 ? `${reviewStats.average}/5` : "—"}{" "}
+										· {reviewStats.count} avis
 									</span>
 								</div>
 
@@ -1165,6 +1175,7 @@ export default function ProductPage() {
 			<ReviewSection
 				product={product}
 				allReviews={allReviews}
+				reviewStats={reviewStats}
 				onNewReview={async (data) => {
 					const newReview = await submitReview(data);
 					const updated = await getReviews(product.id);
