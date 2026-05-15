@@ -202,3 +202,9 @@ h3,
 .animate-loader-bar {
     animation: loader-bar 2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
+
+.discount-input {
+  @apply w-full h-10 px-3 rounded-xl border border-baume-border bg-baume-white
+         text-[14px] text-baume-charcoal focus:outline-none
+         focus:border-baume-burgundy/50 transition;
+}

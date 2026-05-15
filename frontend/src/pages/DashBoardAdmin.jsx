@@ -203,7 +203,12 @@ export default function DashBoardAdmin() {
 								Aucun élément trouvé.
 							</div>
 						) : (
-							<AdminTable table={active} rows={rows} onDelete={handleDelete} />
+							<AdminTable
+								table={active}
+								rows={rows}
+								onDelete={handleDelete}
+								onRefresh={() => loadData(active)}
+							/>
 						)}
 					</div>
 				</main>
@@ -212,7 +217,7 @@ export default function DashBoardAdmin() {
 	);
 }
 
-function AdminTable({ table, rows, onDelete }) {
+function AdminTable({ table, rows, onDelete, onRefresh }) {
 	if (table === "products") {
 		return (
 			<Table
@@ -334,16 +339,7 @@ function AdminTable({ table, rows, onDelete }) {
 
 	if (table === "discounts") {
 		return (
-			<Table
-				columns={["Code", "Type", "Valeur", "Actif", "Actions"]}
-				rows={rows.map((d) => [
-					d.code,
-					d.type || "-",
-					d.value ?? "-",
-					d.active ? "Oui" : "Non",
-					<DeleteButton onClick={() => onDelete(d.id)} />,
-				])}
-			/>
+			<DiscountsSection rows={rows} onDelete={onDelete} onRefresh={onRefresh} />
 		);
 	}
 
@@ -697,5 +693,442 @@ function StatusBadge({ status }) {
 		>
 			{s.label}
 		</span>
+	);
+}
+
+function DiscountsSection({ rows, onDelete, onRefresh }) {
+	const [showForm, setShowForm] = useState(false);
+	const [editing, setEditing] = useState(null);
+
+	const handleEdit = (discount) => {
+		setEditing(discount);
+		setShowForm(true);
+	};
+	const handleClose = () => {
+		setEditing(null);
+		setShowForm(false);
+	};
+	const handleSaved = () => {
+		handleClose();
+		onRefresh();
+	};
+
+	const active = rows.filter((d) => d.active).length;
+	const totalUsed = rows.reduce((s, d) => s + (d.used_count || 0), 0);
+
+	return (
+		<div className="p-5 space-y-6">
+			<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+				{[
+					{ label: "Total codes", value: rows.length },
+					{ label: "Actifs", value: active },
+					{ label: "Inactifs", value: rows.length - active },
+					{ label: "Utilisations totales", value: totalUsed },
+				].map((s) => (
+					<div
+						key={s.label}
+						className="rounded-2xl border border-baume-border bg-baume-ivory/50 p-4"
+					>
+						<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
+							{s.label}
+						</p>
+						<p className="text-[28px] font-editorial mt-1 text-baume-charcoal">
+							{s.value}
+						</p>
+					</div>
+				))}
+			</div>
+
+			{!showForm && (
+				<button
+					onClick={() => setShowForm(true)}
+					className="h-10 px-5 rounded-full bg-baume-burgundy text-baume-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition"
+				>
+					<Plus className="h-4 w-4" /> Créer un code promo
+				</button>
+			)}
+
+			{showForm && (
+				<DiscountForm
+					discount={editing}
+					onSaved={handleSaved}
+					onCancel={handleClose}
+				/>
+			)}
+
+			{rows.length === 0 ? (
+				<p className="text-center text-baume-charcoal/50 py-10">
+					Aucun code promo créé.
+				</p>
+			) : (
+				<div className="space-y-3">
+					{rows.map((d) => (
+						<DiscountCard
+							key={d.id}
+							discount={d}
+							onEdit={() => handleEdit(d)}
+							onDelete={() => onDelete(d.id)}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function DiscountCard({ discount: d, onEdit, onDelete }) {
+	const isExpired = d.ends_at && new Date(d.ends_at) < new Date();
+	const isNotStarted = d.starts_at && new Date(d.starts_at) > new Date();
+	const isExhausted = d.usage_limit && (d.used_count || 0) >= d.usage_limit;
+
+	const statusLabel = !d.active
+		? {
+				label: "Inactif",
+				cls: "bg-baume-border/50 text-baume-charcoal/50 border-baume-border",
+			}
+		: isExpired
+			? { label: "Expiré", cls: "bg-red-100 text-red-700 border-red-200" }
+			: isNotStarted
+				? {
+						label: "Pas encore actif",
+						cls: "bg-yellow-100 text-yellow-700 border-yellow-200",
+					}
+				: isExhausted
+					? {
+							label: "Épuisé",
+							cls: "bg-orange-100 text-orange-700 border-orange-200",
+						}
+					: {
+							label: "Actif",
+							cls: "bg-emerald-100 text-emerald-700 border-emerald-200",
+						};
+
+	return (
+		<div className="rounded-2xl border border-baume-border bg-baume-white p-5 flex flex-col sm:flex-row gap-4 items-start">
+			<div className="flex-1 min-w-0">
+				<div className="flex items-center gap-3 flex-wrap">
+					<span className="font-mono font-bold text-[16px] text-baume-charcoal bg-baume-ivory border border-baume-border px-3 py-1 rounded-lg">
+						{d.code}
+					</span>
+					<span
+						className={`text-[11px] px-2.5 py-0.5 rounded-full border font-semibold ${statusLabel.cls}`}
+					>
+						{statusLabel.label}
+					</span>
+					<span className="text-[13px] font-semibold text-baume-burgundy">
+						{d.type === "percentage"
+							? `−${d.value}%`
+							: `−${Number(d.value).toFixed(2)} CHF`}
+					</span>
+				</div>
+				<div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-baume-charcoal/55">
+					<span>
+						Utilisations :{" "}
+						<strong className="text-baume-charcoal">{d.used_count || 0}</strong>
+						{d.usage_limit ? ` / ${d.usage_limit}` : " (illimitées)"}
+					</span>
+					{d.starts_at && (
+						<span>
+							Début :{" "}
+							<strong className="text-baume-charcoal">
+								{new Date(d.starts_at).toLocaleDateString("fr-CH")}
+							</strong>
+						</span>
+					)}
+					{d.ends_at && (
+						<span>
+							Fin :{" "}
+							<strong className="text-baume-charcoal">
+								{new Date(d.ends_at).toLocaleDateString("fr-CH")}
+							</strong>
+						</span>
+					)}
+					{d.min_order_amount && (
+						<span>
+							Min. commande :{" "}
+							<strong className="text-baume-charcoal">
+								{Number(d.min_order_amount).toFixed(2)} CHF
+							</strong>
+						</span>
+					)}
+					{d.description && (
+						<span>
+							Note :{" "}
+							<strong className="text-baume-charcoal">{d.description}</strong>
+						</span>
+					)}
+				</div>
+			</div>
+			<div className="flex items-center gap-2 shrink-0">
+				<button
+					onClick={onEdit}
+					title="Modifier"
+					className="h-9 w-9 rounded-full border border-baume-border inline-flex items-center justify-center text-baume-charcoal hover:bg-baume-ivory transition"
+				>
+					<Pencil className="h-4 w-4" />
+				</button>
+				<DeleteButton onClick={onDelete} />
+			</div>
+		</div>
+	);
+}
+
+function DiscountForm({ discount, onSaved, onCancel }) {
+	const isEditing = !!discount;
+	const [saving, setSaving] = useState(false);
+	const [error, setError] = useState("");
+
+	const [form, setForm] = useState({
+		code: discount?.code || "",
+		type: discount?.type || "percentage",
+		value: discount?.value ?? "",
+		active: discount?.active ?? true,
+		starts_at: discount?.starts_at ? discount.starts_at.slice(0, 16) : "",
+		ends_at: discount?.ends_at ? discount.ends_at.slice(0, 16) : "",
+		usage_limit: discount?.usage_limit ?? "",
+		min_order_amount: discount?.min_order_amount ?? "",
+		description: discount?.description || "",
+	});
+
+	const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		setError("");
+		if (!form.code.trim()) return setError("Le code est obligatoire.");
+		if (!form.value || Number(form.value) <= 0)
+			return setError("La valeur doit être supérieure à 0.");
+		if (form.type === "percentage" && Number(form.value) > 100)
+			return setError("Un pourcentage ne peut pas dépasser 100.");
+		setSaving(true);
+		const payload = {
+			code: form.code.trim().toUpperCase(),
+			type: form.type,
+			value: Number(form.value),
+			active: form.active,
+			starts_at: form.starts_at || null,
+			ends_at: form.ends_at || null,
+			usage_limit: form.usage_limit ? Number(form.usage_limit) : null,
+			min_order_amount: form.min_order_amount
+				? Number(form.min_order_amount)
+				: null,
+			description: form.description || null,
+		};
+		try {
+			if (isEditing) {
+				await api.patch(`/ecom/admin/discounts/${discount.id}`, payload);
+			} else {
+				await api.post("/ecom/admin/discounts", payload);
+			}
+			onSaved();
+		} catch (err) {
+			setError(formatApiError(err));
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	return (
+		<form
+			onSubmit={handleSubmit}
+			className="rounded-3xl border border-baume-burgundy/30 bg-baume-white p-6 md:p-7 space-y-5"
+		>
+			<div className="flex items-center justify-between">
+				<p className="font-editorial text-[24px] text-baume-charcoal">
+					{isEditing ? "Modifier le code" : "Nouveau code promo"}
+				</p>
+				<button
+					type="button"
+					onClick={onCancel}
+					className="h-8 w-8 rounded-full border border-baume-border inline-flex items-center justify-center text-baume-charcoal/50 hover:bg-baume-ivory"
+				>
+					<X className="h-4 w-4" />
+				</button>
+			</div>
+
+			{error && (
+				<p className="text-[13px] text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
+					{error}
+				</p>
+			)}
+
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+				<DiscountField label="Code promo *">
+					<input
+						type="text"
+						value={form.code}
+						onChange={(e) => set("code", e.target.value.toUpperCase())}
+						placeholder="BAUME10"
+						className="discount-input font-mono"
+						required
+					/>
+				</DiscountField>
+				<DiscountField label="Type *">
+					<select
+						value={form.type}
+						onChange={(e) => set("type", e.target.value)}
+						className="discount-input"
+					>
+						<option value="percentage">Pourcentage (%)</option>
+						<option value="fixed">Montant fixe (CHF)</option>
+					</select>
+				</DiscountField>
+				<DiscountField
+					label={`Valeur * ${form.type === "percentage" ? "(%)" : "(CHF)"}`}
+				>
+					<input
+						type="number"
+						value={form.value}
+						onChange={(e) => set("value", e.target.value)}
+						placeholder={form.type === "percentage" ? "10" : "5.00"}
+						min="0.01"
+						max={form.type === "percentage" ? "100" : undefined}
+						step="0.01"
+						className="discount-input"
+						required
+					/>
+				</DiscountField>
+			</div>
+
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<DiscountField label="Date de début (optionnel)">
+					<input
+						type="datetime-local"
+						value={form.starts_at}
+						onChange={(e) => set("starts_at", e.target.value)}
+						className="discount-input"
+					/>
+					<p className="text-[11px] text-baume-charcoal/45 mt-1">
+						Laisser vide = actif immédiatement
+					</p>
+				</DiscountField>
+				<DiscountField label="Date d'expiration (optionnel)">
+					<input
+						type="datetime-local"
+						value={form.ends_at}
+						onChange={(e) => set("ends_at", e.target.value)}
+						className="discount-input"
+					/>
+					<p className="text-[11px] text-baume-charcoal/45 mt-1">
+						Laisser vide = pas d'expiration
+					</p>
+				</DiscountField>
+			</div>
+
+			<div className="rounded-2xl border border-baume-border bg-baume-ivory/40 p-4 space-y-4">
+				<p className="text-[12px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+					Conditions d'application
+				</p>
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<DiscountField label="Limite d'utilisation (optionnel)">
+						<input
+							type="number"
+							value={form.usage_limit}
+							onChange={(e) => set("usage_limit", e.target.value)}
+							placeholder="Ex : 100"
+							min="1"
+							step="1"
+							className="discount-input"
+						/>
+						<p className="text-[11px] text-baume-charcoal/45 mt-1">
+							Nombre max d'utilisations
+						</p>
+					</DiscountField>
+					<DiscountField label="Montant minimum de commande (CHF)">
+						<input
+							type="number"
+							value={form.min_order_amount}
+							onChange={(e) => set("min_order_amount", e.target.value)}
+							placeholder="Ex : 50.00"
+							min="0"
+							step="0.01"
+							className="discount-input"
+						/>
+						<p className="text-[11px] text-baume-charcoal/45 mt-1">
+							Laisser vide = aucun minimum
+						</p>
+					</DiscountField>
+				</div>
+			</div>
+
+			<DiscountField label="Note interne (optionnel)">
+				<input
+					type="text"
+					value={form.description}
+					onChange={(e) => set("description", e.target.value)}
+					placeholder="Ex : Code newsletter mai 2025"
+					className="discount-input"
+				/>
+			</DiscountField>
+
+			<label className="flex items-center gap-3 cursor-pointer select-none">
+				<div
+					onClick={() => set("active", !form.active)}
+					className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${form.active ? "bg-baume-burgundy" : "bg-baume-border"}`}
+				>
+					<span
+						className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${form.active ? "translate-x-5" : "translate-x-0.5"}`}
+					/>
+				</div>
+				<span className="text-[14px] font-medium text-baume-charcoal">
+					Code actif
+				</span>
+			</label>
+
+			{form.code && form.value && Number(form.value) > 0 && (
+				<div className="rounded-xl bg-baume-ivory border border-baume-border p-4 text-[13px] text-baume-charcoal/70">
+					<p className="font-semibold text-baume-charcoal mb-1">Aperçu</p>
+					<p>
+						Le code{" "}
+						<span className="font-mono font-bold text-baume-burgundy">
+							{form.code}
+						</span>{" "}
+						offre{" "}
+						{form.type === "percentage"
+							? `${form.value}% de réduction`
+							: `${Number(form.value).toFixed(2)} CHF de réduction`}
+						{form.min_order_amount
+							? ` pour toute commande d'au moins ${Number(form.min_order_amount).toFixed(2)} CHF`
+							: ""}
+						{form.ends_at
+							? `, valable jusqu'au ${new Date(form.ends_at).toLocaleDateString("fr-CH")}`
+							: ""}
+						{form.usage_limit
+							? `, limité à ${form.usage_limit} utilisation${Number(form.usage_limit) > 1 ? "s" : ""}`
+							: ""}
+						.
+					</p>
+				</div>
+			)}
+
+			<div className="flex items-center gap-3 pt-2">
+				<button
+					type="submit"
+					disabled={saving}
+					className="h-11 px-7 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[14px] hover:bg-baume-burgundyDark disabled:opacity-60 inline-flex items-center gap-2 transition"
+				>
+					{saving && <Loader2 className="h-4 w-4 animate-spin" />}
+					{isEditing ? "Enregistrer" : "Créer le code"}
+				</button>
+				<button
+					type="button"
+					onClick={onCancel}
+					className="h-11 px-5 rounded-full border border-baume-border text-baume-charcoal font-semibold text-[14px] hover:bg-baume-ivory transition"
+				>
+					Annuler
+				</button>
+			</div>
+		</form>
+	);
+}
+
+function DiscountField({ label, children }) {
+	return (
+		<div className="flex flex-col gap-1.5">
+			<label className="text-[12px] font-semibold text-baume-charcoal/70 uppercase tracking-[0.12em]">
+				{label}
+			</label>
+			{children}
+		</div>
 	);
 }

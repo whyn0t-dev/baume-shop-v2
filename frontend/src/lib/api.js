@@ -265,3 +265,6 @@ export const uploadReviewImages = (reviewId, files) => {
   }).then((r) => r.data);
 };
 // Retourne : { images: [...urls] }
+
+export const getDiscount = (code) =>
+  api.get(`/discounts/${code}`).then((r) => r.data);

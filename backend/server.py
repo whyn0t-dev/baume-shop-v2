@@ -1046,7 +1046,8 @@ async def _price_cart(
                     valid = False
             if usage_limit and used_count >= usage_limit:
                 valid = False
-
+            if discount.get("min_order_amount") and total < float(discount["min_order_amount"]):
+                valid = False
             if valid:
                 if discount["type"] == "percentage":
                     discount_amount = round(total * float(discount["value"]) / 100, 2)
@@ -1182,7 +1183,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "session_id": session.id,
         "total": priced["total"],
     }
- 
+
 
 async def _decrease_stock_for_order(order: dict):
     items = order.get("items", [])
@@ -1505,6 +1506,41 @@ async def get_discount(code: str):
         raise HTTPException(status_code=404, detail="Code promo épuisé")
 
     return discount
+
+
+@api_router.post("/ecom/admin/discounts")
+async def create_discount(payload: dict, profile=Depends(require_admin)):
+    data = {
+        "id": str(uuid.uuid4()),
+        "code": payload["code"].upper(),
+        "type": payload["type"],
+        "value": payload["value"],
+        "active": payload.get("active", True),
+        "starts_at": payload.get("starts_at"),
+        "ends_at": payload.get("ends_at"),
+        "usage_limit": payload.get("usage_limit"),
+        "min_order_amount": payload.get("min_order_amount"),
+        "description": payload.get("description"),
+        "used_count": 0,
+        "created_at": now_iso(),
+    }
+    result = await sb_insert("discounts", data)
+    return result.data[0]
+
+
+@api_router.patch("/ecom/admin/discounts/{discount_id}")
+async def update_discount(
+    discount_id: str,
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    payload.pop("id", None)
+    payload.pop("used_count", None)
+    payload.pop("created_at", None)
+    if "code" in payload:
+        payload["code"] = payload["code"].upper()
+    await sb_update("discounts", payload, "id", discount_id)
+    return await sb_select_one("discounts", "id", discount_id)
 
 
 # ---------- Collections ----------
