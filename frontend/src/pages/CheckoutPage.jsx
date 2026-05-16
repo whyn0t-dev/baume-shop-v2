@@ -41,13 +41,15 @@ function useGooglePlaces(onSelect, country, step) {
 			containerRef.current.innerHTML = "";
 			containerRef.current.appendChild(placeAutocomplete);
 
-			placeAutocomplete.addEventListener(
-				"gmp-placeselect",
-				async ({ place }) => {
-					await place.fetchFields({ fields: ["addressComponents"] });
+			placeAutocomplete.addEventListener("gmp-placeselect", (event) => {
+				console.log("Event:", event);
+				console.log("Place:", event.place);
 
-					console.log("place:", place);
-					console.log("addressComponents:", place.addressComponents);
+				const place = event.place;
+				if (!place) return;
+
+				place.fetchFields({ fields: ["addressComponents"] }).then(() => {
+					console.log("Components:", place.addressComponents);
 
 					const components = place.addressComponents;
 					if (!components) return;
@@ -60,7 +62,6 @@ function useGooglePlaces(onSelect, country, step) {
 					const streetNumber = get("street_number");
 					const route = get("route");
 
-					// ← utiliser onSelectRef.current au lieu de onSelect
 					onSelectRef.current({
 						address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
 						city:
@@ -70,8 +71,8 @@ function useGooglePlaces(onSelect, country, step) {
 						postal_code: get("postal_code"),
 						country: getShort("country"),
 					});
-				},
-			);
+				});
+			});
 		};
 
 		if (window.google) {
@@ -111,7 +112,7 @@ export default function CheckoutPage() {
 
 		const script = document.createElement("script");
 		script.id = "google-maps-script";
-		script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCvarhPQQ75HXNHRiTVXTaeETiG-Is5vRE&libraries=places&language=fr&v=beta`;
+		script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCvarhPQQ75HXNHRiTVXTaeETiG-Is5vRE&libraries=places&language=fr&v=alpha&loading=async`;
 		script.async = true;
 		script.defer = true;
 		document.head.appendChild(script);
