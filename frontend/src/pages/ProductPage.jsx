@@ -1007,7 +1007,7 @@ export default function ProductPage() {
 										{related.slice(0, 3).map((p) => (
 											<Link
 												key={p.id}
-												to={`/shop/produit/${p.slug}`} // ← vérifiez ce chemin dans votre router
+												to={`/produit/${p.slug}`} // ← vérifiez ce chemin dans votre router
 												className="flex items-center gap-3 group"
 											>
 												<img
