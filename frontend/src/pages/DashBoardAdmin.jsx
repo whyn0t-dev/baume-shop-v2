@@ -228,7 +228,15 @@ function AdminTable({ table, rows, onDelete, onRefresh }) {
 					p.product_category,
 					`${Number(p.price || 0).toFixed(2)} ${p.currency || "CHF"}`,
 					p.stock ?? 0,
-					p.status,
+					p.available ? (
+						<span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
+							Actif
+						</span>
+					) : (
+						<span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 border border-red-200">
+							Inactif
+						</span>
+					),
 					<div className="flex items-center gap-2">
 						<Link
 							to={`/admin/produits/${p.id}/modifier`}
