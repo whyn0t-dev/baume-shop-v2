@@ -16,57 +16,68 @@ import {
 import { ShieldCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-function useGooglePlaces(onSelect, country) {
-	const inputRef = useRef(null);
-	const autocompleteRef = useRef(null);
+function useGooglePlaces(onSelect, country, step) {
+	const containerRef = useRef(null);
 
 	useEffect(() => {
-		if (!window.google || !inputRef.current) return;
+		if (step !== 2) return;
 
-		autocompleteRef.current = new window.google.maps.places.Autocomplete(
-			inputRef.current,
-			{
-				types: ["address"],
-				fields: ["address_components"],
-				componentRestrictions: country ? { country } : undefined, // ← ajouter
-			},
-		);
+		const init = () => {
+			if (!window.google || !containerRef.current) return;
 
-		autocompleteRef.current.addListener("place_changed", () => {
-			const place = autocompleteRef.current.getPlace();
-			if (!place.address_components) return;
+			const placeAutocomplete =
+				new window.google.maps.places.PlaceAutocompleteElement({
+					types: ["address"],
+					componentRestrictions: country ? { country } : undefined,
+				});
 
-			const get = (type) =>
-				place.address_components.find((c) => c.types.includes(type))
-					?.long_name || "";
-			const getShort = (type) =>
-				place.address_components.find((c) => c.types.includes(type))
-					?.short_name || "";
+			placeAutocomplete.style.width = "100%";
+			containerRef.current.innerHTML = "";
+			containerRef.current.appendChild(placeAutocomplete);
 
-			const streetNumber = get("street_number");
-			const route = get("route");
+			placeAutocomplete.addEventListener(
+				"gmp-placeselect",
+				async ({ place }) => {
+					await place.fetchFields({ fields: ["addressComponents"] });
 
-			onSelect({
-				address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
-				city:
-					get("locality") ||
-					get("administrative_area_level_2") ||
-					get("postal_town"),
-				postal_code: get("postal_code"),
-				country: getShort("country"),
-			});
-		});
+					const components = place.addressComponents;
+					if (!components) return;
 
-		return () => {
-			if (autocompleteRef.current) {
-				window.google.maps.event.clearInstanceListeners(
-					autocompleteRef.current,
-				);
-			}
+					const get = (type) =>
+						components.find((c) => c.types.includes(type))?.longText || "";
+					const getShort = (type) =>
+						components.find((c) => c.types.includes(type))?.shortText || "";
+
+					const streetNumber = get("street_number");
+					const route = get("route");
+
+					onSelect({
+						address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
+						city:
+							get("locality") ||
+							get("administrative_area_level_2") ||
+							get("postal_town"),
+						postal_code: get("postal_code"),
+						country: getShort("country"),
+					});
+				},
+			);
 		};
-	}, [country]); // ← ajouter country dans les dépendances
 
-	return inputRef;
+		if (window.google) {
+			init();
+		} else {
+			const interval = setInterval(() => {
+				if (window.google) {
+					clearInterval(interval);
+					init();
+				}
+			}, 100);
+			return () => clearInterval(interval);
+		}
+	}, [country, step]);
+
+	return containerRef;
 }
 
 export default function CheckoutPage() {
@@ -81,6 +92,18 @@ export default function CheckoutPage() {
 
 	const [shippingMethods, setShippingMethods] = useState([]);
 	const [shippingLoading, setShippingLoading] = useState(false);
+
+	useEffect(() => {
+		if (window.google) return;
+		if (document.querySelector("#google-maps-script")) return;
+
+		const script = document.createElement("script");
+		script.id = "google-maps-script";
+		script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCvarhPQQ75HXNHRiTVXTaeETiG-Is5vRE&libraries=places&language=fr&v=beta`;
+		script.async = true;
+		script.defer = true;
+		document.head.appendChild(script);
+	}, []);
 
 	useEffect(() => {
 		setShippingLoading(true);
@@ -373,20 +396,11 @@ export default function CheckoutPage() {
 									</div>
 								</div>
 								<div>
-									<Label htmlFor="addr" className="text-[13px]">
-										Adresse
-									</Label>
-									<Input
-										id="addr"
+									<Label className="text-[13px]">Adresse</Label>
+									<div
 										ref={addressInputRef}
-										data-testid="checkout-address"
-										value={form.address}
-										onChange={(e) =>
-											setForm({ ...form, address: e.target.value })
-										}
-										placeholder="Commencez à taper votre adresse..."
-										autoComplete="off"
-										className="mt-1.5 h-12 rounded-lg border-baume-border"
+										className="mt-1.5"
+										style={{ minHeight: "48px" }}
 									/>
 								</div>
 								<div className="grid grid-cols-3 gap-4">
