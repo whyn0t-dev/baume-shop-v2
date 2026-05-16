@@ -1105,24 +1105,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         "items_count": str(sum(i.quantity for i in payload.items)),
         "discount_code": priced["discount_code"] or "",
         "discount_amount": str(priced["discount_amount"]),
-        # ← ajouter ces deux lignes
-        "cart_items": json.dumps(
-            [
-                {
-                    "product_id": item["product_id"],
-                    "name": item["name"],
-                    "price": item["unit_price"],
-                    "quantity": item["quantity"],
-                    "size": item.get("size"),
-                    "color": item.get("color"),
-                    "sku": None,
-                }
-                for item in priced["line_items"]
-            ]
-        ),
-        "shipping_address": json.dumps(payload.shipping_address or {}),
     }
-
     # ── Coupon Stripe pour la réduction ──────────────────────────────────
     stripe_coupon_id = None
     if priced["discount_amount"] > 0 and priced["discount_code"]:
