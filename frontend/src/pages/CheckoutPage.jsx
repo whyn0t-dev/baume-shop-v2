@@ -20,9 +20,6 @@ function useGooglePlaces(onSelect, country, step) {
 	const containerRef = useRef(null);
 	const onSelectRef = useRef(onSelect); // ← ajouter
 
-	// Ajouter un état
-	const [addressLocked, setAddressLocked] = useState(false);
-
 	// Garder onSelectRef à jour
 	useEffect(() => {
 		onSelectRef.current = onSelect;
@@ -102,6 +99,8 @@ export default function CheckoutPage() {
 
 	const [shippingMethods, setShippingMethods] = useState([]);
 	const [shippingLoading, setShippingLoading] = useState(false);
+
+	const [addressLocked, setAddressLocked] = useState(false); // ← nouvel état
 
 	useEffect(() => {
 		if (window.google) return;
