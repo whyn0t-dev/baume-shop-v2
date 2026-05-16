@@ -428,6 +428,10 @@ async def get_product(slug: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Produit introuvable")
 
+    # ← ajouter
+    if doc.get("status") not in ("active", None):
+        raise HTTPException(status_code=404, detail="Produit introuvable")
+
     return doc
 
 
