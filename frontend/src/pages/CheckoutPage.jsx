@@ -18,6 +18,15 @@ import { toast } from "sonner";
 
 function useGooglePlaces(onSelect, country, step) {
 	const containerRef = useRef(null);
+	const onSelectRef = useRef(onSelect); // ← ajouter
+
+	// Ajouter un état
+	const [addressLocked, setAddressLocked] = useState(false);
+
+	// Garder onSelectRef à jour
+	useEffect(() => {
+		onSelectRef.current = onSelect;
+	}, [onSelect]);
 
 	useEffect(() => {
 		if (step !== 2) return;
@@ -51,7 +60,8 @@ function useGooglePlaces(onSelect, country, step) {
 					const streetNumber = get("street_number");
 					const route = get("route");
 
-					onSelect({
+					// ← utiliser onSelectRef.current au lieu de onSelect
+					onSelectRef.current({
 						address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
 						city:
 							get("locality") ||
@@ -144,8 +154,10 @@ export default function CheckoutPage() {
 					? country
 					: f.country,
 			}));
+			setAddressLocked(true); // ← verrouiller après sélection
 		},
-		form.country, // ← ajouter
+		form.country,
+		step,
 	);
 
 	// Pre-fill from authenticated user profile
@@ -402,6 +414,23 @@ export default function CheckoutPage() {
 										className="mt-1.5"
 										style={{ minHeight: "48px" }}
 									/>
+									{addressLocked && (
+										<button
+											type="button"
+											onClick={() => {
+												setAddressLocked(false);
+												setForm((f) => ({
+													...f,
+													address: "",
+													city: "",
+													postal_code: "",
+												}));
+											}}
+											className="text-[12px] text-baume-burgundy baume-link mt-1"
+										>
+											Modifier l'adresse
+										</button>
+									)}
 								</div>
 								<div className="grid grid-cols-3 gap-4">
 									<div>
@@ -410,12 +439,12 @@ export default function CheckoutPage() {
 										</Label>
 										<Input
 											id="pc"
-											data-testid="checkout-postal"
 											value={form.postal_code}
 											onChange={(e) =>
 												setForm({ ...form, postal_code: e.target.value })
 											}
-											className="mt-1.5 h-12 rounded-lg border-baume-border"
+											disabled={addressLocked} // ← verrouiller
+											className="mt-1.5 h-12 rounded-lg border-baume-border disabled:bg-baume-ivory disabled:text-baume-charcoal/50"
 										/>
 									</div>
 									<div className="col-span-2">
