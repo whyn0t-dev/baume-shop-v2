@@ -406,11 +406,22 @@ export default function AdminProductEdit() {
 						value={product.image || ""}
 						onChange={(v) => setProduct({ ...product, image: v })}
 					/>
-					<Input
-						label="Statut"
-						value={product.status || ""}
-						onChange={(v) => setProduct({ ...product, status: v })}
-					/>
+					<label className="block">
+						<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+							Statut
+						</span>
+						<select
+							value={product.status || "draft"}
+							onChange={(e) =>
+								setProduct({ ...product, status: e.target.value })
+							}
+							className="h-12 w-full rounded-2xl border border-baume-border bg-baume-white px-4 text-[14px] outline-none focus:ring-2 focus:ring-baume-taupe"
+						>
+							<option value="draft">Brouillon</option>
+							<option value="active">Actif</option>
+							<option value="archived">Archivé</option>
+						</select>
+					</label>
 
 					<Textarea
 						label="Description"

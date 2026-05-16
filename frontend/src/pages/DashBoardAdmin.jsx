@@ -228,13 +228,26 @@ function AdminTable({ table, rows, onDelete, onRefresh }) {
 					p.product_category,
 					`${Number(p.price || 0).toFixed(2)} ${p.currency || "CHF"}`,
 					p.stock ?? 0,
-					p.available ? (
-						<span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-							Actif
-						</span>
-					) : (
-						<span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 border border-red-200">
-							Inactif
+					// ← remplacer p.statut + le bloc available par ceci
+					{
+						draft: (
+							<span className="text-[12px] px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200 font-medium">
+								Brouillon
+							</span>
+						),
+						active: (
+							<span className="text-[12px] px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
+								Actif
+							</span>
+						),
+						archived: (
+							<span className="text-[12px] px-2 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200 font-medium">
+								Archivé
+							</span>
+						),
+					}[p.status] || (
+						<span className="text-[12px] text-baume-charcoal/40">
+							{p.status || "—"}
 						</span>
 					),
 					<div className="flex items-center gap-2">
@@ -245,7 +258,6 @@ function AdminTable({ table, rows, onDelete, onRefresh }) {
 						>
 							<Pencil className="h-4 w-4" />
 						</Link>
-
 						<DeleteButton onClick={() => onDelete(p.id)} />
 					</div>,
 				])}

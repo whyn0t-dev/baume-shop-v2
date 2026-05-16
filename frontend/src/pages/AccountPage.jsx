@@ -219,7 +219,7 @@ export default function AccountPage() {
 								</p>
 
 								<Link
-									to="/shop/besoin"
+									to="/shop/produit"
 									className="mt-7 inline-flex h-12 px-7 items-center gap-2 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[14px] hover:opacity-90 transition-opacity"
 								>
 									Découvrir nos produits <ArrowRight className="h-4 w-4" />
