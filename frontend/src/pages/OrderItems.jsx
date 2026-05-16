@@ -1,604 +1,419 @@
 import React, { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
-	ArrowLeft,
-	BadgeCheck,
-	ChevronDown,
-	Clock,
-	CreditCard,
-	Loader2,
-	MapPin,
-	MessageSquare,
-	MoreHorizontal,
-	Package,
-	Tag,
-	Truck,
+  ArrowLeft,
+  ChevronDown,
+  CreditCard,
+  Loader2,
+  MapPin,
+  Package,
+  Truck,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
-	getAdminOrder,
-	refundOrder,
-	updateOrderStatus,
-	updateOrderItemStatus,
+  getAdminOrder,
+  updateOrderStatus,
+  updateOrderItemStatus,
 } from "../lib/api";
 
 export default function OrderItems() {
-	const baume = {
-		burgundy: "#3D2A2A",
-		burgundyDark: "#2A1717",
-		charcoal: "#111111",
-		white: "#FFFFFF",
-		ivory: "#F3E3AC",
-		taupe: "#D3B1A0",
-		taupeWarm: "#B5866B",
-		border: "#D3B1A0",
-	};
+  const { orderId } = useParams();
+  const { user, status } = useAuth();
 
-	const { orderId } = useParams();
-	const { user, status } = useAuth();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentStatus, setCurrentStatus] = useState(null);
 
-	const [order, setOrder] = useState(null);
-	const [loading, setLoading] = useState(true);
-	const [currentStatus, setCurrentStatus] = useState(null);
+  const isAdmin =
+    user?.role === "admin" || user?.is_admin === true || user?.isAdmin === true;
 
-	const isAdmin =
-		user?.role === "admin" || user?.is_admin === true || user?.isAdmin === true;
+  useEffect(() => {
+    if (order?.status) setCurrentStatus(order.status);
+  }, [order]);
 
-	useEffect(() => {
-		if (order?.status) {
-			setCurrentStatus(order.status);
-		}
-	}, [order]);
+  async function handleStatusChange(newStatus) {
+    if (!order?.id) return;
+    try {
+      await updateOrderStatus(order.id, newStatus);
+      setCurrentStatus(newStatus);
+      setOrder((prev) => ({ ...prev, status: newStatus }));
+    } catch (err) {
+      alert(err.message);
+    }
+  }
 
-	async function handleStatusChange(status) {
-		if (!order?.id) return;
+  useEffect(() => {
+    if (status !== "authenticated" || !isAdmin) return;
+    setLoading(true);
+    getAdminOrder(orderId)
+      .then((data) => setOrder(data))
+      .catch(() => setOrder(null))
+      .finally(() => setLoading(false));
+  }, [orderId, status, isAdmin]);
 
-		try {
-			await updateOrderStatus(order.id, status);
-			setCurrentStatus(status);
-			setOrder((prev) => ({ ...prev, status }));
-		} catch (err) {
-			alert(err.message);
-		}
-	}
+  if (status === "loading" || loading) {
+    return (
+      <div className="min-h-screen bg-baume-ivory flex items-center justify-center">
+        <Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
+      </div>
+    );
+  }
 
-	useEffect(() => {
-		if (status !== "authenticated" || !isAdmin) return;
+  if (status !== "authenticated" || !isAdmin) {
+    return <Navigate to="/compte" replace />;
+  }
 
-		setLoading(true);
-		getAdminOrder(orderId)
-			.then((data) => setOrder(data))
-			.catch(() => setOrder(null))
-			.finally(() => setLoading(false));
-	}, [orderId, status, isAdmin]);
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-baume-ivory p-8 text-center">
+        <p className="text-baume-charcoal/60">Commande introuvable.</p>
+        <Link to="/admin" className="mt-4 inline-block text-baume-burgundy text-[14px] font-semibold">
+          ← Retour aux commandes
+        </Link>
+      </div>
+    );
+  }
 
-	if (status === "loading" || loading) return <Loading />;
+  const items = Array.isArray(order.items) ? order.items : [];
+  const currency = (order.currency || "CHF").toUpperCase();
+  const shippingAddress =
+    typeof order.shipping_address === "object" && order.shipping_address
+      ? order.shipping_address
+      : {};
+  const orderNumber = order.id ? `#${String(order.id).slice(0, 8).toUpperCase()}` : "#Commande";
+  const unfulfilledCount = items.filter((i) => i.fulfillment_status !== "fulfilled").length;
 
-	if (status !== "authenticated" || !isAdmin) {
-		return <Navigate to="/compte" replace />;
-	}
+  return (
+    <div className="min-h-screen bg-baume-ivory/40 text-baume-charcoal">
 
-	if (!order) {
-		return (
-			<div className="min-h-screen bg-[#f1f1f1] p-8">
-				<p>Commande introuvable.</p>
-			</div>
-		);
-	}
+      {/* Header */}
+      <header className="sticky top-0 z-10 border-b border-baume-border bg-baume-white/95 backdrop-blur px-4 md:px-8 py-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 max-w-6xl mx-auto">
+          <div>
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-1 text-[13px] text-baume-burgundy hover:text-baume-burgundyDark mb-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Commandes
+            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-[20px] font-semibold text-baume-charcoal">{orderNumber}</h1>
+              <StatusBadge status={currentStatus} />
+            </div>
+            <p className="text-[12px] text-baume-charcoal/50 mt-1">
+              {order.created_at
+                ? new Date(order.created_at).toLocaleString("fr-CH")
+                : "Date inconnue"}
+            </p>
+          </div>
 
-	const items = Array.isArray(order.items) ? order.items : [];
-	const unfulfilledCount = items.filter(
-		(item) => item.fulfillment_status !== "fulfilled",
-	).length;
-	const currency = (order.currency || "CHF").toUpperCase();
-	const shippingAddress =
-		typeof order.shipping_address === "object" && order.shipping_address
-			? order.shipping_address
-			: {};
-	const billingAddress =
-		typeof order.billing_address === "object" && order.billing_address
-			? order.billing_address
-			: {};
-	const orderNumber = order.public_reference
-		? `#${order.public_reference}`
-		: "#Commande";
+          {/* Actions statut */}
+          <ActionMenu
+            onProcessing={() => handleStatusChange("processing")}
+            onShipped={() => handleStatusChange("shipped")}
+            onDelivered={() => handleStatusChange("delivered")}
+            onCancel={() => handleStatusChange("cancelled")}
+            onRefund={() => handleStatusChange("refunded")}
+          />
+        </div>
+      </header>
 
-	const customerName =
-		shippingAddress.name ||
-		order.customer_name ||
-		[user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
-		"Client";
-	return (
-		<div className="min-h-screen bg-baume-ivory/30 text-baume-charcoal">
-			<header className="sticky top-0 z-10 border-b border-baume-border bg-baume-ivory/95 backdrop-blur px-4 md:px-6 py-3">
-				<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-					<div>
-						<Link
-							to="/admin"
-							className="inline-flex items-center gap-1 text-[13px] text-baume-burgundy hover:text-baume-burgundyDark mb-1"
-						>
-							<ArrowLeft className="h-4 w-4" />
-							Commandes
-						</Link>
+      <main className="p-4 md:p-8 max-w-6xl mx-auto grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
 
-						<div className="flex flex-wrap items-center gap-2">
-							<h1 className="text-[20px] font-semibold">{orderNumber}</h1>
-							<Badge tone="gray">Payée</Badge>
-							<StatusBadge status={currentStatus} />
-						</div>
+        {/* Colonne gauche */}
+        <div className="space-y-6">
 
-						<p className="text-[12px] text-baume-taupeWarm mt-1">
-							{order.created_at
-								? new Date(order.created_at).toLocaleString("fr-CH")
-								: "Date inconnue"}{" "}
-							provenant de Boutique en ligne
-						</p>
-					</div>
+          {/* Articles */}
+          <Panel>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[15px] font-semibold text-baume-charcoal">
+                Articles
+              </h2>
+              {unfulfilledCount > 0 && (
+                <span className="text-[12px] px-2 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-burgundy font-medium">
+                  {unfulfilledCount} non traité{unfulfilledCount > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
 
-					<div className="flex flex-wrap gap-2">
-						<ActionButton tone="primary" onClick={() => window.print()}>
-							Imprimer
-						</ActionButton>
+            <div className="rounded-xl border border-baume-border overflow-hidden">
+              {items.length === 0 ? (
+                <div className="p-5 text-[13px] text-baume-charcoal/50 text-center">
+                  Aucun article trouvé pour cette commande.
+                </div>
+              ) : (
+                items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="px-4 py-4 flex items-center gap-4 border-b border-baume-border last:border-b-0 bg-baume-white"
+                  >
+                    {/* Icône produit */}
+                    <div className="h-12 w-12 rounded-lg bg-baume-ivory border border-baume-border flex items-center justify-center shrink-0">
+                      <Package className="h-5 w-5 text-baume-charcoal/40" />
+                    </div>
 
-						<ActionMenu
-							onProcessing={() => handleStatusChange("processing")}
-							onShipped={() => handleStatusChange("shipped")}
-							onDelivered={() => handleStatusChange("delivered")}
-							onCancel={() => handleStatusChange("cancelled")}
-							onRefund={() => handleStatusChange("refunded")}
-						/>
-					</div>
-				</div>
-			</header>
+                    {/* Infos produit */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-baume-charcoal truncate">
+                        {item.product_title || "Produit"}
+                      </p>
+                      {item.variant_title && (
+                        <p className="text-[12px] text-baume-charcoal/55">
+                          {item.variant_title}
+                        </p>
+                      )}
+                      {item.sku && (
+                        <p className="text-[11px] text-baume-charcoal/40">
+                          SKU : {item.sku}
+                        </p>
+                      )}
+                    </div>
 
-			<main className="p-4 md:p-6 grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-5">
-				<div className="space-y-5">
-					<Panel>
-						<div className="flex items-center justify-between mb-3">
-							<div className="flex flex-wrap gap-2">
-								<Badge tone="yellow">
-									<Package className="h-3.5 w-3.5" />
-									Non traité ({unfulfilledCount})
-								</Badge>
-								<Badge tone="gray">
-									<MapPin className="h-3.5 w-3.5" />
-									Baume, 2 Rue de la Mairie
-								</Badge>
-							</div>
-							<MoreHorizontal className="h-5 w-5 text-[#666]" />
-						</div>
+                    {/* Prix × quantité */}
+                    <div className="text-[13px] text-baume-charcoal/70 whitespace-nowrap text-right">
+                      <p>{Number(item.unit_price || 0).toFixed(2)} {currency} × {item.quantity || 1}</p>
+                      <p className="font-semibold text-baume-charcoal">
+                        {Number(item.total_price || 0).toFixed(2)} {currency}
+                      </p>
+                    </div>
 
-						<div className="rounded-lg border border-[#ddd] bg-white mb-3 px-4 py-3 flex items-center gap-2 text-[13px]">
-							<Truck className="h-4 w-4" />
-							Livraison standard
-						</div>
+                    {/* Bouton traiter */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await updateOrderItemStatus(item.id, "fulfilled");
+                        setOrder((prev) => ({
+                          ...prev,
+                          items: prev.items.map((i) =>
+                            i.id === item.id
+                              ? { ...i, fulfillment_status: "fulfilled" }
+                              : i
+                          ),
+                        }));
+                      }}
+                      disabled={item.fulfillment_status === "fulfilled"}
+                      className={`h-8 px-3 rounded-lg text-[12px] font-semibold ml-2 shrink-0 transition-colors ${
+                        item.fulfillment_status === "fulfilled"
+                          ? "bg-baume-ivory text-baume-charcoal/50 cursor-default border border-baume-border"
+                          : "bg-baume-burgundy text-white hover:bg-baume-burgundyDark"
+                      }`}
+                    >
+                      {item.fulfillment_status === "fulfilled" ? "Traité ✓" : "Marquer traité"}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </Panel>
 
-						<div className="rounded-lg border border-baume-border overflow-hidden bg-white">
-							{items.length === 0 ? (
-								<div className="p-5 text-[13px] text-baume-taupeWarm">
-									Aucun article trouvé pour cette commande.
-								</div>
-							) : (
-								items.map((item) => (
-									<div
-										key={item.id}
-										className="px-4 py-3 flex items-center gap-3 justify-between border-b border-baume-border last:border-b-0"
-									>
-										<div className="h-12 w-12 rounded-md bg-[#f6f6f6] border border-[#e5e5e5] flex items-center justify-center shrink-0">
-											<Package className="h-5 w-5 text-[#777]" />
-										</div>
+          {/* Récapitulatif financier */}
+          <Panel>
+            <div className="flex items-center gap-2 mb-4">
+              <CreditCard className="h-4 w-4 text-baume-burgundy" />
+              <h2 className="text-[15px] font-semibold text-baume-charcoal">Paiement</h2>
+            </div>
 
-										<div className="flex-1 min-w-0">
-											<p className="text-[13px] font-semibold truncate">
-												{item.product_title}
-											</p>
-											<p className="text-[12px] text-[#777]">
-												{item.variant_title || item.sku || "—"}
-											</p>
-										</div>
+            <div className="rounded-xl border border-baume-border overflow-hidden">
+              <SummaryLine
+                label="Sous-total"
+                detail={`${items.length} article${items.length > 1 ? "s" : ""}`}
+                value={`${Number(order.subtotal || 0).toFixed(2)} ${currency}`}
+              />
+              {Number(order.discount_total || 0) > 0 && (
+                <SummaryLine
+                  label="Réduction"
+                  detail={order.discount_code || "Code promo"}
+                  value={`-${Number(order.discount_total || 0).toFixed(2)} ${currency}`}
+                  green
+                />
+              )}
+              <SummaryLine
+                label="Livraison"
+                detail="Standard"
+                value={
+                  Number(order.shipping_total || 0) === 0
+                    ? "Offerte"
+                    : `${Number(order.shipping_total || 0).toFixed(2)} ${currency}`
+                }
+              />
+              {Number(order.tax_total || 0) > 0 && (
+                <SummaryLine
+                  label="Taxes"
+                  detail="Incluses"
+                  value={`${Number(order.tax_total || 0).toFixed(2)} ${currency}`}
+                />
+              )}
+              <SummaryLine
+                label="Total"
+                value={`${Number(order.total || 0).toFixed(2)} ${currency}`}
+                strong
+              />
+            </div>
 
-										<div className="text-[13px] text-right whitespace-nowrap">
-											{Number(item.unit_price || 0).toFixed(2)} {currency} ×{" "}
-											<span className="inline-flex items-center justify-center h-5 min-w-5 rounded-full bg-[#eee] px-1">
-												{item.quantity || 1}
-											</span>
-										</div>
-										<div className="text-[13px] text-right w-24">
-											{Number(item.total_price || 0).toFixed(2)} {currency}
-										</div>
+            {order.stripe_checkout_session_id && (
+              <p className="mt-3 text-[11px] text-baume-charcoal/40">
+                Session Stripe : {order.stripe_checkout_session_id}
+              </p>
+            )}
+          </Panel>
+        </div>
 
-										<button
-											type="button"
-											onClick={async () => {
-												await updateOrderItemStatus(item.id, "fulfilled");
+        {/* Colonne droite */}
+        <aside className="space-y-4">
 
-												setOrder((prev) => ({
-													...prev,
-													items: prev.items.map((i) =>
-														i.id === item.id
-															? { ...i, fulfillment_status: "fulfilled" }
-															: i,
-													),
-												}));
-											}}
-											disabled={item.fulfillment_status === "fulfilled"}
-											className={`h-8 px-3 rounded-md text-[12px] font-semibold ml-3 ${
-												item.fulfillment_status === "fulfilled"
-													? "bg-baume-taupe/30 text-baume-burgundyDark cursor-default"
-													: "bg-baume-burgundy text-white hover:bg-baume-burgundyDark"
-											}`}
-										>
-											{item.fulfillment_status === "fulfilled"
-												? "Traité"
-												: "Marquer comme traité"}
-										</button>
-									</div>
-								))
-							)}
-						</div>
-					</Panel>
+          {/* Client */}
+          <Panel>
+            <h2 className="text-[15px] font-semibold text-baume-charcoal mb-4">Client</h2>
 
-					<Panel>
-						<Badge tone="gray">
-							<CreditCard className="h-3.5 w-3.5" />
-							Payée
-						</Badge>
+            <div className="space-y-1">
+              <p className="text-[13px] font-medium text-baume-charcoal">
+                {shippingAddress.name ||
+                  [shippingAddress.first_name, shippingAddress.last_name]
+                    .filter(Boolean)
+                    .join(" ") || "Nom non renseigné"}
+              </p>
+              <p className="text-[13px] text-baume-charcoal/60">
+                {order.email || "Email non renseigné"}
+              </p>
+              {shippingAddress.phone && (
+                <p className="text-[13px] text-baume-charcoal/60">
+                  {shippingAddress.phone}
+                </p>
+              )}
+            </div>
+          </Panel>
 
-						<div className="mt-4 rounded-lg border border-baume-border overflow-hidden bg-white">
-							<SummaryLine
-								label="Sous-total"
-								detail={`${items.length} article${items.length > 1 ? "s" : ""}`}
-								value={`${Number(order.subtotal || 0).toFixed(2)} ${currency}`}
-							/>
-							{Number(order.discount_total || 0) > 0 && (
-								<SummaryLine
-									label="Réduction"
-									detail="Code réduction"
-									value={`-${Number(order.discount_total || 0).toFixed(2)} ${currency}`}
-								/>
-							)}
-							<SummaryLine
-								label="Expédition"
-								detail="Livraison standard"
-								value={`${Number(order.shipping_total || 0).toFixed(2)} ${currency}`}
-							/>
-							<SummaryLine
-								label="Taxes"
-								detail="Incluses"
-								value={`${Number(order.tax_total || 0).toFixed(2)} ${currency}`}
-							/>
-							<SummaryLine
-								label="Total"
-								value={`${Number(order.total || 0).toFixed(2)} ${currency}`}
-								strong
-							/>
-							<SummaryLine
-								label="Payé"
-								value={`${Number(order.total || 0).toFixed(2)} ${currency}`}
-							/>
-						</div>
-					</Panel>
+          {/* Adresse de livraison */}
+          <Panel>
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="h-4 w-4 text-baume-burgundy" />
+              <h2 className="text-[15px] font-semibold text-baume-charcoal">Adresse de livraison</h2>
+            </div>
 
-					<Panel>
-						<div className="flex items-center justify-between">
-							<h2 className="text-[14px] font-semibold">Champs méta</h2>
-							<button className="text-[13px] text-[#555]">Tout afficher</button>
-						</div>
-						<p className="mt-5 text-[13px] text-[#777]">
-							Aucun champ méta épinglé
-						</p>
-					</Panel>
+            {Object.keys(shippingAddress).length > 0 ? (
+              <div className="text-[13px] text-baume-charcoal/70 leading-6">
+                <p>{shippingAddress.name || [shippingAddress.first_name, shippingAddress.last_name].filter(Boolean).join(" ")}</p>
+                <p>{shippingAddress.line1 || shippingAddress.address}</p>
+                <p>{[shippingAddress.postal_code, shippingAddress.city].filter(Boolean).join(" ")}</p>
+                <p>{shippingAddress.country}</p>
+              </div>
+            ) : (
+              <p className="text-[13px] text-baume-charcoal/50">Adresse non renseignée</p>
+            )}
+          </Panel>
 
-					<div>
-						<h2 className="text-[14px] font-semibold mb-3">Calendrier</h2>
+          {/* Livraison */}
+          <Panel>
+            <div className="flex items-center gap-2 mb-3">
+              <Truck className="h-4 w-4 text-baume-burgundy" />
+              <h2 className="text-[15px] font-semibold text-baume-charcoal">Livraison</h2>
+            </div>
+            <p className="text-[13px] text-baume-charcoal/70">Livraison standard</p>
+            <p className="text-[13px] text-baume-charcoal/70">
+              {Number(order.shipping_total || 0) === 0
+                ? "Offerte"
+                : `${Number(order.shipping_total || 0).toFixed(2)} ${currency}`}
+            </p>
+          </Panel>
 
-						<Panel>
-							<div className="flex gap-3">
-								<div className="h-10 w-10 rounded-lg bg-purple-600 text-white flex items-center justify-center font-semibold">
-									{user?.first_name?.[0] || "A"}
-								</div>
-								<div className="flex-1">
-									<div className="rounded-lg bg-[#fafafa] border border-[#e5e5e5] px-4 py-3 text-[13px] text-[#777]">
-										Laisser un commentaire...
-									</div>
-									<div className="mt-3 flex items-center gap-3 text-[#777]">
-										<MessageSquare className="h-4 w-4" />
-										<Tag className="h-4 w-4" />
-									</div>
-								</div>
-							</div>
-						</Panel>
-
-						<div className="mt-5 pl-7 border-l border-[#d5d5d5] space-y-5">
-							<TimelineItem>
-								La confirmation n° {orderNumber} a été générée pour cette
-								commande.
-							</TimelineItem>
-							<TimelineItem>
-								Un paiement de {Number(order.total || 0).toFixed(2)} {currency}{" "}
-								a été traité.
-							</TimelineItem>
-							<TimelineItem>
-								{customerName} a passé cette commande sur Online Store.
-							</TimelineItem>
-						</div>
-					</div>
-				</div>
-
-				<aside className="space-y-4">
-					<SidePanel title="Notes">
-						<p className="text-[13px] text-[#777]">
-							{order.notes || "Aucune note du client"}
-						</p>
-					</SidePanel>
-
-					<SidePanel title="Client">
-						<p className="text-[13px] font-semibold text-blue-600">
-							{customerName}
-						</p>
-						<p className="text-[13px] text-blue-600 mt-1">1 commande</p>
-
-						<BlockTitle>Coordonnées</BlockTitle>
-						<p className="text-[13px] text-[#555]">
-							{order.email || "Aucun e-mail fourni"}
-						</p>
-						<p className="text-[13px] text-[#555]">
-							{shippingAddress.phone || "Téléphone non fourni"}
-						</p>
-
-						<BlockTitle>Adresse d’expédition</BlockTitle>
-						<Address address={shippingAddress} fallbackName={customerName} />
-
-						<BlockTitle>Adresse de facturation</BlockTitle>
-						{Object.keys(billingAddress).length > 0 ? (
-							<Address address={billingAddress} fallbackName={customerName} />
-						) : (
-							<p className="text-[13px] text-[#555]">
-								Identique à l’adresse d’expédition
-							</p>
-						)}
-					</SidePanel>
-
-					<SidePanel title="Résumé de la conversion">
-						<InfoLine icon={BadgeCheck}>
-							Il s’agit de sa 1ère commande.
-						</InfoLine>
-						<InfoLine icon={Clock}>1re visite à partir de Instagram</InfoLine>
-						<InfoLine icon={Clock}>2 visites sur 1 jour</InfoLine>
-						<button className="mt-3 text-[13px] text-blue-600">
-							Voir les détails de la conversion
-						</button>
-					</SidePanel>
-
-					<SidePanel title="Risque de la commande">
-						<div className="h-2 rounded-full bg-[#e5e5e5] overflow-hidden mb-3">
-							<div className="h-full w-1/3 bg-emerald-600" />
-						</div>
-						<div className="grid grid-cols-3 text-[12px] text-[#555] mb-3">
-							<span>Faible</span>
-							<span className="text-center">Moyen</span>
-							<span className="text-right">Élevé</span>
-						</div>
-						<p className="text-[13px] text-[#555]">
-							Le risque de rétrofacturation est faible. Vous pouvez traiter
-							cette commande.
-						</p>
-					</SidePanel>
-
-					<SidePanel title="Balises">
-						<input className="w-full h-9 rounded-md border border-[#bbb] bg-white px-3 text-[13px]" />
-					</SidePanel>
-				</aside>
-			</main>
-		</div>
-	);
+        </aside>
+      </main>
+    </div>
+  );
 }
 
-function Loading() {
-	return (
-		<div className="min-h-screen bg-baume-ivory/30 flex items-center justify-center">
-			<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
-		</div>
-	);
-}
+// ── Composants utilitaires ─────────────────────────────────────────────────
 
 function Panel({ children }) {
-	return (
-		<section className="rounded-xl border border-baume-border bg-white p-4 shadow-sm">
-			{children}
-		</section>
-	);
+  return (
+    <section className="rounded-2xl border border-baume-border bg-baume-white p-5 shadow-sm">
+      {children}
+    </section>
+  );
 }
 
-function SidePanel({ title, children }) {
-	return (
-		<section className="rounded-xl border border-baume-border bg-white p-4 shadow-sm">
-			<div className="flex items-center justify-between mb-3">
-				<h2 className="text-[14px] font-semibold text-baume-burgundyDark">
-					{title}
-				</h2>
-				<MoreHorizontal className="h-4 w-4 text-[#777]" />
-			</div>
-			{children}
-		</section>
-	);
+function SummaryLine({ label, detail, value, strong = false, green = false }) {
+  return (
+    <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-3 border-b border-baume-border last:border-b-0 bg-baume-white text-[13px]">
+      <span className={strong ? "font-semibold text-baume-charcoal" : "text-baume-charcoal/70"}>
+        {label}
+        {detail && <span className="ml-1 text-baume-charcoal/40 text-[11px]">— {detail}</span>}
+      </span>
+      <span
+        className={`text-right ${strong ? "font-semibold text-baume-charcoal" : green ? "text-emerald-600" : "text-baume-charcoal/70"}`}
+      >
+        {value}
+      </span>
+    </div>
+  );
 }
 
-function Badge({ children, tone = "gray" }) {
-	const styles =
-		tone === "yellow"
-			? "bg-baume-ivory text-baume-burgundyDark border-baume-taupe"
-			: "bg-baume-taupe/25 text-baume-burgundyDark border-baume-border";
+function ActionMenu({ onProcessing, onShipped, onDelivered, onCancel, onRefund }) {
+  const [open, setOpen] = useState(false);
 
-	return (
-		<span
-			className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium ${styles}`}
-		>
-			{children}
-		</span>
-	);
-}
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="h-10 px-5 rounded-full bg-baume-burgundy hover:bg-baume-burgundyDark text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors"
+      >
+        Modifier le statut
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
 
-function ActionMenu({
-	onProcessing,
-	onShipped,
-	onDelivered,
-	onCancel,
-	onRefund,
-}) {
-	const [open, setOpen] = useState(false);
-
-	return (
-		<div className="relative">
-			<button
-				type="button"
-				onClick={() => setOpen((v) => !v)}
-				className="h-9 px-4 rounded-lg bg-baume-burgundy hover:bg-baume-burgundyDark text-white text-[13px] font-semibold inline-flex items-center gap-2"
-			>
-				Modifier la commande
-				<ChevronDown className="h-3.5 w-3.5" />
-			</button>
-
-			{open && (
-				<div className="absolute right-0 mt-2 w-56 rounded-xl border border-[#d8d8d8] bg-white shadow-lg overflow-hidden z-50">
-					<MenuItem onClick={onProcessing}>⚙️ En traitement</MenuItem>
-					<MenuItem onClick={onShipped}>Expédiée</MenuItem>
-					<MenuItem onClick={onDelivered}>Livrée</MenuItem>
-					<MenuItem tone="warning" onClick={onCancel}>
-						Annuler
-					</MenuItem>
-					<MenuItem tone="danger" onClick={onRefund}>
-						Rembourser
-					</MenuItem>
-				</div>
-			)}
-		</div>
-	);
-}
-
-function ActionButton({ children, onClick, tone = "neutral" }) {
-	const styles =
-		tone === "primary"
-			? "bg-baume-burgundy hover:bg-baume-burgundyDark text-white"
-			: tone === "success"
-				? "bg-baume-taupeWarm hover:bg-baume-burgundy text-white"
-				: tone === "danger"
-					? "bg-red-700 hover:bg-red-800 text-white"
-					: "bg-baume-taupe/40 hover:bg-baume-taupe text-baume-burgundyDark";
-
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className={`h-9 px-4 rounded-lg text-[13px] font-semibold inline-flex items-center gap-1 ${styles}`}
-		>
-			{children}
-		</button>
-	);
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-baume-border bg-baume-white shadow-lg overflow-hidden z-50">
+            <MenuItem onClick={() => { onProcessing(); setOpen(false); }}>⚙️ En traitement</MenuItem>
+            <MenuItem onClick={() => { onShipped(); setOpen(false); }}>🚚 Expédiée</MenuItem>
+            <MenuItem onClick={() => { onDelivered(); setOpen(false); }}>✅ Livrée</MenuItem>
+            <div className="border-t border-baume-border" />
+            <MenuItem tone="warning" onClick={() => { onCancel(); setOpen(false); }}>❌ Annuler</MenuItem>
+            <MenuItem tone="danger" onClick={() => { onRefund(); setOpen(false); }}>💸 Rembourser</MenuItem>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function MenuItem({ children, onClick, tone = "default" }) {
-	const styles = {
-		default: "bg-gray-50 hover:bg-gray-200 text-[#303030]",
-		warning: "bg-orange-50 hover:bg-orange-200 text-orange-700",
-		danger: "bg-red-50 hover:bg-red-200 text-red-700",
-	};
+  const styles = {
+    default: "hover:bg-baume-ivory text-baume-charcoal",
+    warning: "hover:bg-orange-50 text-orange-700",
+    danger: "hover:bg-red-50 text-red-700",
+  };
 
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className={`w-full text-left px-4 py-2.5 text-[13px] font-medium rounded-md transition-colors duration-150 ${styles[tone]}`}
-		>
-			{children}
-		</button>
-	);
-}
-
-function SummaryLine({ label, detail, value, strong = false }) {
-	return (
-		<div className="grid grid-cols-[120px_1fr_auto] gap-4 px-4 py-2 border-b border-[#eee] last:border-b-0 text-[13px]">
-			<span className={strong ? "font-semibold" : ""}>{label}</span>
-			<span className="text-[#555]">{detail}</span>
-			<span className={strong ? "font-semibold" : ""}>{value}</span>
-		</div>
-	);
-}
-
-function BlockTitle({ children }) {
-	return (
-		<p className="text-[12px] font-semibold text-[#555] mt-4 mb-1">
-			{children}
-		</p>
-	);
-}
-
-function Address({ address, fallbackName }) {
-	return (
-		<div className="text-[13px] text-[#555] leading-5">
-			<p>{address.name || fallbackName || "Nom non renseigné"}</p>
-			<p>{address.line1 || address.address || "Adresse non renseignée"}</p>
-			<p>
-				{[address.postal_code, address.city].filter(Boolean).join(" ") || ""}
-			</p>
-			<p>{address.country || ""}</p>
-		</div>
-	);
-}
-
-function InfoLine({ icon: Icon, children }) {
-	return (
-		<div className="flex items-center gap-2 text-[13px] text-[#555] py-1">
-			<Icon className="h-4 w-4 text-[#666]" />
-			<span>{children}</span>
-		</div>
-	);
-}
-
-function TimelineItem({ children }) {
-	return (
-		<div className="relative text-[13px] text-[#555]">
-			<span className="absolute -left-[33px] top-1 h-3 w-3 rounded-full bg-[#777] border-2 border-[#f1f1f1]" />
-			<p>{children}</p>
-		</div>
-	);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left px-4 py-3 text-[13px] font-medium transition-colors ${styles[tone]}`}
+    >
+      {children}
+    </button>
+  );
 }
 
 function StatusBadge({ status }) {
-	const map = {
-		pending: {
-			label: "Non traitée",
-			class: "bg-baume-ivory text-baume-burgundyDark border-baume-taupe",
-		},
-		processing: {
-			label: "En traitement",
-			class: "bg-baume-taupe/30 text-baume-burgundyDark border-baume-border",
-		},
-		shipped: {
-			label: "Expédiée",
-			class: "bg-baume-taupe text-baume-burgundyDark border-baume-taupeWarm",
-		},
-		delivered: {
-			label: "Livrée",
-			class: "bg-baume-burgundy text-white border-baume-burgundyDark",
-		},
-		cancelled: {
-			label: "Annulée",
-			class: "bg-red-100 text-red-800 border-red-300",
-		},
-		refunded: {
-			label: "Remboursée",
-			class: "bg-baume-charcoal text-white border-baume-charcoal",
-		},
-	};
+  const map = {
+    paid: { label: "Payée", class: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    pending: { label: "En attente", class: "bg-baume-ivory text-baume-burgundy border-baume-border" },
+    processing: { label: "En traitement", class: "bg-blue-50 text-blue-700 border-blue-200" },
+    shipped: { label: "Expédiée", class: "bg-baume-taupe/30 text-baume-charcoal border-baume-border" },
+    delivered: { label: "Livrée", class: "bg-baume-burgundy text-white border-baume-burgundyDark" },
+    cancelled: { label: "Annulée", class: "bg-red-50 text-red-700 border-red-200" },
+    refunded: { label: "Remboursée", class: "bg-gray-100 text-gray-700 border-gray-200" },
+  };
 
-	const s = map[status] || map.pending;
+  const s = map[status] || map.pending;
 
-	return (
-		<span
-			className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[12px] font-medium ${s.class}`}
-		>
-			{s.label}
-		</span>
-	);
+  return (
+    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-medium ${s.class}`}>
+      {s.label}
+    </span>
+  );
 }

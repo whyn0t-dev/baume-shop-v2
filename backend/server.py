@@ -21,6 +21,7 @@ import asyncio
 import requests
 import json
 import httpx
+import time
 
 from models import WorkshopBookingRequest, AdminWorkshopRequest
 
@@ -1093,7 +1094,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
 
     origin = payload.origin_url.rstrip("/")
     success_url = f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{origin}/panier"
+    cancel_url = f"{origin}/commande/confirmation?cancelled=true"
 
     email = payload.email or user_email
 
@@ -1127,11 +1128,15 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         {
             "price_data": {
                 "currency": "chf",
-                "product_data": {"name": "Commande Baume"},
-                "unit_amount": int(round(priced["subtotal"] * 100)),
+                "product_data": {
+                    "name": item["name"],
+                    **({"description": item["size"]} if item.get("size") else {}),
+                },
+                "unit_amount": int(round(item["unit_price"] * 100)),
             },
-            "quantity": 1,
+            "quantity": item["quantity"],
         }
+        for item in priced["line_items"]
     ]
 
     if priced["shipping"] > 0:
@@ -1155,6 +1160,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         cancel_url=cancel_url,
         metadata=metadata,
         line_items=stripe_line_items,
+        expires_at=int(time.time()) + (30 * 60),  # ← expire dans 30 minutes
     )
 
     if stripe_coupon_id:
