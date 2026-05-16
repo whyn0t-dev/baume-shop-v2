@@ -46,6 +46,9 @@ function useGooglePlaces(onSelect, country, step) {
 				async ({ place }) => {
 					await place.fetchFields({ fields: ["addressComponents"] });
 
+					console.log("place:", place);
+					console.log("addressComponents:", place.addressComponents);
+
 					const components = place.addressComponents;
 					if (!components) return;
 
