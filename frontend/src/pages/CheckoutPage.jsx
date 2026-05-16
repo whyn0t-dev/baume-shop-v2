@@ -17,10 +17,9 @@ import { ShieldCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 function useGooglePlaces(onSelect, country, step) {
-	const containerRef = useRef(null);
-	const onSelectRef = useRef(onSelect); // ← ajouter
+	const inputRef = useRef(null);
+	const onSelectRef = useRef(onSelect);
 
-	// Garder onSelectRef à jour
 	useEffect(() => {
 		onSelectRef.current = onSelect;
 	}, [onSelect]);
@@ -29,48 +28,39 @@ function useGooglePlaces(onSelect, country, step) {
 		if (step !== 2) return;
 
 		const init = () => {
-			if (!window.google || !containerRef.current) return;
+			if (!window.google || !inputRef.current) return;
 
-			const placeAutocomplete =
-				new window.google.maps.places.PlaceAutocompleteElement({
+			const autocomplete = new window.google.maps.places.Autocomplete(
+				inputRef.current,
+				{
 					types: ["address"],
 					componentRestrictions: country ? { country } : undefined,
-				});
+					fields: ["address_components"],
+				},
+			);
 
-			placeAutocomplete.style.width = "100%";
-			containerRef.current.innerHTML = "";
-			containerRef.current.appendChild(placeAutocomplete);
+			autocomplete.addListener("place_changed", () => {
+				const place = autocomplete.getPlace();
+				if (!place.address_components) return;
 
-			placeAutocomplete.addEventListener("gmp-placeselect", (event) => {
-				console.log("Event:", event);
-				console.log("Place:", event.place);
+				const get = (type) =>
+					place.address_components.find((c) => c.types.includes(type))
+						?.long_name || "";
+				const getShort = (type) =>
+					place.address_components.find((c) => c.types.includes(type))
+						?.short_name || "";
 
-				const place = event.place;
-				if (!place) return;
+				const streetNumber = get("street_number");
+				const route = get("route");
 
-				place.fetchFields({ fields: ["addressComponents"] }).then(() => {
-					console.log("Components:", place.addressComponents);
-
-					const components = place.addressComponents;
-					if (!components) return;
-
-					const get = (type) =>
-						components.find((c) => c.types.includes(type))?.longText || "";
-					const getShort = (type) =>
-						components.find((c) => c.types.includes(type))?.shortText || "";
-
-					const streetNumber = get("street_number");
-					const route = get("route");
-
-					onSelectRef.current({
-						address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
-						city:
-							get("locality") ||
-							get("administrative_area_level_2") ||
-							get("postal_town"),
-						postal_code: get("postal_code"),
-						country: getShort("country"),
-					});
+				onSelectRef.current({
+					address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
+					city:
+						get("locality") ||
+						get("administrative_area_level_2") ||
+						get("postal_town"),
+					postal_code: get("postal_code"),
+					country: getShort("country"),
 				});
 			});
 		};
@@ -88,7 +78,7 @@ function useGooglePlaces(onSelect, country, step) {
 		}
 	}, [country, step]);
 
-	return containerRef;
+	return inputRef;
 }
 
 export default function CheckoutPage() {
@@ -112,7 +102,7 @@ export default function CheckoutPage() {
 
 		const script = document.createElement("script");
 		script.id = "google-maps-script";
-		script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCvarhPQQ75HXNHRiTVXTaeETiG-Is5vRE&libraries=places&language=fr&v=alpha&loading=async`;
+		script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyCvarhPQQ75HXNHRiTVXTaeETiG-Is5vRE&libraries=places&language=fr&loading=async`;
 		script.async = true;
 		script.defer = true;
 		document.head.appendChild(script);
@@ -412,10 +402,12 @@ export default function CheckoutPage() {
 								</div>
 								<div>
 									<Label className="text-[13px]">Adresse</Label>
-									<div
+									<input
 										ref={addressInputRef}
-										className="mt-1.5"
-										style={{ minHeight: "48px" }}
+										type="text"
+										placeholder="Commencez à taper votre adresse..."
+										autoComplete="off"
+										className="mt-1.5 h-12 w-full rounded-lg border border-baume-border bg-white px-3 text-[14px] text-baume-charcoal focus:outline-none focus:ring-2 focus:ring-baume-burgundy"
 									/>
 									{addressLocked && (
 										<button
