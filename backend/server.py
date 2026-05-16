@@ -390,6 +390,7 @@ async def list_products(
 ):
     def run():
         q = supabase.table("products").select("*")
+        q = q.eq("status", "active")
         if category:
             q = q.eq("product_category", category)
         if need:
@@ -425,6 +426,10 @@ async def get_product(slug: str):
     doc = await sb_select_one("products", "slug", slug)
 
     if not doc:
+        raise HTTPException(status_code=404, detail="Produit introuvable")
+
+    # ← ajouter
+    if doc.get("status") not in ("active", None):
         raise HTTPException(status_code=404, detail="Produit introuvable")
 
     return doc
