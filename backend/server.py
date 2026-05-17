@@ -2355,12 +2355,69 @@ async def update_order_tracking(
     return {"success": True, "carrier": carrier, "tracking_number": tracking_number}
 
 
+# ── Quiz bien-être ─────────────────────────────────────────────────────────
+
+
+class QuizSubmitRequest(BaseModel):
+    email: str
+    answers: Dict[str, Any]
+    recommended_categories: List[str]
+    profile_id: Optional[str] = None
+
+
+@api_router.post("/quiz/submit")
+async def submit_quiz(payload: QuizSubmitRequest, http_request: Request):
+    # Sauvegarder en DB
+    quiz_data = {
+        "id": str(uuid.uuid4()),
+        "email": payload.email,
+        "answers": payload.answers,
+        "recommended_categories": payload.recommended_categories,
+        "profile_id": payload.profile_id,
+        "created_at": now_iso(),
+    }
+
+    try:
+        await sb_insert("quiz_results", quiz_data)
+    except Exception as e:
+        logger.error(f"Quiz insert error: {e}")
+
+    # Envoyer l'email si email fourni
+    if payload.email:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{SUPABASE_URL}/functions/v1/send-quiz-results",
+                    json={
+                        "email": payload.email,
+                        "recommended_categories": payload.recommended_categories,
+                        "answers": payload.answers,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10,
+                )
+        except Exception as e:
+            logger.error(f"send-quiz-results failed: {e}")
+
+    return {"success": True}
+
+
+@api_router.get("/quiz/my-results")
+async def get_my_quiz_results(profile=Depends(get_current_profile)):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("quiz_results")
+        .select("*")
+        .eq("profile_id", profile["id"])
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)
-
-_cors_origins = [
-    o.strip()
-    for o in os.environ.get("CORS_ORIGINS", FRONTEND_URL).split(",")
-    if o.strip()
-]
