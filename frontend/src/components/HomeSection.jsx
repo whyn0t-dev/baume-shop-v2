@@ -15,9 +15,9 @@ import {
 import { getAdminTable } from "../lib/api";
 
 // ── Config PostHog ──────────────────────────────────────────────────────────
-const POSTHOG_PERSONAL_KEY =
-	"phx_ZA4NVX74FLH3VA2A52sQh2UFfw7QdcCvr3Fh6BRfHijerEho";
-const POSTHOG_HOST = "https://us.posthog.com"; // ou https://app.posthog.com selon votre région
+const POSTHOG_PERSONAL_KEY = process.env.REACT_APP_POSTHOG_PERSONAL_KEY;
+const POSTHOG_HOST =
+	process.env.REACT_APP_POSTHOG_HOST || "https://eu.posthog.com";
 
 // ── Filtre périodes ─────────────────────────────────────────────────────────
 const PERIODS = [
