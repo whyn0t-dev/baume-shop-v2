@@ -2249,6 +2249,63 @@ async def upload_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.get("/admin/analytics")
+async def get_analytics(period: str = "7d", profile=Depends(require_admin)):
+    days_map = {"today": 1, "7d": 7, "30d": 30, "90d": 90}
+    days = days_map.get(period, 7)
+
+    from datetime import timedelta
+
+    end = datetime.now().strftime("%Y-%m-%d")
+    start = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+    posthog_key = os.environ.get("POSTHOG_PERSONAL_KEY", "")
+    posthog_host = os.environ.get("POSTHOG_HOST", "https://us.posthog.com")
+
+    if not posthog_key:
+        return {"pageviews": 0, "active_users": 0, "unique_visitors": 0}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            pv, active, uv = await asyncio.gather(
+                client.get(
+                    f'{posthog_host}/api/projects/@current/insights/trend/?events=[{{"id":"$pageview"}}]&date_from={start}&date_to={end}',
+                    headers={"Authorization": f"Bearer {posthog_key}"},
+                    timeout=10,
+                ),
+                client.get(
+                    f'{posthog_host}/api/projects/@current/insights/trend/?events=[{{"id":"$pageview"}}]&date_from=-5m',
+                    headers={"Authorization": f"Bearer {posthog_key}"},
+                    timeout=10,
+                ),
+                client.get(
+                    f'{posthog_host}/api/projects/@current/insights/trend/?events=[{{"id":"$pageview"}}]&date_from={start}&date_to={end}&breakdown=$distinct_id',
+                    headers={"Authorization": f"Bearer {posthog_key}"},
+                    timeout=10,
+                ),
+            )
+
+        pv_data = pv.json() if pv.status_code == 200 else {}
+        active_data = active.json() if active.status_code == 200 else {}
+        uv_data = uv.json() if uv.status_code == 200 else {}
+
+        return {
+            "pageviews": (
+                pv_data.get("result", [{}])[0].get("count", 0)
+                if pv_data.get("result")
+                else 0
+            ),
+            "active_users": (
+                active_data.get("result", [{}])[0].get("count", 0)
+                if active_data.get("result")
+                else 0
+            ),
+            "unique_visitors": len(uv_data.get("result", [])),
+        }
+    except Exception as e:
+        logger.error(f"PostHog analytics error: {e}")
+        return {"pageviews": 0, "active_users": 0, "unique_visitors": 0}
+
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)

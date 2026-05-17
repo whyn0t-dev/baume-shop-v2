@@ -17,7 +17,7 @@ import { getAdminTable } from "../lib/api";
 // ── Config PostHog ──────────────────────────────────────────────────────────
 const POSTHOG_PERSONAL_KEY = process.env.REACT_APP_POSTHOG_PERSONAL_KEY;
 const POSTHOG_HOST =
-	process.env.REACT_APP_POSTHOG_HOST || "https://eu.posthog.com";
+	process.env.REACT_APP_POSTHOG_HOST || "https://us.posthog.com";
 
 // ── Filtre périodes ─────────────────────────────────────────────────────────
 const PERIODS = [
@@ -158,69 +158,16 @@ export default function HomeSection() {
 	const loadPosthog = useCallback(async () => {
 		setPosthogLoading(true);
 		try {
-			const { start, end } = getDateRange(selectedPeriod.days);
-
-			// Pageviews
-			const pvRes = await fetch(
-				`${POSTHOG_HOST}/api/projects/@current/insights/trend/?events=[{"id":"$pageview"}]&date_from=${start}&date_to=${end}`,
-				{
-					headers: {
-						Authorization: `Bearer ${POSTHOG_PERSONAL_KEY}`,
-					},
-				},
-			);
-
-			if (pvRes.ok) {
-				const pvData = await pvRes.json();
-				const total = pvData?.result?.[0]?.count || 0;
-				setPageviews(total);
-			}
-
-			// Utilisateurs actifs (dernières 5 min)
-			const activeRes = await fetch(
-				`${POSTHOG_HOST}/api/projects/@current/insights/trend/?events=[{"id":"$pageview"}]&date_from=-5m`,
-				{
-					headers: {
-						Authorization: `Bearer ${POSTHOG_PERSONAL_KEY}`,
-					},
-				},
-			);
-
-			if (activeRes.ok) {
-				const activeData = await activeRes.json();
-				const active = activeData?.result?.[0]?.count || 0;
-				setActiveUsers(active);
-			}
-
-			// Visiteurs uniques
-			const uvRes = await fetch(
-				`${POSTHOG_HOST}/api/projects/@current/insights/trend/?events=[{"id":"$pageview"}]&date_from=${start}&date_to=${end}&breakdown=$distinct_id`,
-				{
-					headers: {
-						Authorization: `Bearer ${POSTHOG_PERSONAL_KEY}`,
-					},
-				},
-			);
-
-			if (uvRes.ok) {
-				const uvData = await uvRes.json();
-				const unique = uvData?.result?.length || 0;
-				setUniqueVisitors(unique);
-			}
+			const res = await api.get(`/admin/analytics?period=${period}`);
+			setPageviews(res.data.pageviews);
+			setActiveUsers(res.data.active_users);
+			setUniqueVisitors(res.data.unique_visitors || null);
 		} catch (err) {
 			console.error("PostHog error:", err);
 		} finally {
 			setPosthogLoading(false);
 		}
-	}, [selectedPeriod.days]);
-
-	useEffect(() => {
-		loadData();
-	}, [loadData]);
-
-	useEffect(() => {
-		loadPosthog();
-	}, [loadPosthog]);
+	}, [period]);
 
 	// ── Calculs période ─────────────────────────────────────────────────────
 	const periodOrders = filterByPeriod(orders, selectedPeriod.days);

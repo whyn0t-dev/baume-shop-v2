@@ -28,7 +28,7 @@ import {
 } from "../lib/api";
 
 import { LayoutDashboard } from "lucide-react";
-import HomeSection from "./HomeSection";
+import HomeSection from "../components/HomeSection";
 
 const SECTIONS = [
 	{ key: "accueil", label: "Accueil", icon: LayoutDashboard },
@@ -68,7 +68,7 @@ export default function DashBoardAdmin() {
 	);
 
 	useEffect(() => {
-		if (status === "authenticated" && isAdmin) {
+		if (status === "authenticated" && isAdmin && active !== "accueil") {
 			loadData(active);
 		}
 	}, [active, status, isAdmin, loadData]);
