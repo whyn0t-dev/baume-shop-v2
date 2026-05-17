@@ -36,6 +36,7 @@ import AdminWorkshopForm from "./pages/AdminWorkshopForm";
 
 import QuizPage from "./pages/QuizPage";
 import QuizResultsPage from "./pages/QuizResultsPage";
+import OrderTrackingPage from "./pages/OrderTrackingPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -136,6 +137,7 @@ function AppShell() {
           />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/quiz/resultats" element={<QuizResultsPage />} />
+          <Route path="/commande/suivi/:orderId" element={<OrderTrackingPage />} />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>

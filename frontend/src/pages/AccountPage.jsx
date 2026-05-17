@@ -318,6 +318,12 @@ export default function AccountPage() {
 														</a>
 													);
 												})()}
+											<Link
+												to={`/commande/suivi/${o.id}`}
+												className="mt-2 inline-flex items-center gap-1 text-[12px] text-baume-burgundy font-semibold hover:underline underline-offset-2"
+											>
+												Suivre ma commande →
+											</Link>
 										</div>
 
 										<div className="md:text-right">

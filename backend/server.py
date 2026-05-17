@@ -2430,9 +2430,9 @@ async def get_my_quiz_results(profile=Depends(get_current_profile)):
 # ── Programme de fidélité ──────────────────────────────────────────────────
 
 LOYALTY_THRESHOLDS = [
-    {"points": 200,  "reward": 5,  "label": "5 CHF"},   # ~150-200 CHF d'achat
-    {"points": 400,  "reward": 12, "label": "12 CHF"},  # ~350-400 CHF d'achat
-    {"points": 800,  "reward": 25, "label": "25 CHF"},  # ~750-800 CHF d'achat
+    {"points": 200, "reward": 5, "label": "5 CHF"},  # ~150-200 CHF d'achat
+    {"points": 400, "reward": 12, "label": "12 CHF"},  # ~350-400 CHF d'achat
+    {"points": 800, "reward": 25, "label": "25 CHF"},  # ~750-800 CHF d'achat
 ]
 
 
@@ -2546,7 +2546,7 @@ async def convert_loyalty_points(payload: dict, profile=Depends(get_current_prof
     }
     await sb_insert("discounts", discount_data)
 
-        # Récupérer les codes existants
+    # Récupérer les codes existants
     existing_codes = loyalty.get("generated_codes") or []
 
     # Ajouter le nouveau code
@@ -2575,15 +2575,18 @@ async def convert_loyalty_points(payload: dict, profile=Depends(get_current_prof
         profile["id"],
     )
 
-    await sb_insert("loyalty_transactions", {
-        "id": str(uuid.uuid4()),
-        "profile_id": profile["id"],
-        "order_id": None,
-        "type": "spend",
-        "points": -points_to_spend,
-        "reason": f"Conversion en code promo {code}",
-        "created_at": now_iso(),
-    })
+    await sb_insert(
+        "loyalty_transactions",
+        {
+            "id": str(uuid.uuid4()),
+            "profile_id": profile["id"],
+            "order_id": None,
+            "type": "spend",
+            "points": -points_to_spend,
+            "reason": f"Conversion en code promo {code}",
+            "created_at": now_iso(),
+        },
+    )
 
     # Envoyer l'email
     email = profile.get("email")
@@ -2614,6 +2617,207 @@ async def convert_loyalty_points(payload: dict, profile=Depends(get_current_prof
         "reward": threshold["reward"],
         "points_remaining": new_points,
     }
+
+
+@api_router.get("/orders/{order_id}/tracking")
+async def get_order_tracking(order_id: str):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*, order_items(*)")
+        .eq("id", order_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    order = result.data[0]
+    order["items"] = order.get("order_items", [])
+
+    # Ne pas exposer les infos sensibles
+    order.pop("stripe_checkout_session_id", None)
+    order.pop("stripe_payment_intent_id", None)
+
+    return order
+
+
+# ── Parrainage ─────────────────────────────────────────────────────────────
+
+
+def generate_referral_code(first_name: str, profile_id: str) -> str:
+    """Génère un code parrainage unique basé sur le prénom + ID"""
+    clean_name = "".join(c for c in (first_name or "BAUME").upper() if c.isalpha())[:6]
+    short_id = profile_id[:4].upper()
+    return f"BAUME-{clean_name}-{short_id}"
+
+
+@api_router.get("/referral/me")
+async def get_my_referral(profile=Depends(get_current_profile)):
+    # Générer le code si pas encore créé
+    if not profile.get("referral_code"):
+        code = generate_referral_code(profile.get("first_name", ""), profile["id"])
+        await sb_update("profiles", {"referral_code": code}, "id", profile["id"])
+        profile["referral_code"] = code
+
+    # Récupérer les parrainages effectués
+    referrals = await asyncio.to_thread(
+        lambda: supabase.table("referrals")
+        .select("*")
+        .eq("referrer_id", profile["id"])
+        .order("created_at", desc=True)
+        .execute()
+    )
+
+    completed = [r for r in (referrals.data or []) if r["status"] == "completed"]
+    pending = [r for r in (referrals.data or []) if r["status"] == "pending"]
+
+    return {
+        "referral_code": profile["referral_code"],
+        "referral_link": f"{FRONTEND_URL}/inscription?ref={profile['referral_code']}",
+        "total_referrals": len(completed),
+        "pending_referrals": len(pending),
+        "total_points_earned": len(completed) * 50,
+        "referrals": referrals.data or [],
+    }
+
+
+@api_router.get("/referral/check/{code}")
+async def check_referral_code(code: str):
+    """Vérifie si un code parrainage est valide"""
+    profile = await asyncio.to_thread(
+        lambda: supabase.table("profiles")
+        .select("id, first_name, referral_code")
+        .eq("referral_code", code.upper())
+        .limit(1)
+        .execute()
+    )
+
+    if not profile.data:
+        raise HTTPException(status_code=404, detail="Code parrainage invalide")
+
+    referrer = profile.data[0]
+    return {
+        "valid": True,
+        "referrer_name": referrer.get("first_name", "une amie"),
+    }
+
+
+@api_router.post("/referral/register")
+async def register_referral(payload: dict):
+    """Enregistre un parrainage lors de l'inscription"""
+    referral_code = payload.get("referral_code", "").upper()
+    referee_email = payload.get("email", "")
+
+    if not referral_code or not referee_email:
+        raise HTTPException(status_code=400, detail="Code et email requis")
+
+    # Vérifier que le code existe
+    referrer_result = await asyncio.to_thread(
+        lambda: supabase.table("profiles")
+        .select("id, first_name")
+        .eq("referral_code", referral_code)
+        .limit(1)
+        .execute()
+    )
+
+    if not referrer_result.data:
+        raise HTTPException(status_code=404, detail="Code parrainage invalide")
+
+    referrer = referrer_result.data[0]
+
+    # Vérifier que l'email n'a pas déjà été parrainé
+    existing = await asyncio.to_thread(
+        lambda: supabase.table("referrals")
+        .select("id")
+        .eq("referee_email", referee_email)
+        .limit(1)
+        .execute()
+    )
+
+    if existing.data:
+        raise HTTPException(status_code=409, detail="Email déjà parrainé")
+
+    # Créer le parrainage
+    await sb_insert(
+        "referrals",
+        {
+            "id": str(uuid.uuid4()),
+            "referrer_id": referrer["id"],
+            "referee_email": referee_email,
+            "referral_code": referral_code,
+            "status": "pending",
+            "reward_points": 50,
+            "created_at": now_iso(),
+        },
+    )
+
+    # Créer un code promo -10% pour la filleule
+    promo_code = f"PARRAIN{str(uuid.uuid4())[:6].upper()}"
+    await sb_insert(
+        "discounts",
+        {
+            "id": str(uuid.uuid4()),
+            "code": promo_code,
+            "type": "percentage",
+            "value": 10,
+            "active": True,
+            "usage_limit": 1,
+            "used_count": 0,
+            "description": f"Code parrainage — {referral_code}",
+            "created_at": now_iso(),
+        },
+    )
+
+    return {
+        "success": True,
+        "promo_code": promo_code,
+        "referrer_name": referrer.get("first_name", "votre amie"),
+    }
+
+
+@api_router.post("/referral/complete")
+async def complete_referral(payload: dict, profile=Depends(require_admin)):
+    """Complète un parrainage après la première commande de la filleule"""
+    referee_email = payload.get("referee_email", "")
+    order_id = payload.get("order_id", "")
+
+    referral = await asyncio.to_thread(
+        lambda: supabase.table("referrals")
+        .select("*")
+        .eq("referee_email", referee_email)
+        .eq("status", "pending")
+        .limit(1)
+        .execute()
+    )
+
+    if not referral.data:
+        return {"success": False, "message": "Aucun parrainage en attente"}
+
+    ref = referral.data[0]
+
+    # Mettre à jour le parrainage
+    await sb_update(
+        "referrals",
+        {
+            "status": "completed",
+            "order_id": order_id,
+            "completed_at": now_iso(),
+        },
+        "id",
+        ref["id"],
+    )
+
+    # Attribuer les points à la marraine
+    await add_loyalty_points(
+        profile_id=ref["referrer_id"],
+        points=ref["reward_points"],
+        reason=f"Parrainage complété — {referee_email}",
+        order_id=order_id,
+    )
+
+    return {"success": True, "points_awarded": ref["reward_points"]}
+
 
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
