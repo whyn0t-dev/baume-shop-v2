@@ -12,7 +12,7 @@ import {
 	Package,
 	Tag,
 } from "lucide-react";
-import { getAdminTable } from "../lib/api";
+import { getAdminTable, api } from "../lib/api";
 
 // ── Config PostHog ──────────────────────────────────────────────────────────
 const POSTHOG_PERSONAL_KEY = process.env.REACT_APP_POSTHOG_PERSONAL_KEY;

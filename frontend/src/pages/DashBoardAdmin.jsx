@@ -130,13 +130,15 @@ export default function DashBoardAdmin() {
 						</p>
 					</div>
 
-					<button
-						onClick={() => loadData(active)}
-						className="h-11 px-5 rounded-full border border-baume-border bg-baume-white text-baume-charcoal font-semibold text-[14px] inline-flex items-center gap-2 hover:border-baume-burgundy"
-					>
-						<RefreshCw className="h-4 w-4" />
-						Rafraîchir
-					</button>
+					{active !== "accueil" && (
+						<button
+							onClick={() => loadData(active)}
+							className="h-11 px-5 rounded-full border border-baume-border bg-baume-white text-baume-charcoal font-semibold text-[14px] inline-flex items-center gap-2 hover:border-baume-burgundy"
+						>
+							<RefreshCw className="h-4 w-4" />
+							Rafraîchir
+						</button>
+					)}
 				</div>
 			</div>
 
@@ -203,7 +205,9 @@ export default function DashBoardAdmin() {
 							<div className="py-24 flex justify-center">
 								<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
 							</div>
-						) : rows.length === 0 && active !== "discounts" ? (
+						) : rows.length === 0 &&
+						  active !== "discounts" &&
+						  active !== "accueil" ? (
 							<div className="p-10 text-center text-baume-charcoal/65">
 								Aucun élément trouvé.
 							</div>

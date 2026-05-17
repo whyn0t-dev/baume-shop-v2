@@ -6,6 +6,7 @@ import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import { CartProvider } from "./lib/cart";
 import { AuthProvider, useAuth } from "./lib/auth";
+import posthog from "posthog-js";
 
 import HomePage from "./pages/HomePage";
 import ShopIndexPage from "./pages/ShopIndexPage";
@@ -150,6 +151,12 @@ function AppShell() {
     </>
   );
 }
+
+posthog.init(process.env.REACT_APP_POSTHOG_KEY, {
+  api_host: "https://us.posthog.com",
+  capture_pageview: true,
+  capture_pageleave: true,
+});
 
 export default function App() {
   return (
