@@ -2267,44 +2267,70 @@ async def get_analytics(period: str = "7d", profile=Depends(require_admin)):
 
     try:
         async with httpx.AsyncClient() as client:
-            pv, active, uv = await asyncio.gather(
-                client.get(
-                    f'{posthog_host}/api/projects/@current/insights/trend/?events=[{{"id":"$pageview"}}]&date_from={start}&date_to={end}',
-                    headers={"Authorization": f"Bearer {posthog_key}"},
-                    timeout=10,
-                ),
-                client.get(
-                    f'{posthog_host}/api/projects/@current/insights/trend/?events=[{{"id":"$pageview"}}]&date_from=-5m',
-                    headers={"Authorization": f"Bearer {posthog_key}"},
-                    timeout=10,
-                ),
-                client.get(
-                    f'{posthog_host}/api/projects/@current/insights/trend/?events=[{{"id":"$pageview"}}]&date_from={start}&date_to={end}&breakdown=$distinct_id',
-                    headers={"Authorization": f"Bearer {posthog_key}"},
-                    timeout=10,
-                ),
+            # Nouvelle API HogQL
+            res = await client.post(
+                f"{posthog_host}/api/projects/@current/query/",
+                headers={
+                    "Authorization": f"Bearer {posthog_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "query": {
+                        "kind": "HogQLQuery",
+                        "query": f"""
+                            SELECT
+                                count() as pageviews,
+                                count(distinct person_id) as unique_visitors
+                            FROM events
+                            WHERE event = '$pageview'
+                            AND timestamp >= '{start}'
+                            AND timestamp <= '{end}'
+                        """,
+                    }
+                },
+                timeout=15,
             )
 
-        pv_data = pv.json() if pv.status_code == 200 else {}
-        active_data = active.json() if active.status_code == 200 else {}
-        uv_data = uv.json() if uv.status_code == 200 else {}
+            # Utilisateurs actifs (5 dernières minutes)
+            active_res = await client.post(
+                f"{posthog_host}/api/projects/@current/query/",
+                headers={
+                    "Authorization": f"Bearer {posthog_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "query": {
+                        "kind": "HogQLQuery",
+                        "query": """
+                            SELECT count(distinct person_id) as active_users
+                            FROM events
+                            WHERE event = '$pageview'
+                            AND timestamp >= now() - interval 5 minute
+                        """,
+                    }
+                },
+                timeout=15,
+            )
+
+        data = res.json() if res.status_code == 200 else {}
+        active_data = active_res.json() if active_res.status_code == 200 else {}
+
+        results = data.get("results", [[0, 0]])
+        row = results[0] if results else [0, 0]
+
+        active_results = active_data.get("results", [[0]])
+        active_row = active_results[0] if active_results else [0]
 
         return {
-            "pageviews": (
-                pv_data.get("result", [{}])[0].get("count", 0)
-                if pv_data.get("result")
-                else 0
-            ),
-            "active_users": (
-                active_data.get("result", [{}])[0].get("count", 0)
-                if active_data.get("result")
-                else 0
-            ),
-            "unique_visitors": len(uv_data.get("result", [])),
+            "pageviews": row[0] if len(row) > 0 else 0,
+            "unique_visitors": row[1] if len(row) > 1 else 0,
+            "active_users": active_row[0] if active_row else 0,
         }
+
     except Exception as e:
         logger.error(f"PostHog analytics error: {e}")
         return {"pageviews": 0, "active_users": 0, "unique_visitors": 0}
+
 
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
