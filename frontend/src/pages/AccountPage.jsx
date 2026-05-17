@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
 
+import { getMyOrders, formatApiError, api } from "../lib/api";
+
 const COUNTRIES = [
 	{ code: "CH", name: "Suisse" },
 	{ code: "FR", name: "France" },
@@ -56,6 +58,17 @@ export default function AccountPage() {
 		country: "CH",
 	});
 	const [saving, setSaving] = useState(false);
+
+	const [loyalty, setLoyalty] = useState(null);
+	const [converting, setConverting] = useState(false);
+
+	useEffect(() => {
+		if (status !== "authenticated") return;
+		api
+			.get("/loyalty/me")
+			.then((r) => setLoyalty(r.data))
+			.catch(() => {});
+	}, [status]);
 
 	useEffect(() => {
 		if (user) {
@@ -181,7 +194,7 @@ export default function AccountPage() {
 
 			<section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pb-24">
 				<Tabs defaultValue="orders" className="w-full">
-					<TabsList className="grid grid-cols-2 bg-baume-white border border-baume-border rounded-full h-12 p-1 mb-8 max-w-[460px]">
+					<TabsList className="grid grid-cols-3 bg-baume-white border border-baume-border rounded-full h-12 p-1 mb-8 max-w-[460px]">
 						<TabsTrigger
 							value="orders"
 							data-testid="tab-orders"
@@ -198,6 +211,13 @@ export default function AccountPage() {
 						>
 							<User className="h-4 w-4 mr-2" />
 							Mes informations
+						</TabsTrigger>
+						<TabsTrigger
+							value="loyalty"
+							data-testid="tab-loyalty"
+							className="rounded-full text-[14px] font-semibold data-[state=active]:bg-baume-burgundy data-[state=active]:text-baume-white"
+						>
+							⭐ Fidélité
 						</TabsTrigger>
 					</TabsList>
 
@@ -446,6 +466,159 @@ export default function AccountPage() {
 								Enregistrer
 							</button>
 						</form>
+					</TabsContent>
+					<TabsContent value="loyalty" className="space-y-4">
+						{!loyalty ? (
+							<div className="rounded-3xl border border-baume-border bg-baume-white py-20 text-center">
+								<Loader2 className="h-6 w-6 text-baume-burgundy animate-spin mx-auto" />
+							</div>
+						) : (
+							<div className="space-y-4">
+								{/* Solde points */}
+								<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">
+									<p className="text-[12px] uppercase tracking-[0.22em] text-baume-burgundy font-semibold mb-2">
+										Programme de fidélité
+									</p>
+									<div className="flex items-end gap-3 mt-2">
+										<span className="font-editorial text-[56px] text-baume-charcoal leading-none">
+											{loyalty.points}
+										</span>
+										<span className="text-[18px] text-baume-charcoal/60 mb-2">
+											points
+										</span>
+									</div>
+									<p className="text-[13px] text-baume-charcoal/50 mt-1">
+										{loyalty.total_earned} pts gagnés au total ·{" "}
+										{loyalty.total_spent} pts utilisés
+									</p>
+
+									{/* Barre de progression */}
+									{loyalty.next_threshold && (
+										<div className="mt-5">
+											<div className="flex justify-between text-[12px] text-baume-charcoal/50 mb-2">
+												<span>{loyalty.points} pts</span>
+												<span>
+													{loyalty.next_threshold.points} pts →{" "}
+													{loyalty.next_threshold.label}
+												</span>
+											</div>
+											<div className="h-2 rounded-full bg-baume-border overflow-hidden">
+												<div
+													className="h-full bg-baume-burgundy rounded-full transition-all duration-500"
+													style={{
+														width: `${Math.min((loyalty.points / loyalty.next_threshold.points) * 100, 100)}%`,
+													}}
+												/>
+											</div>
+											<p className="text-[12px] text-baume-charcoal/50 mt-2">
+												Plus que{" "}
+												{loyalty.next_threshold.points - loyalty.points} pts
+												pour obtenir {loyalty.next_threshold.label}
+											</p>
+										</div>
+									)}
+								</div>
+
+								{/* Conversion */}
+								<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">
+									<p className="text-[14px] font-semibold text-baume-charcoal mb-4">
+										Convertir mes points en bon d'achat
+									</p>
+									<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+										{loyalty.thresholds
+											.sort((a, b) => a.points - b.points)
+											.map((t) => {
+												const canConvert = loyalty.points >= t.points;
+												return (
+													<button
+														key={t.points}
+														disabled={!canConvert || converting}
+														onClick={async () => {
+															setConverting(true);
+															try {
+																const res = await api.post("/loyalty/convert", {
+																	points: t.points,
+																});
+																toast.success(
+																	`Code promo créé : ${res.data.code}`,
+																	{
+																		description: `${t.label} de réduction — copiez ce code !`,
+																		duration: 10000,
+																	},
+																);
+																const updated = await api.get("/loyalty/me");
+																setLoyalty(updated.data);
+															} catch (err) {
+																toast.error("Erreur", {
+																	description: formatApiError(err),
+																});
+															} finally {
+																setConverting(false);
+															}
+														}}
+														className={`rounded-2xl border p-4 text-left transition-all ${
+															canConvert
+																? "border-baume-burgundy bg-baume-burgundy/5 hover:bg-baume-burgundy/10 cursor-pointer"
+																: "border-baume-border bg-baume-ivory/40 opacity-50 cursor-not-allowed"
+														}`}
+													>
+														<p className="font-editorial text-[28px] text-baume-burgundy">
+															{t.label}
+														</p>
+														<p className="text-[13px] text-baume-charcoal/70 mt-1">
+															{t.points} points
+														</p>
+														{canConvert && (
+															<p className="text-[11px] text-baume-burgundy font-semibold mt-2">
+																Convertir →
+															</p>
+														)}
+													</button>
+												);
+											})}
+									</div>
+								</div>
+
+								{/* Historique */}
+								{loyalty.transactions.length > 0 && (
+									<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">
+										<p className="text-[14px] font-semibold text-baume-charcoal mb-4">
+											Historique des points
+										</p>
+										<div className="space-y-3">
+											{loyalty.transactions.map((tx) => (
+												<div
+													key={tx.id}
+													className="flex items-center justify-between py-2 border-b border-baume-border last:border-b-0"
+												>
+													<div>
+														<p className="text-[13px] text-baume-charcoal">
+															{tx.reason}
+														</p>
+														<p className="text-[11px] text-baume-charcoal/50 mt-0.5">
+															{new Date(tx.created_at).toLocaleDateString(
+																"fr-CH",
+																{
+																	day: "numeric",
+																	month: "long",
+																	year: "numeric",
+																},
+															)}
+														</p>
+													</div>
+													<span
+														className={`text-[14px] font-semibold ${tx.type === "earn" ? "text-emerald-600" : "text-baume-burgundy"}`}
+													>
+														{tx.type === "earn" ? "+" : ""}
+														{tx.points} pts
+													</span>
+												</div>
+											))}
+										</div>
+									</div>
+								)}
+							</div>
+						)}
 					</TabsContent>
 				</Tabs>
 			</section>

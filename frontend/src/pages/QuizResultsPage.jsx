@@ -25,13 +25,16 @@ const CATEGORY_LABELS = {
 		description:
 			"Alternative naturelle et réutilisable aux protections jetables.",
 	},
-	"soins-intimes": {
-		label: "Soins intimes",
+	"soins-corps-visage": {
+		// ← était soins-intimes
+		label: "Soins intimes & corps",
 		emoji: "🌸",
-		description: "Produits doux formulés pour respecter la flore intime.",
+		description:
+			"Produits doux formulés pour respecter la flore intime et la peau.",
 	},
-	"bien-etre": {
-		label: "Bien-être",
+	"bien-etre-gourmand": {
+		// ← était bien-etre
+		label: "Bien-être & compléments",
 		emoji: "✨",
 		description:
 			"Compléments et soins pour accompagner votre cycle au quotidien.",
@@ -61,7 +64,7 @@ export default function QuizResultsPage() {
 			try {
 				const allProducts = [];
 				for (const cat of recommendedCategories.slice(0, 3)) {
-					const prods = await getProducts({ category: cat, limit: 3 });
+					const prods = await getProducts({ category: cat, limit: 4 });
 					allProducts.push(...prods);
 				}
 				// Dédupliquer par id
@@ -71,7 +74,7 @@ export default function QuizResultsPage() {
 					seen.add(p.id);
 					return true;
 				});
-				setProducts(unique.slice(0, 9));
+				setProducts(unique.slice(0, 12));
 			} catch (err) {
 				console.error("Error fetching products:", err);
 			} finally {

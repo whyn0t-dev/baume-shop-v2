@@ -5,7 +5,6 @@ import { api } from "../lib/api";
 import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 
 // ── Algorithme de scoring ────────────────────────────────────────────────────
-// Chaque réponse donne des points aux catégories de produits
 const CATEGORY_SCORES = {
 	// Q1 — Type de cycle
 	q1_regulier: {
@@ -13,9 +12,9 @@ const CATEGORY_SCORES = {
 		"cups-disques": 2,
 		"serviettes-lavables": 1,
 	},
-	q1_irregulier: { "culottes-menstruelles": 3, "bien-etre": 2 },
-	q1_hormonal: { "soins-intimes": 2, "bien-etre": 2 },
-	q1_menopause: { "soins-intimes": 3, "bien-etre": 3 },
+	q1_irregulier: { "culottes-menstruelles": 3, "bien-etre-gourmand": 2 },
+	q1_hormonal: { "soins-corps-visage": 2, "bien-etre-gourmand": 2 },
+	q1_menopause: { "soins-corps-visage": 3, "bien-etre-gourmand": 3 },
 
 	// Q2 — Type de flux
 	q2_tres_leger: { "culottes-menstruelles": 1, "serviettes-lavables": 2 },
@@ -25,58 +24,58 @@ const CATEGORY_SCORES = {
 	q2_tres_abondant: { "cups-disques": 3, "culottes-menstruelles": 3 },
 
 	// Q3 — Inconforts (multi)
-	q3_douleurs: { "bien-etre": 3, "soins-intimes": 1 },
-	q3_ballonnements: { "bien-etre": 2 },
-	q3_fatigue: { "bien-etre": 3 },
-	q3_humeur: { "bien-etre": 2 },
-	q3_maux_tete: { "bien-etre": 2 },
+	q3_douleurs: { "bien-etre-gourmand": 3, "soins-corps-visage": 1 },
+	q3_ballonnements: { "bien-etre-gourmand": 2 },
+	q3_fatigue: { "bien-etre-gourmand": 3 },
+	q3_humeur: { "bien-etre-gourmand": 2 },
+	q3_maux_tete: { "bien-etre-gourmand": 2 },
 	q3_aucun: {},
 
 	// Q4 — Protection actuelle
 	q4_serviettes: { "culottes-menstruelles": 3, "serviettes-lavables": 2 },
 	q4_tampons: { "cups-disques": 3, "culottes-menstruelles": 1 },
-	q4_cup: { "cups-disques": 1, "soins-intimes": 2 },
-	q4_culotte: { "culottes-menstruelles": 1, "bien-etre": 1 },
+	q4_cup: { "cups-disques": 1, "soins-corps-visage": 2 },
+	q4_culotte: { "culottes-menstruelles": 1, "bien-etre-gourmand": 1 },
 	q4_disque: { "cups-disques": 1 },
 	q4_plusieurs: { "culottes-menstruelles": 2, "cups-disques": 1 },
 
 	// Q5 — Sensibilité
-	q5_tres_sensible: { "soins-intimes": 3, "bien-etre": 2 },
-	q5_parfois: { "soins-intimes": 2 },
+	q5_tres_sensible: { "soins-corps-visage": 3, "bien-etre-gourmand": 2 },
+	q5_parfois: { "soins-corps-visage": 2 },
 	q5_non: {},
 
 	// Q6 — Bien-être intime
-	q6_soins_quotidien: { "soins-intimes": 3 },
-	q6_lubrifiants: { "soins-intimes": 3, "bien-etre": 1 },
-	q6_flore: { "soins-intimes": 3 },
+	q6_soins_quotidien: { "soins-corps-visage": 3 },
+	q6_lubrifiants: { "soins-corps-visage": 3, "bien-etre-gourmand": 1 },
+	q6_flore: { "soins-corps-visage": 3 },
 	q6_pas_priorite: {},
 
 	// Q7 — Routine actuelle
-	q7_aucune: { "bien-etre": 3, "soins-intimes": 2 },
-	q7_quelques: { "bien-etre": 2, "soins-intimes": 1 },
-	q7_complete: { "soins-intimes": 1 },
-	q7_nouvelle: { "bien-etre": 3, "soins-intimes": 2 },
+	q7_aucune: { "bien-etre-gourmand": 3, "soins-corps-visage": 2 },
+	q7_quelques: { "bien-etre-gourmand": 2, "soins-corps-visage": 1 },
+	q7_complete: { "soins-corps-visage": 1 },
+	q7_nouvelle: { "bien-etre-gourmand": 3, "soins-corps-visage": 2 },
 
 	// Q8 — Sport / aquatique
-	q8_regulier: { "cups-disques": 3, "soins-intimes": 1 },
+	q8_regulier: { "cups-disques": 3, "soins-corps-visage": 1 },
 	q8_occasionnel: { "cups-disques": 1 },
 	q8_non: {},
 
 	// Q9 — Objectifs (multi)
-	q9_douleurs: { "bien-etre": 3 },
-	q9_peau: { "soins-intimes": 3 },
-	q9_hormones: { "bien-etre": 3 },
+	q9_douleurs: { "bien-etre-gourmand": 3 },
+	q9_peau: { "soins-corps-visage": 3 },
+	q9_hormones: { "bien-etre-gourmand": 3 },
 	q9_eco: {
 		"culottes-menstruelles": 2,
 		"cups-disques": 2,
 		"serviettes-lavables": 2,
 	},
-	q9_quotidien: { "soins-intimes": 2, "bien-etre": 1 },
+	q9_quotidien: { "soins-corps-visage": 2, "bien-etre-gourmand": 1 },
 
 	// Q10 — Préférences matières (multi)
 	q10_coton: { "culottes-menstruelles": 2, "serviettes-lavables": 2 },
-	q10_sans_perturbateurs: { "soins-intimes": 2, "bien-etre": 1 },
-	q10_vegan: { "soins-intimes": 1, "bien-etre": 1 },
+	q10_sans_perturbateurs: { "soins-corps-visage": 2, "bien-etre-gourmand": 1 },
+	q10_vegan: { "soins-corps-visage": 1, "bien-etre-gourmand": 1 },
 	q10_oeko: { "culottes-menstruelles": 1, "serviettes-lavables": 1 },
 	q10_aucune: {},
 };
@@ -338,7 +337,7 @@ export default function QuizPage() {
 	const { user } = useAuth();
 	const navigate = useNavigate();
 
-	const [step, setStep] = useState(0); // 0 = intro, 1-10 = questions, 11 = email
+	const [step, setStep] = useState(0);
 	const [answers, setAnswers] = useState({});
 	const [email, setEmail] = useState(user?.email || "");
 	const [submitting, setSubmitting] = useState(false);
@@ -390,7 +389,6 @@ export default function QuizPage() {
 			});
 		} catch (err) {
 			console.error("Quiz submit error:", err);
-			// On navigue quand même vers les résultats
 			const recommendedCategories = computeRecommendations(answers);
 			navigate("/quiz/resultats", {
 				state: { answers, recommendedCategories, email },
@@ -474,7 +472,7 @@ export default function QuizPage() {
 						<button
 							onClick={handleSubmit}
 							disabled={submitting || !email.trim()}
-							className="mt-6 w-full h-13 py-3.5 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 hover:bg-baume-burgundyDark disabled:opacity-60 transition-colors"
+							className="mt-6 w-full py-3.5 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 hover:bg-baume-burgundyDark disabled:opacity-60 transition-colors"
 						>
 							{submitting ? (
 								<Loader2 className="h-5 w-5 animate-spin" />

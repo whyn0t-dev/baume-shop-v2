@@ -134,9 +134,9 @@ function AppShell() {
               </AdminRoute>
             }
           />
-          <Route path="*" element={<HomePage />} />
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/quiz/resultats" element={<QuizResultsPage />} />
+          <Route path="*" element={<HomePage />} />
         </Routes>
       </main>
       <Footer />

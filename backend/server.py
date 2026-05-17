@@ -2418,6 +2418,160 @@ async def get_my_quiz_results(profile=Depends(get_current_profile)):
     return result.data[0] if result.data else None
 
 
+# ── Programme de fidélité ──────────────────────────────────────────────────
+
+LOYALTY_THRESHOLDS = [
+    {"points": 500, "reward": 35, "label": "35 CHF"},
+    {"points": 200, "reward": 12, "label": "12 CHF"},
+    {"points": 100, "reward": 5, "label": "5 CHF"},
+]
+
+
+async def get_or_create_loyalty(profile_id: str) -> dict:
+    existing = await sb_select_one("loyalty_points", "profile_id", profile_id)
+    if existing:
+        return existing
+
+    inserted = await sb_insert(
+        "loyalty_points",
+        {
+            "profile_id": profile_id,
+            "points": 0,
+            "total_earned": 0,
+            "total_spent": 0,
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        },
+    )
+    return inserted.data[0]
+
+
+async def add_loyalty_points(
+    profile_id: str, points: int, reason: str, order_id: Optional[str] = None
+):
+    loyalty = await get_or_create_loyalty(profile_id)
+    
+    new_points = (loyalty["points"] or 0) + points
+    new_total_earned = (loyalty["total_earned"] or 0) + points
+
+    await sb_update(
+        "loyalty_points",
+        {
+            "points": new_points,
+            "total_earned": new_total_earned,
+            "updated_at": now_iso(),
+        },
+        "profile_id",
+        profile_id,
+    )
+
+    tx_data = {
+        "id": str(uuid.uuid4()),
+        "profile_id": profile_id,
+        "order_id": order_id,
+        "type": "earn",
+        "points": points,
+        "reason": reason,
+        "created_at": now_iso(),
+    }
+    await sb_insert("loyalty_transactions", tx_data)
+
+
+@api_router.get("/loyalty/me")
+async def get_my_loyalty(profile=Depends(get_current_profile)):
+    loyalty = await get_or_create_loyalty(profile["id"])
+
+    transactions = await asyncio.to_thread(
+        lambda: supabase.table("loyalty_transactions")
+        .select("*")
+        .eq("profile_id", profile["id"])
+        .order("created_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+
+    next_threshold = None
+    for t in sorted(LOYALTY_THRESHOLDS, key=lambda x: x["points"]):
+        if loyalty["points"] < t["points"]:
+            next_threshold = t
+            break
+
+    return {
+        "points": loyalty["points"],
+        "total_earned": loyalty["total_earned"],
+        "total_spent": loyalty["total_spent"],
+        "transactions": transactions.data or [],
+        "next_threshold": next_threshold,
+        "thresholds": LOYALTY_THRESHOLDS,
+    }
+
+
+@api_router.post("/loyalty/convert")
+async def convert_loyalty_points(payload: dict, profile=Depends(get_current_profile)):
+    points_to_spend = int(payload.get("points") or 0)
+
+    threshold = next(
+        (t for t in LOYALTY_THRESHOLDS if t["points"] == points_to_spend), None
+    )
+    if not threshold:
+        raise HTTPException(status_code=400, detail="Seuil de points invalide")
+
+    loyalty = await get_or_create_loyalty(profile["id"])
+    if (loyalty["points"] or 0) < (points_to_spend or 0):
+        raise HTTPException(status_code=400, detail="Points insuffisants")
+
+    # Créer un code promo unique
+    code = f"FIDELITE{str(uuid.uuid4())[:6].upper()}"
+
+    discount_data = {
+        "id": str(uuid.uuid4()),
+        "code": code,
+        "type": "fixed",
+        "value": threshold["reward"],
+        "active": True,
+        "usage_limit": 1,
+        "used_count": 0,
+        "description": f"Code fidélité — {points_to_spend} points convertis",
+        "created_at": now_iso(),
+    }
+    await sb_insert("discounts", discount_data)
+
+    # Déduire les points
+    new_points = (loyalty["points"] or 0) - (points_to_spend or 0)
+    new_total_spent = (loyalty["total_spent"] or 0) + (points_to_spend or 0)
+
+    await sb_update(
+        "loyalty_points",
+        {
+            "points": new_points,
+            "total_spent": new_total_spent,
+            "updated_at": now_iso(),
+        },
+        "profile_id",
+        profile["id"],
+    )
+
+    await sb_insert(
+        "loyalty_transactions",
+        {
+            "id": str(uuid.uuid4()),
+            "profile_id": profile["id"],
+            "order_id": None,
+            "type": "spend",
+            "points": -points_to_spend,
+            "reason": f"Conversion en code promo {code}",
+            "created_at": now_iso(),
+        },
+    )
+
+    return {
+        "success": True,
+        "code": code,
+        "reward": threshold["reward"],
+        "points_remaining": new_points,
+    }
+
+
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)
