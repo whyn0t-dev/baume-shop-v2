@@ -2430,9 +2430,9 @@ async def get_my_quiz_results(profile=Depends(get_current_profile)):
 # ── Programme de fidélité ──────────────────────────────────────────────────
 
 LOYALTY_THRESHOLDS = [
-    {"points": 500, "reward": 35, "label": "35 CHF"},
-    {"points": 200, "reward": 12, "label": "12 CHF"},
-    {"points": 100, "reward": 5, "label": "5 CHF"},
+    {"points": 100, "reward": 5, "label": "5 CHF"},  # ~100 CHF d'achat
+    {"points": 200, "reward": 10, "label": "10 CHF"},  # ~200 CHF d'achat
+    {"points": 500, "reward": 25, "label": "25 CHF"},  # ~500 CHF d'achat
 ]
 
 
