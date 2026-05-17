@@ -60,6 +60,16 @@ export default function AccountPage() {
 	const [loyalty, setLoyalty] = useState(null);
 	const [converting, setConverting] = useState(false);
 
+	const [referral, setReferral] = useState(null);
+
+	useEffect(() => {
+		if (status !== "authenticated") return;
+		api
+			.get("/referral/me")
+			.then((r) => setReferral(r.data))
+			.catch(() => {});
+	}, [status]);
+
 	useEffect(() => {
 		if (status !== "authenticated") return;
 		api
@@ -192,7 +202,7 @@ export default function AccountPage() {
 
 			<section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pb-24">
 				<Tabs defaultValue="orders" className="w-full">
-					<TabsList className="grid grid-cols-3 bg-baume-white border border-baume-border rounded-full h-12 p-1 mb-8 max-w-[460px]">
+					<TabsList className="grid grid-cols-4 bg-baume-white border border-baume-border rounded-full h-12 p-1 mb-8 max-w-[640px]">
 						<TabsTrigger
 							value="orders"
 							data-testid="tab-orders"
@@ -216,6 +226,12 @@ export default function AccountPage() {
 							className="rounded-full text-[14px] font-semibold data-[state=active]:bg-baume-burgundy data-[state=active]:text-baume-white"
 						>
 							⭐ Fidélité
+						</TabsTrigger>
+						<TabsTrigger
+							value="referral"
+							className="rounded-full text-[14px] font-semibold data-[state=active]:bg-baume-burgundy data-[state=active]:text-baume-white"
+						>
+							🎁 Parrainage
 						</TabsTrigger>
 					</TabsList>
 
@@ -677,6 +693,173 @@ export default function AccountPage() {
 													>
 														{tx.type === "earn" ? "+" : ""}
 														{tx.points} pts
+													</span>
+												</div>
+											))}
+										</div>
+									</div>
+								)}
+							</div>
+						)}
+					</TabsContent>
+					<TabsContent value="referral" className="space-y-4">
+						{!referral ? (
+							<div className="rounded-3xl border border-baume-border bg-baume-white py-20 text-center">
+								<Loader2 className="h-6 w-6 text-baume-burgundy animate-spin mx-auto" />
+							</div>
+						) : (
+							<div className="space-y-4">
+								{/* Intro */}
+								<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">
+									<p className="text-[12px] uppercase tracking-[0.22em] text-baume-burgundy font-semibold mb-2">
+										Programme de parrainage
+									</p>
+									<h2 className="font-editorial text-[28px] text-baume-charcoal mt-1">
+										Parrainez vos amies
+									</h2>
+									<p className="mt-3 text-[14px] text-baume-charcoal/65 leading-[1.7]">
+										Partagez votre code unique — votre amie reçoit{" "}
+										<strong>−10%</strong> sur sa première commande et vous
+										gagnez <strong>+50 points</strong> de fidélité dès qu'elle
+										commande.
+									</p>
+
+									{/* Stats */}
+									<div className="mt-6 grid grid-cols-3 gap-3">
+										{[
+											{
+												label: "Amies parrainées",
+												value: referral.total_referrals,
+											},
+											{
+												label: "En attente",
+												value: referral.pending_referrals,
+											},
+											{
+												label: "Points gagnés",
+												value: `+${referral.total_points_earned}`,
+											},
+										].map((s) => (
+											<div
+												key={s.label}
+												className="rounded-2xl bg-baume-ivory border border-baume-border p-4 text-center"
+											>
+												<p className="font-editorial text-[28px] text-baume-burgundy">
+													{s.value}
+												</p>
+												<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold mt-1">
+													{s.label}
+												</p>
+											</div>
+										))}
+									</div>
+								</div>
+
+								{/* Code parrainage */}
+								<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">
+									<p className="text-[14px] font-semibold text-baume-charcoal mb-4">
+										Votre code parrainage
+									</p>
+
+									<div className="flex items-center gap-3">
+										<div className="flex-1 h-12 rounded-2xl border border-baume-border bg-baume-ivory flex items-center px-4">
+											<span className="font-mono font-bold text-[16px] text-baume-burgundy">
+												{referral.referral_code}
+											</span>
+										</div>
+										<button
+											onClick={() => {
+												navigator.clipboard.writeText(referral.referral_code);
+												toast.success("Code copié !", {
+													description: "Partagez-le avec vos amies",
+												});
+											}}
+											className="h-12 px-5 rounded-2xl border border-baume-border text-baume-charcoal text-[13px] font-semibold hover:bg-baume-ivory transition-colors shrink-0"
+										>
+											Copier
+										</button>
+									</div>
+
+									{/* Lien parrainage */}
+									<p className="text-[13px] font-semibold text-baume-charcoal mt-5 mb-2">
+										Ou partagez ce lien
+									</p>
+									<div className="flex items-center gap-3">
+										<div className="flex-1 h-12 rounded-2xl border border-baume-border bg-baume-ivory flex items-center px-4 overflow-hidden">
+											<span className="text-[12px] text-baume-charcoal/60 truncate">
+												{referral.referral_link}
+											</span>
+										</div>
+										<button
+											onClick={() => {
+												navigator.clipboard.writeText(referral.referral_link);
+												toast.success("Lien copié !", {
+													description: "Partagez-le avec vos amies",
+												});
+											}}
+											className="h-12 px-5 rounded-2xl border border-baume-border text-baume-charcoal text-[13px] font-semibold hover:bg-baume-ivory transition-colors shrink-0"
+										>
+											Copier
+										</button>
+									</div>
+
+									{/* Partage rapide */}
+									<div className="mt-4 flex flex-wrap gap-2">
+										<a
+											href={`https://wa.me/?text=Utilise mon code ${referral.referral_code} pour avoir -10% sur ta première commande Baume 🌿 ${referral.referral_link}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="h-9 px-4 rounded-full bg-[#25D366] text-white text-[12px] font-semibold inline-flex items-center gap-1.5 hover:opacity-90 transition"
+										>
+											WhatsApp
+										</a>
+
+										<a
+											href={`mailto:?subject=−10% sur Baume Shop&body=Utilise mon code ${referral.referral_code} pour avoir -10% sur ta première commande ! ${referral.referral_link}`}
+											className="h-9 px-4 rounded-full border border-baume-border text-baume-charcoal text-[12px] font-semibold inline-flex items-center gap-1.5 hover:bg-baume-ivory transition"
+										>
+											Email
+										</a>
+									</div>
+								</div>
+
+								{/* Historique parrainages */}
+								{referral.referrals.length > 0 && (
+									<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">
+										<p className="text-[14px] font-semibold text-baume-charcoal mb-4">
+											Historique des parrainages
+										</p>
+										<div className="space-y-3">
+											{referral.referrals.map((r) => (
+												<div
+													key={r.id}
+													className="flex items-center justify-between py-2 border-b border-baume-border last:border-b-0"
+												>
+													<div>
+														<p className="text-[13px] text-baume-charcoal">
+															{r.referee_email}
+														</p>
+														<p className="text-[11px] text-baume-charcoal/50 mt-0.5">
+															{new Date(r.created_at).toLocaleDateString(
+																"fr-CH",
+																{
+																	day: "numeric",
+																	month: "long",
+																	year: "numeric",
+																},
+															)}
+														</p>
+													</div>
+													<span
+														className={`text-[12px] px-2 py-1 rounded-full font-semibold ${
+															r.status === "completed"
+																? "bg-emerald-100 text-emerald-700"
+																: "bg-yellow-100 text-yellow-700"
+														}`}
+													>
+														{r.status === "completed"
+															? `+${r.reward_points} pts`
+															: "En attente"}
 													</span>
 												</div>
 											))}

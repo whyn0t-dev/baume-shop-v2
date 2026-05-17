@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -6,6 +6,9 @@ import { useAuth } from "../lib/auth";
 import { formatApiError } from "../lib/api";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+
+import { useSearchParams } from "react-router-dom";
+import { api } from "../lib/api";
 
 export default function RegisterPage() {
 	const [form, setForm] = useState({
@@ -18,6 +21,27 @@ export default function RegisterPage() {
 	const { register } = useAuth();
 	const navigate = useNavigate();
 
+	const [searchParams] = useSearchParams();
+	const [referralCode, setReferralCode] = useState(
+		searchParams.get("ref") || "",
+	);
+	const [referralValid, setReferralValid] = useState(null);
+	const [referralName, setReferralName] = useState("");
+
+	// Vérifier le code parrainage au chargement si présent dans l'URL
+	useEffect(() => {
+		const refCode = searchParams.get("ref");
+		if (refCode) {
+			api
+				.get(`/referral/check/${refCode}`)
+				.then((r) => {
+					setReferralValid(true);
+					setReferralName(r.data.referrer_name);
+				})
+				.catch(() => setReferralValid(false));
+		}
+	}, [searchParams]);
+
 	const onSubmit = async (e) => {
 		e.preventDefault();
 		if (form.password.length < 8) {
@@ -29,7 +53,25 @@ export default function RegisterPage() {
 		setLoading(true);
 		try {
 			await register(form);
-			toast.success("Bienvenue chez Baume !");
+
+			// Enregistrer le parrainage si code valide
+			if (referralCode && referralValid) {
+				try {
+					const res = await api.post("/referral/register", {
+						referral_code: referralCode,
+						email: form.email,
+					});
+					toast.success("Bienvenue chez Baume !", {
+						description: `Code −10% offert par ${referralName} : ${res.data.promo_code}`,
+						duration: 10000,
+					});
+				} catch {
+					toast.success("Bienvenue chez Baume !");
+				}
+			} else {
+				toast.success("Bienvenue chez Baume !");
+			}
+
 			navigate("/compte");
 		} catch (err) {
 			toast.error("Inscription impossible", {
@@ -52,6 +94,17 @@ export default function RegisterPage() {
 				<p className="mt-3 text-[15px] text-baume-charcoal/70">
 					Suivez vos commandes, enregistrez vos adresses, recevez nos conseils.
 				</p>
+
+				{referralValid === true && (
+					<div className="mt-4 rounded-2xl bg-emerald-50 border border-emerald-200 px-4 py-3">
+						<p className="text-[13px] text-emerald-700 font-semibold">
+							🎁 {referralName} vous offre −10% sur votre première commande !
+						</p>
+						<p className="text-[12px] text-emerald-600 mt-0.5">
+							Créez votre compte pour recevoir votre code de réduction.
+						</p>
+					</div>
+				)}
 
 				<form
 					onSubmit={onSubmit}
@@ -112,6 +165,52 @@ export default function RegisterPage() {
 						<p className="mt-1 text-[11px] text-baume-charcoal/60">
 							8 caractères minimum.
 						</p>
+					</div>
+					{/* Bloc parrainage */}
+					<div>
+						<Label htmlFor="referral">Code parrainage (optionnel)</Label>
+						<div className="relative mt-1.5">
+							<Input
+								id="referral"
+								value={referralCode}
+								onChange={(e) => {
+									setReferralCode(e.target.value.toUpperCase());
+									setReferralValid(null);
+									setReferralName("");
+								}}
+								onBlur={async () => {
+									if (!referralCode.trim()) return;
+									try {
+										const res = await api.get(
+											`/referral/check/${referralCode}`,
+										);
+										setReferralValid(true);
+										setReferralName(res.data.referrer_name);
+									} catch {
+										setReferralValid(false);
+									}
+								}}
+								placeholder="BAUME-MARIE-A1B2"
+								className={`h-12 rounded-lg font-mono ${
+									referralValid === true
+										? "border-emerald-400 bg-emerald-50"
+										: referralValid === false
+											? "border-red-400 bg-red-50"
+											: "border-baume-border"
+								}`}
+							/>
+						</div>
+						{referralValid === true && (
+							<p className="mt-1.5 text-[12px] text-emerald-600 font-semibold">
+								✓ Code valide — {referralName} vous offre −10% sur votre
+								première commande !
+							</p>
+						)}
+						{referralValid === false && referralCode && (
+							<p className="mt-1.5 text-[12px] text-red-500">
+								Code parrainage invalide
+							</p>
+						)}
 					</div>
 					<button
 						type="submit"
