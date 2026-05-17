@@ -257,16 +257,18 @@ export default function AccountPage() {
 											</p>
 
 											<p className="mt-2 text-[13px] text-baume-charcoal/80">
-												{o.order_items?.length || 0} article
-												{(o.order_items || [])
-													.map((i) => i.name)
-													.slice(0, 2)
-													.join(", ")}
-												{(o.items || [])
-													.map((i) => i.name)
-													.slice(0, 2)
-													.join(", ")}
-												{(o.order_items?.length || 0) > 1 ? "s" : ""}
+												{(() => {
+													const items = o.order_items || o.items || [];
+													const count = items.length;
+													const names = items
+														.map(
+															(i) => i?.product_title || i?.name || "Produit",
+														)
+														.filter(Boolean)
+														.slice(0, 2)
+														.join(", ");
+													return `${count} article${count > 1 ? "s" : ""}${names ? ` — ${names}` : ""}`;
+												})()}
 											</p>
 										</div>
 
