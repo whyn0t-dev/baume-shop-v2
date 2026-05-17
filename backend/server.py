@@ -23,6 +23,7 @@ import json
 import httpx
 import time
 
+from decimal import Decimal
 from models import WorkshopBookingRequest, AdminWorkshopRequest
 
 from contextlib import asynccontextmanager
@@ -974,112 +975,87 @@ SHIPPING_RULES = {
 EU_COUNTRIES = {"FR", "BE", "DE", "IT", "ES", "AT", "NL", "LU"}
 
 
-async def _price_cart(
-    items: List[CheckoutItem],
-    country: str,
-    discount_code: Optional[str] = None,
-) -> Dict[str, Any]:
-    total = 0.0
-    line_items = []
+async def _price_cart(items: list[dict]) -> dict:
+    subtotal = Decimal("0")
+    priced_items = []
 
-    for it in items:
-        if it.quantity <= 0:
-            continue
+    for item in items:
+        product_id = item.get("product_id") or item.get("id")
+        variant_id = item.get("variant_id")
+        qty = int(item.get("quantity", 1))
 
-        prod = await sb_select_one("products", "id", it.product_id)
-
-        if not prod:
+        # Récupérer le produit
+        product = await sb_select_one("products", "id", product_id)
+        if not product:
             raise HTTPException(
-                status_code=400, detail=f"Produit introuvable: {it.product_id}"
+                status_code=404, detail=f"Produit {product_id} introuvable"
+            )
+        if product.get("status") != "active":
+            raise HTTPException(
+                status_code=400, detail=f"{product.get('name')} n'est plus disponible"
             )
 
-        if not prod.get("available", True):
-            raise HTTPException(
-                status_code=400, detail=f"Produit indisponible: {prod['name']}"
+        # Vérifier le stock par variante si variant_id fourni
+        if variant_id:
+            variant = await sb_select_one("product_variants", "id", variant_id)
+            if not variant:
+                raise HTTPException(status_code=404, detail=f"Variante introuvable")
+            if not variant.get("available", True):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{product.get('name')} — variante en rupture de stock",
+                )
+            if (variant.get("stock") or 0) < qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"{product.get('name')} — stock insuffisant ({variant.get('stock', 0)} disponible(s))",
+                )
+            unit_price = Decimal(str(variant.get("price") or product.get("price") or 0))
+        else:
+            # Fallback sur variante par défaut
+            variant_result = await asyncio.to_thread(
+                lambda: supabase.table("product_variants")
+                .select("*")
+                .eq("product_id", product_id)
+                .eq("active", True)
+                .order("created_at")
+                .limit(1)
+                .execute()
             )
+            if variant_result.data:
+                variant = variant_result.data[0]
+                variant_id = variant["id"]
+                if (variant.get("stock") or 0) < qty:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"{product.get('name')} — stock insuffisant",
+                    )
+                unit_price = Decimal(
+                    str(variant.get("price") or product.get("price") or 0)
+                )
+            else:
+                # Aucune variante — vérifier stock produit directement
+                if not product.get("available"):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"{product.get('name')} est en rupture de stock",
+                    )
+                unit_price = Decimal(str(product.get("price") or 0))
 
-        stock = int(prod.get("stock", 0))
+        total_price = unit_price * qty
+        subtotal += total_price
 
-        if stock < it.quantity:
-            raise HTTPException(
-                status_code=400, detail=f"Stock insuffisant pour: {prod['name']}"
-            )
-
-        unit_price = float(prod["price"])
-        subtotal = round(unit_price * it.quantity, 2)
-        total += subtotal
-
-        line_items.append(
+        priced_items.append(
             {
-                "product_id": prod["id"],
-                "slug": prod["slug"],
-                "name": prod["name"],
-                "image": prod.get("image", ""),
-                "unit_price": unit_price,
-                "quantity": it.quantity,
-                "size": it.size,
-                "color": it.color,
-                "subtotal": subtotal,
+                **item,
+                "variant_id": variant_id,
+                "product_title": product.get("name") or product.get("title"),
+                "unit_price": float(unit_price),
+                "total_price": float(total_price),
             }
         )
 
-    if total <= 0:
-        raise HTTPException(status_code=400, detail="Panier vide")
-
-    # ── Réduction ──────────────────────────────────────────────────────────────
-    discount_amount = 0.0
-    applied_code = None
-
-    if discount_code:
-        discount = await sb_select_one("discounts", "code", discount_code.upper())
-        if discount and discount.get("active"):
-            now = datetime.now(timezone.utc)
-
-            starts = discount.get("starts_at")
-            ends = discount.get("ends_at")
-            usage_limit = discount.get("usage_limit")
-            used_count = discount.get("used_count") or 0
-
-            valid = True
-            if starts:
-                dt = datetime.fromisoformat(starts)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                if dt > now:
-                    valid = False
-            if ends:
-                dt = datetime.fromisoformat(ends)
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                if dt < now:
-                    valid = False
-            if usage_limit and used_count >= usage_limit:
-                valid = False
-            if discount.get("min_order_amount") and total < float(
-                discount["min_order_amount"]
-            ):
-                valid = False
-            if valid:
-                if discount["type"] == "percentage":
-                    discount_amount = round(total * float(discount["value"]) / 100, 2)
-                elif discount["type"] == "fixed":
-                    discount_amount = min(float(discount["value"]), total)
-                applied_code = discount_code.upper()
-
-    # ── Livraison (calculée sur le total après réduction) ──────────────────────
-    discounted_total = round(total - discount_amount, 2)
-    rule = SHIPPING_RULES.get(country, SHIPPING_RULES["default"])
-    shipping = 0.0 if discounted_total >= rule["threshold"] else rule["fee"]
-    grand_total = round(discounted_total + shipping, 2)
-
-    return {
-        "line_items": line_items,
-        "subtotal": round(total, 2),
-        "discount_amount": discount_amount,
-        "discount_code": applied_code,
-        "shipping": shipping,
-        "total": grand_total,
-    }
+    return {"items": priced_items, "subtotal": float(subtotal)}
 
 
 @api_router.post("/checkout/session")
@@ -1810,6 +1786,8 @@ async def create_admin_product(
                 "option2": variant.get("option2") or None,
                 "option3": variant.get("option3") or None,
                 "active": variant.get("active", True),
+                "stock": int(variant.get("stock", 0)),
+                "available": int(variant.get("stock", 0)) > 0,
             }
             for variant in variants
             if variant.get("title")
@@ -2846,7 +2824,10 @@ async def process_scan(payload: dict, profile=Depends(require_admin)):
             )
 
         product = product_direct
-        previous_stock = int(product.get("stock", 0))
+
+        v = variant.data[0]
+        product = v.get("products", {})
+        previous_stock = int(v.get("stock", 0))
 
         if action == "stock_in":
             new_stock = previous_stock + quantity
@@ -2857,14 +2838,14 @@ async def process_scan(payload: dict, profile=Depends(require_admin)):
 
         if action != "lookup":
             await sb_update(
-                "products",
+                "product_variants",
                 {
                     "stock": new_stock,
                     "available": new_stock > 0,
                     "updated_at": now_iso(),
                 },
                 "id",
-                product["id"],
+                v["id"],
             )
 
         # Enregistrer le scan

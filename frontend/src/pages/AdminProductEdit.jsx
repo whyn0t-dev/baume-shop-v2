@@ -143,6 +143,8 @@ export default function AdminProductEdit() {
 						option2: v.option2 || "",
 						option3: v.option3 || "",
 						active: v.active ?? true,
+						stock: Number(v.stock || 0), // ← ajouter
+						available: (v.stock || 0) > 0, // ← ajouter
 					})),
 				images: images
 					.filter((img) => img.storage_path?.trim() || img.public_url?.trim())
@@ -368,6 +370,178 @@ export default function AdminProductEdit() {
 					)}
 				</section>
 
+				{/* Section Variants */}
+				<section className="rounded-[28px] border border-baume-border bg-baume-ivory/45 p-6">
+					<div className="flex items-center justify-between mb-6">
+						<div>
+							<p className="text-[11px] uppercase tracking-[0.22em] text-baume-burgundy/70 font-semibold">
+								Stock & Variantes
+							</p>
+							<h2 className="mt-1 text-[24px] font-semibold text-baume-burgundy">
+								Gestion du stock
+							</h2>
+						</div>
+						<button
+							type="button"
+							onClick={() =>
+								setVariants([
+									...variants,
+									{
+										title: "Default",
+										sku: "",
+										barcode: "",
+										price: product.price || 0,
+										stock: 0,
+										available: true,
+										active: true,
+										option1: "",
+										option2: "",
+										option3: "",
+									},
+								])
+							}
+							className="h-10 px-5 rounded-full bg-baume-white border border-baume-border text-[13px] font-semibold hover:border-baume-burgundy transition"
+						>
+							+ Ajouter une variante
+						</button>
+					</div>
+
+					{variants.length === 0 ? (
+						<p className="text-[13px] text-baume-charcoal/50 text-center py-6">
+							Aucune variante — cliquez sur "Ajouter une variante" pour créer
+							une variante par défaut.
+						</p>
+					) : (
+						<div className="space-y-3">
+							{variants.map((v, i) => (
+								<div
+									key={v.id || i}
+									className="rounded-2xl border border-baume-border bg-baume-white p-4 grid grid-cols-2 md:grid-cols-4 gap-3"
+								>
+									{/* Titre */}
+									<label className="block">
+										<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+											Variante
+										</span>
+										<input
+											type="text"
+											value={v.title || ""}
+											onChange={(e) => {
+												const next = [...variants];
+												next[i] = { ...next[i], title: e.target.value };
+												setVariants(next);
+											}}
+											placeholder="Ex: Taille M, Rouge..."
+											className="h-10 w-full rounded-xl border border-baume-border bg-baume-ivory px-3 text-[13px] outline-none focus:ring-2 focus:ring-baume-taupe"
+										/>
+									</label>
+
+									{/* SKU */}
+									<label className="block">
+										<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+											SKU
+										</span>
+										<input
+											type="text"
+											value={v.sku || ""}
+											onChange={(e) => {
+												const next = [...variants];
+												next[i] = { ...next[i], sku: e.target.value };
+												setVariants(next);
+											}}
+											placeholder="BAUME-001"
+											className="h-10 w-full rounded-xl border border-baume-border bg-baume-ivory px-3 text-[13px] font-mono outline-none focus:ring-2 focus:ring-baume-taupe"
+										/>
+									</label>
+
+									{/* Stock */}
+									<label className="block">
+										<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+											Stock
+										</span>
+										<input
+											type="number"
+											min={0}
+											value={v.stock ?? 0}
+											onChange={(e) => {
+												const next = [...variants];
+												next[i] = {
+													...next[i],
+													stock: Number(e.target.value),
+													available: Number(e.target.value) > 0,
+												};
+												setVariants(next);
+											}}
+											className="h-10 w-full rounded-xl border border-baume-border bg-baume-ivory px-3 text-[13px] outline-none focus:ring-2 focus:ring-baume-taupe"
+										/>
+									</label>
+
+									{/* Prix + Actif + Supprimer */}
+									<div className="flex flex-col gap-2">
+										<label className="block">
+											<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+												Prix (CHF)
+											</span>
+											<input
+												type="number"
+												min={0}
+												step="0.01"
+												value={v.price || ""}
+												onChange={(e) => {
+													const next = [...variants];
+													next[i] = { ...next[i], price: e.target.value };
+													setVariants(next);
+												}}
+												className="h-10 w-full rounded-xl border border-baume-border bg-baume-ivory px-3 text-[13px] outline-none focus:ring-2 focus:ring-baume-taupe"
+											/>
+										</label>
+
+										<div className="flex items-center justify-between gap-2">
+											<label className="flex items-center gap-2 cursor-pointer">
+												<input
+													type="checkbox"
+													checked={v.active ?? true}
+													onChange={(e) => {
+														const next = [...variants];
+														next[i] = { ...next[i], active: e.target.checked };
+														setVariants(next);
+													}}
+													className="h-4 w-4"
+												/>
+												<span className="text-[12px] text-baume-charcoal/70">
+													Actif
+												</span>
+											</label>
+
+											<button
+												type="button"
+												onClick={() =>
+													setVariants(variants.filter((_, j) => j !== i))
+												}
+												className="h-7 px-3 rounded-full bg-red-50 text-red-700 text-[11px] font-semibold hover:bg-red-100 transition"
+											>
+												Retirer
+											</button>
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					)}
+
+					{/* Stock total calculé */}
+					{variants.length > 0 && (
+						<div className="mt-4 flex items-center justify-between px-4 py-3 rounded-xl bg-baume-ivory border border-baume-border">
+							<span className="text-[13px] text-baume-charcoal/60 font-semibold">
+								Stock total (calculé automatiquement)
+							</span>
+							<span className="text-[18px] font-editorial text-baume-charcoal">
+								{variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)}
+							</span>
+						</div>
+					)}
+				</section>
+
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 					<Input
 						label="Titre"
@@ -389,12 +563,6 @@ export default function AdminProductEdit() {
 						type="number"
 						value={product.price || ""}
 						onChange={(v) => setProduct({ ...product, price: v })}
-					/>
-					<Input
-						label="Stock"
-						type="number"
-						value={product.stock || ""}
-						onChange={(v) => setProduct({ ...product, stock: v })}
 					/>
 					<Input
 						label="Catégorie"

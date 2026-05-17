@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { BrowserMultiFormatReader, NotFoundException } from "@zxing/browser";
+import { BrowserMultiFormatReader } from "@zxing/browser";
+import { NotFoundException } from "@zxing/library";
 import { Camera, CameraOff, Loader2, RefreshCw } from "lucide-react";
 
 export default function BarcodeScanner({ onScan, onError, active = true }) {

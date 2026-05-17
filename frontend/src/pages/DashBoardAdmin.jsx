@@ -71,7 +71,12 @@ export default function DashBoardAdmin() {
 	);
 
 	useEffect(() => {
-		if (status === "authenticated" && isAdmin && active !== "accueil") {
+		if (
+			status === "authenticated" &&
+			isAdmin &&
+			active !== "accueil" &&
+			active !== "scanner"
+		) {
 			loadData(active);
 		}
 	}, [active, status, isAdmin, loadData]);
@@ -210,7 +215,8 @@ export default function DashBoardAdmin() {
 							</div>
 						) : rows.length === 0 &&
 						  active !== "discounts" &&
-						  active !== "accueil" ? (
+						  active !== "accueil" &&
+						  active !== "scanner" ? (
 							<div className="p-10 text-center text-baume-charcoal/65">
 								Aucun élément trouvé.
 							</div>

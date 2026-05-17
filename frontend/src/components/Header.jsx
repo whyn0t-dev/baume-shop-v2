@@ -393,7 +393,7 @@ function ExpertsMegaMenu({ onClose }) {
 }
 
 function MobileDrawer({ onNavigate }) {
-	const { isAuth, user } = useAuth();
+	const {user, status: authStatus } = useAuth();
 
 	return (
 		<div className="h-full flex flex-col">
@@ -439,8 +439,17 @@ function MobileDrawer({ onNavigate }) {
 					À propos
 				</MobileLink>
 
-				<MobileLink to={isAuth ? "/compte" : "/connexion"} onClick={onNavigate}>
-					{isAuth
+				<MobileLink
+					to={
+						authStatus === "authenticated"
+							? "/compte"
+							: authStatus === "loading"
+								? "#"
+								: "/connexion"
+					}
+					onClick={onNavigate}
+				>
+					{authStatus === "authenticated"
 						? `Mon compte${user?.first_name ? ` · ${user.first_name}` : ""}`
 						: "Se connecter"}
 				</MobileLink>
@@ -468,7 +477,9 @@ function MobileLink({ to, onClick, children }) {
 	return (
 		<Link
 			to={to}
-			onClick={onClick}
+			onClick={() => {
+				setTimeout(() => onClick?.(), 50); // ← petit délai avant fermeture
+			}}
 			className="flex items-center justify-between py-4 border-b border-baume-border text-[20px] font-semibold text-baume-charcoal"
 		>
 			{children}
