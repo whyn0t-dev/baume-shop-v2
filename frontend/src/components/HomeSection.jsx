@@ -139,20 +139,29 @@ export default function HomeSection() {
 	const loadData = useCallback(async () => {
 		setLoading(true);
 		try {
+			const { start, end } = getDateRange(selectedPeriod.days);
+
 			const [ordersData, profilesData, discountsData] = await Promise.all([
-				getAdminTable("orders", 500),
-				getAdminTable("profiles", 500),
+				api
+					.get(`/ecom/admin/orders?limit=500&date_from=${start}&date_to=${end}`)
+					.then((r) => (Array.isArray(r.data) ? r.data : [])),
+				api
+					.get(
+						`/ecom/admin/profiles?limit=500&date_from=${start}&date_to=${end}`,
+					)
+					.then((r) => (Array.isArray(r.data) ? r.data : [])),
 				getAdminTable("discounts", 200),
 			]);
-			setOrders(Array.isArray(ordersData) ? ordersData : []);
-			setProfiles(Array.isArray(profilesData) ? profilesData : []);
+
+			setOrders(ordersData);
+			setProfiles(profilesData);
 			setDiscounts(Array.isArray(discountsData) ? discountsData : []);
 		} catch (err) {
 			console.error("Error loading dashboard data:", err);
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [selectedPeriod.days]);
 
 	// ── Chargement PostHog ──────────────────────────────────────────────────
 	const loadPosthog = useCallback(async () => {
@@ -171,15 +180,15 @@ export default function HomeSection() {
 
 	useEffect(() => {
 		loadData();
-	}, [loadData]);
+	}, [loadData, period]);
 
 	useEffect(() => {
 		loadPosthog();
 	}, [loadPosthog]);
 
 	// ── Calculs période ─────────────────────────────────────────────────────
-	const periodOrders = filterByPeriod(orders, selectedPeriod.days);
-	const periodProfiles = filterByPeriod(profiles, selectedPeriod.days);
+	const periodOrders = orders;
+	const periodProfiles = profiles;
 	const periodRevenue = periodOrders.reduce(
 		(s, o) => s + Number(o.total || 0),
 		0,

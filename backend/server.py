@@ -2156,6 +2156,8 @@ async def delete_admin_product(
 async def list_admin_table(
     table: str,
     limit: int = 200,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     profile=Depends(require_admin),
 ):
     allowed = PUBLIC_READ_TABLES | CUSTOMER_TABLES | ADMIN_TABLES
@@ -2163,9 +2165,15 @@ async def list_admin_table(
     if table not in allowed:
         raise HTTPException(status_code=400, detail="Table non autorisée")
 
-    result = await asyncio.to_thread(
-        lambda: supabase.table(table).select("*").limit(limit).execute()
-    )
+    def run():
+        q = supabase.table(table).select("*")
+        if date_from and table in ("orders", "profiles"):
+            q = q.gte("created_at", date_from)
+        if date_to and table in ("orders", "profiles"):
+            q = q.lte("created_at", date_to + "T23:59:59")
+        return q.limit(limit).execute()
+
+    result = await asyncio.to_thread(run)
     return result.data or []
 
 
