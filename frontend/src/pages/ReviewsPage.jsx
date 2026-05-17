@@ -118,9 +118,14 @@ export default function ReviewsPage() {
 	const [showFilters, setShowFilters] = useState(false);
 
 	useEffect(() => {
-		Promise.all([getAdminTable("reviews", 1000), getAdminTable("products", 200)])
+		Promise.all([
+			getAdminTable("reviews", 1000),
+			getAdminTable("products", 200),
+		])
 			.then(([rev, prod]) => {
-				setReviews(Array.isArray(rev) ? rev.filter((r) => r.status === "published") : []);
+				setReviews(
+					Array.isArray(rev) ? rev.filter((r) => r.status === "published") : [],
+				);
 				setProducts(Array.isArray(prod) ? prod : []);
 			})
 			.catch(() => {
@@ -170,21 +175,27 @@ export default function ReviewsPage() {
 				if (filterRating === "4" && (rating < 4 || rating >= 5)) return false;
 				if (filterRating === "3" && (rating < 3 || rating >= 4)) return false;
 				if (filterRating === "1-2" && rating >= 3) return false;
-				if (filterProduct !== "all" && r.product_id !== filterProduct) return false;
+				if (filterProduct !== "all" && r.product_id !== filterProduct)
+					return false;
 				if (search.trim()) {
 					const q = search.toLowerCase();
 					const inTitle = (r.title || "").toLowerCase().includes(q);
 					const inBody = (r.body || r.content || "").toLowerCase().includes(q);
 					const inAuthor = (r.author || "").toLowerCase().includes(q);
-					const inProduct = (productMap[r.product_id] || "").toLowerCase().includes(q);
+					const inProduct = (productMap[r.product_id] || "")
+						.toLowerCase()
+						.includes(q);
 					if (!inTitle && !inBody && !inAuthor && !inProduct) return false;
 				}
 				return true;
 			})
 			.sort((a, b) => {
-				if (sortBy === "recent") return new Date(b.created_at) - new Date(a.created_at);
-				if (sortBy === "oldest") return new Date(a.created_at) - new Date(b.created_at);
-				if (sortBy === "rating_desc") return Number(b.rating) - Number(a.rating);
+				if (sortBy === "recent")
+					return new Date(b.created_at) - new Date(a.created_at);
+				if (sortBy === "oldest")
+					return new Date(a.created_at) - new Date(b.created_at);
+				if (sortBy === "rating_desc")
+					return Number(b.rating) - Number(a.rating);
 				if (sortBy === "rating_asc") return Number(a.rating) - Number(b.rating);
 				return 0;
 			});
@@ -368,7 +379,8 @@ export default function ReviewsPage() {
 				{/* ── Résultat count ── */}
 				<div className="flex items-center justify-between mb-6">
 					<p className="text-[13px] text-baume-charcoal/55">
-						{filtered.length} avis{filtered.length !== reviews.length && ` sur ${reviews.length}`}
+						{filtered.length} avis
+						{filtered.length !== reviews.length && ` sur ${reviews.length}`}
 					</p>
 					{hasActiveFilters && (
 						<button

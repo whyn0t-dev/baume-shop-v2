@@ -14,7 +14,7 @@ import {
 	getAdminOrder,
 	updateOrderStatus,
 	updateOrderItemStatus,
-  api,
+	api,
 } from "../lib/api";
 
 export default function OrderItems() {
@@ -535,80 +535,109 @@ function StatusBadge({ status }) {
 }
 
 const CARRIERS = [
-  { key: "laposte", label: "La Poste Suisse", url: (n) => `https://www.post.ch/fr/suivi?item=${n}` },
-  { key: "chronopost", label: "Chronopost", url: (n) => `https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLt=${n}` },
-  { key: "dhl", label: "DHL", url: (n) => `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${n}` },
-  { key: "ups", label: "UPS", url: (n) => `https://www.ups.com/track?tracknum=${n}` },
-  { key: "fedex", label: "FedEx", url: (n) => `https://www.fedex.com/fedextrack/?trknbr=${n}` },
+	{
+		key: "laposte",
+		label: "La Poste Suisse",
+		url: (n) => `https://www.post.ch/fr/suivi?item=${n}`,
+	},
+	{
+		key: "chronopost",
+		label: "Chronopost",
+		url: (n) =>
+			`https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLt=${n}`,
+	},
+	{
+		key: "dhl",
+		label: "DHL",
+		url: (n) => `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${n}`,
+	},
+	{
+		key: "ups",
+		label: "UPS",
+		url: (n) => `https://www.ups.com/track?tracknum=${n}`,
+	},
+	{
+		key: "fedex",
+		label: "FedEx",
+		url: (n) => `https://www.fedex.com/fedextrack/?trknbr=${n}`,
+	},
 ];
 
 function TrackingForm({ order, onSaved }) {
-  const [carrier, setCarrier] = useState(order.carrier || "");
-  const [tracking, setTracking] = useState(order.tracking_number || "");
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+	const [carrier, setCarrier] = useState(order.carrier || "");
+	const [tracking, setTracking] = useState(order.tracking_number || "");
+	const [saving, setSaving] = useState(false);
+	const [saved, setSaved] = useState(false);
 
-  const carrierInfo = CARRIERS.find((c) => c.key === carrier);
-  const trackingUrl = carrierInfo && tracking ? carrierInfo.url(tracking) : null;
+	const carrierInfo = CARRIERS.find((c) => c.key === carrier);
+	const trackingUrl =
+		carrierInfo && tracking ? carrierInfo.url(tracking) : null;
 
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await api.patch(`/ecom/admin/orders/${order.id}/tracking`, {
-        carrier,
-        tracking_number: tracking,
-      });
-      onSaved(carrier, tracking);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch (err) {
-      alert("Erreur lors de la sauvegarde");
-    } finally {
-      setSaving(false);
-    }
-  }
+	async function handleSave() {
+		setSaving(true);
+		try {
+			await api.patch(`/ecom/admin/orders/${order.id}/tracking`, {
+				carrier,
+				tracking_number: tracking,
+			});
+			onSaved(carrier, tracking);
+			setSaved(true);
+			setTimeout(() => setSaved(false), 2000);
+		} catch (err) {
+			alert("Erreur lors de la sauvegarde");
+		} finally {
+			setSaving(false);
+		}
+	}
 
-  return (
-    <div className="mt-4 pt-4 border-t border-baume-border space-y-3">
-      <p className="text-[12px] font-semibold text-baume-charcoal/60 uppercase tracking-[0.12em]">
-        Suivi colis
-      </p>
+	return (
+		<div className="mt-4 pt-4 border-t border-baume-border space-y-3">
+			<p className="text-[12px] font-semibold text-baume-charcoal/60 uppercase tracking-[0.12em]">
+				Suivi colis
+			</p>
 
-      <select
-        value={carrier}
-        onChange={(e) => setCarrier(e.target.value)}
-        className="w-full h-10 rounded-xl border border-baume-border bg-baume-white px-3 text-[13px] text-baume-charcoal"
-      >
-        <option value="">Choisir un transporteur</option>
-        {CARRIERS.map((c) => (
-          <option key={c.key} value={c.key}>{c.label}</option>
-        ))}
-      </select>
+			<select
+				value={carrier}
+				onChange={(e) => setCarrier(e.target.value)}
+				className="w-full h-10 rounded-xl border border-baume-border bg-baume-white px-3 text-[13px] text-baume-charcoal"
+			>
+				<option value="">Choisir un transporteur</option>
+				{CARRIERS.map((c) => (
+					<option key={c.key} value={c.key}>
+						{c.label}
+					</option>
+				))}
+			</select>
 
-      <input
-        type="text"
-        value={tracking}
-        onChange={(e) => setTracking(e.target.value)}
-        placeholder="Numéro de suivi"
-        className="w-full h-10 rounded-xl border border-baume-border bg-baume-white px-3 text-[13px] text-baume-charcoal"
-      />
+			<input
+				type="text"
+				value={tracking}
+				onChange={(e) => setTracking(e.target.value)}
+				placeholder="Numéro de suivi"
+				className="w-full h-10 rounded-xl border border-baume-border bg-baume-white px-3 text-[13px] text-baume-charcoal"
+			/>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="h-9 px-4 rounded-full bg-baume-burgundy text-white text-[12px] font-semibold hover:bg-baume-burgundyDark disabled:opacity-60 transition-colors inline-flex items-center gap-2"
-        >
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          {saved ? "✓ Enregistré" : "Enregistrer"}
-        </button>
-        {trackingUrl && (
-          <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-baume-burgundy hover:underline">
-            Voir le suivi
-          </a>
-        )}
-      </div>
-    </div>
-  );
+			<div className="flex items-center gap-2">
+				<button
+					type="button"
+					onClick={handleSave}
+					disabled={saving}
+					className="h-9 px-4 rounded-full bg-baume-burgundy text-white text-[12px] font-semibold hover:bg-baume-burgundyDark disabled:opacity-60 transition-colors inline-flex items-center gap-2"
+				>
+					{saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+					{saved ? "✓ Enregistré" : "Enregistrer"}
+				</button>
+				{trackingUrl && (
+					<a
+						href={trackingUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						className="text-[12px] text-baume-burgundy hover:underline"
+					>
+						Voir le suivi
+					</a>
+				)}
+			</div>
+		</div>
+	);
 }

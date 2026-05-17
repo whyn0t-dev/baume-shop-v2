@@ -82,9 +82,7 @@ export default function AdminWorkshopForm() {
 		setForm((prev) => ({
 			...prev,
 			[name]: value,
-			...(name === "title" && !isEdit
-				? { slug: slugify(value) }
-				: {}),
+			...(name === "title" && !isEdit ? { slug: slugify(value) } : {}),
 		}));
 	}
 
@@ -193,9 +191,7 @@ export default function AdminWorkshopForm() {
 							<Field label="Experte">
 								<input
 									value={form.expert_name}
-									onChange={(e) =>
-										updateField("expert_name", e.target.value)
-									}
+									onChange={(e) => updateField("expert_name", e.target.value)}
 									className="input"
 									placeholder="Laura Benoit"
 								/>
@@ -232,9 +228,7 @@ export default function AdminWorkshopForm() {
 
 									<select
 										value={form.currency}
-										onChange={(e) =>
-											updateField("currency", e.target.value)
-										}
+										onChange={(e) => updateField("currency", e.target.value)}
 										className="input"
 									>
 										<option value="CHF">CHF</option>
@@ -258,9 +252,7 @@ export default function AdminWorkshopForm() {
 									<input
 										type="checkbox"
 										checked={form.active}
-										onChange={(e) =>
-											updateField("active", e.target.checked)
-										}
+										onChange={(e) => updateField("active", e.target.checked)}
 									/>
 									<span className="text-[14px] font-semibold text-baume-charcoal">
 										Atelier actif / visible

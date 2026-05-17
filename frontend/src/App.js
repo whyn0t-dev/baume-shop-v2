@@ -34,6 +34,9 @@ import AdminProductCreate from "./pages/AdminProductCreate";
 import AdminProductEdit from "./pages/AdminProductEdit";
 import AdminWorkshopForm from "./pages/AdminWorkshopForm";
 
+import QuizPage from "./pages/QuizPage";
+import QuizResultsPage from "./pages/QuizResultsPage";
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -132,6 +135,8 @@ function AppShell() {
             }
           />
           <Route path="*" element={<HomePage />} />
+          <Route path="/quiz" element={<QuizPage />} />
+          <Route path="/quiz/resultats" element={<QuizResultsPage />} />
         </Routes>
       </main>
       <Footer />
