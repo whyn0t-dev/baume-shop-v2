@@ -30,6 +30,8 @@ import {
 import { LayoutDashboard } from "lucide-react";
 import HomeSection from "../components/HomeSection";
 
+import { ScanLine } from "lucide-react";
+
 const SECTIONS = [
 	{ key: "accueil", label: "Accueil", icon: LayoutDashboard },
 	{ key: "products", label: "Produits", icon: Package },
@@ -40,6 +42,7 @@ const SECTIONS = [
 	{ key: "discounts", label: "Réductions", icon: Percent },
 	{ key: "store_settings", label: "Paramètres boutique", icon: Settings },
 	{ key: "reviews", label: "Avis clients", icon: Star },
+	{ key: "scanner", label: "Scanner", icon: ScanLine },
 ];
 
 export default function DashBoardAdmin() {
@@ -397,6 +400,20 @@ function AdminTable({ table, rows, onDelete, onRefresh }) {
 
 	if (table === "reviews") {
 		return <ReviewsSection rows={rows} onDelete={onDelete} />;
+	}
+
+	if (table === "scanner") {
+		return (
+			<div className="p-8 text-center">
+				<Link
+					to="/admin/scanner"
+					className="h-12 px-8 rounded-full bg-baume-burgundy text-white font-semibold text-[15px] inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition-colors"
+				>
+					<ScanLine className="h-5 w-5" />
+					Ouvrir le scanner
+				</Link>
+			</div>
+		);
 	}
 
 	return (

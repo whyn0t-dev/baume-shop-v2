@@ -38,6 +38,8 @@ import QuizPage from "./pages/QuizPage";
 import QuizResultsPage from "./pages/QuizResultsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
 
+import AdminScannerPage from "./pages/AdminScannerPage";
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -138,6 +140,14 @@ function AppShell() {
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/quiz/resultats" element={<QuizResultsPage />} />
           <Route path="/commande/suivi/:orderId" element={<OrderTrackingPage />} />
+          <Route
+            path="/admin/scanner"
+            element={
+              <AdminRoute>
+                <AdminScannerPage />
+              </AdminRoute>
+            }
+          />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>

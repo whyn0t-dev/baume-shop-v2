@@ -2819,6 +2819,121 @@ async def complete_referral(payload: dict, profile=Depends(require_admin)):
     return {"success": True, "points_awarded": ref["reward_points"]}
 
 
+@api_router.post("/ecom/admin/scan")
+async def process_scan(payload: dict, profile=Depends(require_admin)):
+    barcode = payload.get("barcode", "").strip()
+    action = payload.get("action", "lookup")
+    quantity = int(payload.get("quantity", 1))
+
+    if not barcode:
+        raise HTTPException(status_code=400, detail="Code barre manquant")
+
+    # Chercher par barcode ou SKU dans product_variants
+    variant = await asyncio.to_thread(
+        lambda: supabase.table("product_variants")
+        .select("*, products(*)")
+        .or_(f"barcode.eq.{barcode},sku.eq.{barcode}")
+        .limit(1)
+        .execute()
+    )
+
+    # Si pas trouvé dans variants, chercher dans products directement
+    if not variant.data:
+        product_direct = await sb_select_one("products", "id", barcode)
+        if not product_direct:
+            raise HTTPException(
+                status_code=404, detail="Produit introuvable pour ce code barre"
+            )
+
+        product = product_direct
+        previous_stock = int(product.get("stock", 0))
+
+        if action == "stock_in":
+            new_stock = previous_stock + quantity
+        elif action == "stock_out":
+            new_stock = max(previous_stock - quantity, 0)
+        else:
+            new_stock = previous_stock
+
+        if action != "lookup":
+            await sb_update(
+                "products",
+                {
+                    "stock": new_stock,
+                    "available": new_stock > 0,
+                    "updated_at": now_iso(),
+                },
+                "id",
+                product["id"],
+            )
+
+        # Enregistrer le scan
+        await sb_insert(
+            "barcode_scans",
+            {
+                "id": str(uuid.uuid4()),
+                "barcode": barcode,
+                "action": action,
+                "quantity": quantity,
+                "scanned_by": profile["id"],
+                "created_at": now_iso(),
+            },
+        )
+
+        return {
+            "product_name": product.get("name") or product.get("title"),
+            "sku": None,
+            "variant_title": None,
+            "previous_stock": previous_stock,
+            "current_stock": new_stock,
+        }
+
+    v = variant.data[0]
+    product = v.get("products", {})
+    previous_stock = int(product.get("stock", 0))
+
+    if action == "stock_in":
+        new_stock = previous_stock + quantity
+    elif action == "stock_out":
+        new_stock = max(previous_stock - quantity, 0)
+    else:
+        new_stock = previous_stock
+
+    if action != "lookup":
+        await sb_update(
+            "products",
+            {
+                "stock": new_stock,
+                "available": new_stock > 0,
+                "updated_at": now_iso(),
+            },
+            "id",
+            product["id"],
+        )
+
+    # Enregistrer le scan
+    await sb_insert(
+        "barcode_scans",
+        {
+            "id": str(uuid.uuid4()),
+            "barcode": barcode,
+            "variant_id": v["id"],
+            "action": action,
+            "quantity": quantity,
+            "scanned_by": profile["id"],
+            "created_at": now_iso(),
+        },
+    )
+
+    return {
+        "product_name": product.get("name") or product.get("title"),
+        "sku": v.get("sku"),
+        "variant_title": v.get("title"),
+        "previous_stock": previous_stock,
+        "current_stock": new_stock,
+    }
+
+
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)
