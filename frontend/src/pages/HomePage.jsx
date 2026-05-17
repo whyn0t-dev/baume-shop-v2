@@ -33,6 +33,21 @@ export default function HomePage() {
 	const [experts, setExperts] = useState([]);
 	const { addItem } = useCart();
 
+	const [showQuizPopup, setShowQuizPopup] = useState(false);
+
+	useEffect(() => {
+		const dismissed = sessionStorage.getItem("quiz_popup_dismissed");
+		if (!dismissed) {
+			const timer = setTimeout(() => setShowQuizPopup(true), 3000);
+			return () => clearTimeout(timer);
+		}
+	}, []);
+
+	function dismissPopup() {
+		sessionStorage.setItem("quiz_popup_dismissed", "true");
+		setShowQuizPopup(false);
+	}
+
 	useEffect(() => {
 		getCategories("besoin")
 			.then(setNeeds)
@@ -102,6 +117,51 @@ export default function HomePage() {
 					</Link>
 				</div>
 			</section>
+
+			{/* Quiz popup */}
+			{showQuizPopup && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center px-5">
+					<div
+						className="absolute inset-0 bg-baume-charcoal/40 backdrop-blur-sm"
+						onClick={dismissPopup}
+					/>
+					<div className="relative bg-baume-white rounded-[32px] border border-baume-border p-8 md:p-10 max-w-[480px] w-full text-center shadow-2xl">
+						<button
+							onClick={dismissPopup}
+							className="absolute top-4 right-4 h-8 w-8 rounded-full bg-baume-ivory text-baume-charcoal/50 hover:text-baume-charcoal inline-flex items-center justify-center transition-colors"
+						>
+							✕
+						</button>
+
+						<span className="text-[48px]">🌿</span>
+
+						<h2 className="font-editorial text-[28px] text-baume-charcoal mt-4 leading-[1.2]">
+							Trouvez votre routine idéale
+						</h2>
+
+						<p className="mt-3 text-[14px] text-baume-charcoal/65 leading-[1.7]">
+							Répondez à 10 questions et recevez une sélection de produits
+							personnalisée — gratuitement et en 2 minutes.
+						</p>
+
+						<div className="mt-6 flex flex-col gap-3">
+							<Link
+								to="/quiz"
+								onClick={dismissPopup}
+								className="h-12 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] inline-flex items-center justify-center gap-2 hover:bg-baume-burgundyDark transition-colors"
+							>
+								Faire le quiz <ArrowRight className="h-4 w-4" />
+							</Link>
+							<button
+								onClick={dismissPopup}
+								className="text-[13px] text-baume-charcoal/50 hover:text-baume-charcoal underline underline-offset-2 transition-colors"
+							>
+								Non merci, je continue ma visite
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 
 			<TrustBar />
 
