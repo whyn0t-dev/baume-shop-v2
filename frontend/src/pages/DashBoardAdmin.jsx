@@ -27,7 +27,11 @@ import {
 	api,
 } from "../lib/api";
 
+import { LayoutDashboard } from "lucide-react";
+import HomeSection from "./HomeSection";
+
 const SECTIONS = [
+	{ key: "accueil", label: "Accueil", icon: LayoutDashboard },
 	{ key: "products", label: "Produits", icon: Package },
 	{ key: "workshops", label: "Ateliers", icon: CalendarDays },
 	{ key: "workshop_bookings", label: "Réservations", icon: CalendarDays },
@@ -40,7 +44,7 @@ const SECTIONS = [
 
 export default function DashBoardAdmin() {
 	const { user, status } = useAuth();
-	const [active, setActive] = useState("products");
+	const [active, setActive] = useState("accueil");
 	const [rows, setRows] = useState([]);
 	const [loading, setLoading] = useState(false);
 
@@ -219,6 +223,9 @@ export default function DashBoardAdmin() {
 }
 
 function AdminTable({ table, rows, onDelete, onRefresh }) {
+	if (table === "accueil") {
+		return <HomeSection />;
+	}
 	if (table === "products") {
 		return (
 			<Table
