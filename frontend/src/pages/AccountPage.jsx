@@ -577,6 +577,68 @@ export default function AccountPage() {
 									</div>
 								</div>
 
+								{/* Codes générés */}
+								{loyalty.generated_codes &&
+									loyalty.generated_codes.length > 0 && (
+										<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">
+											<p className="text-[14px] font-semibold text-baume-charcoal mb-4">
+												Mes bons d'achat
+											</p>
+											<div className="space-y-3">
+												{loyalty.generated_codes
+													.slice()
+													.reverse()
+													.map((c, i) => (
+														<div
+															key={i}
+															className="flex items-center justify-between gap-4 p-4 rounded-2xl border border-baume-border bg-baume-ivory/40"
+														>
+															<div>
+																<div className="flex items-center gap-2 flex-wrap">
+																	<span className="font-mono font-bold text-[16px] text-baume-burgundy">
+																		{c.code}
+																	</span>
+																	<span className="text-[12px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-semibold">
+																		{c.reward} CHF
+																	</span>
+																	{c.used && (
+																		<span className="text-[12px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">
+																			Utilisé
+																		</span>
+																	)}
+																</div>
+																<p className="text-[11px] text-baume-charcoal/50 mt-1">
+																	Généré le{" "}
+																	{new Date(c.created_at).toLocaleDateString(
+																		"fr-CH",
+																		{
+																			day: "numeric",
+																			month: "long",
+																			year: "numeric",
+																		},
+																	)}{" "}
+																	· {c.points_spent} pts
+																</p>
+															</div>
+															{!c.used && (
+																<button
+																	onClick={() => {
+																		navigator.clipboard.writeText(c.code);
+																		toast.success("Code copié !", {
+																			description: `${c.code} est dans votre presse-papier`,
+																		});
+																	}}
+																	className="h-9 px-4 rounded-full border border-baume-border text-baume-charcoal text-[12px] font-semibold hover:bg-baume-ivory transition-colors shrink-0"
+																>
+																	Copier
+																</button>
+															)}
+														</div>
+													))}
+											</div>
+										</div>
+									)}
+
 								{/* Historique */}
 								{loyalty.transactions.length > 0 && (
 									<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8">

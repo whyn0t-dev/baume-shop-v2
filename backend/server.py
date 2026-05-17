@@ -2509,6 +2509,7 @@ async def get_my_loyalty(profile=Depends(get_current_profile)):
         "points": loyalty["points"],
         "total_earned": loyalty["total_earned"],
         "total_spent": loyalty["total_spent"],
+        "generated_codes": loyalty.get("generated_codes") or [],  # ← ajouter
         "transactions": transactions.data or [],
         "next_threshold": next_threshold,
         "thresholds": LOYALTY_THRESHOLDS,
@@ -2545,33 +2546,67 @@ async def convert_loyalty_points(payload: dict, profile=Depends(get_current_prof
     }
     await sb_insert("discounts", discount_data)
 
-    # Déduire les points
-    new_points = (loyalty["points"] or 0) - (points_to_spend or 0)
-    new_total_spent = (loyalty["total_spent"] or 0) + (points_to_spend or 0)
+        # Récupérer les codes existants
+    existing_codes = loyalty.get("generated_codes") or []
+
+    # Ajouter le nouveau code
+    new_code_entry = {
+        "code": code,
+        "reward": threshold["reward"],
+        "points_spent": points_to_spend,
+        "created_at": now_iso(),
+        "used": False,
+    }
+    updated_codes = existing_codes + [new_code_entry]
+
+    # Déduire les points + sauvegarder le code
+    new_points = (loyalty["points"] or 0) - points_to_spend
+    new_total_spent = (loyalty["total_spent"] or 0) + points_to_spend
 
     await sb_update(
         "loyalty_points",
         {
             "points": new_points,
             "total_spent": new_total_spent,
+            "generated_codes": updated_codes,
             "updated_at": now_iso(),
         },
         "profile_id",
         profile["id"],
     )
 
-    await sb_insert(
-        "loyalty_transactions",
-        {
-            "id": str(uuid.uuid4()),
-            "profile_id": profile["id"],
-            "order_id": None,
-            "type": "spend",
-            "points": -points_to_spend,
-            "reason": f"Conversion en code promo {code}",
-            "created_at": now_iso(),
-        },
-    )
+    await sb_insert("loyalty_transactions", {
+        "id": str(uuid.uuid4()),
+        "profile_id": profile["id"],
+        "order_id": None,
+        "type": "spend",
+        "points": -points_to_spend,
+        "reason": f"Conversion en code promo {code}",
+        "created_at": now_iso(),
+    })
+
+    # Envoyer l'email
+    email = profile.get("email")
+    if email:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{SUPABASE_URL}/functions/v1/send-loyalty-code",
+                    json={
+                        "email": email,
+                        "first_name": profile.get("first_name", ""),
+                        "code": code,
+                        "reward": threshold["reward"],
+                        "points_spent": points_to_spend,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10,
+                )
+        except Exception as e:
+            logger.error(f"send-loyalty-code failed: {e}")
 
     return {
         "success": True,
@@ -2579,7 +2614,6 @@ async def convert_loyalty_points(payload: dict, profile=Depends(get_current_prof
         "reward": threshold["reward"],
         "points_remaining": new_points,
     }
-
 
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
