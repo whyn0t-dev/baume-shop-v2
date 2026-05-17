@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { getMyOrders, formatApiError } from "../lib/api";
+import { getMyOrders, formatApiError, api } from "../lib/api";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import {
@@ -28,8 +28,6 @@ import {
 	ShieldCheck,
 } from "lucide-react";
 import Breadcrumb from "../components/Breadcrumb";
-
-import { getMyOrders, formatApiError, api } from "../lib/api";
 
 const COUNTRIES = [
 	{ code: "CH", name: "Suisse" },

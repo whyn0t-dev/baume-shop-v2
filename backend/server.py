@@ -889,11 +889,12 @@ async def get_cart(profile=Depends(get_current_profile)):
 @api_router.get("/orders/mine")
 async def my_orders(profile=Depends(get_current_profile)):
     customer = await get_or_create_customer(profile)
+    email = profile.get("email", "")
 
     result = await asyncio.to_thread(
         lambda: supabase.table("orders")
         .select("*, order_items(*), payments(*)")
-        .eq("customer_id", customer["id"])
+        .or_(f"customer_id.eq.{customer['id']},email.eq.{email}")
         .order("created_at", desc=True)
         .execute()
     )
@@ -2450,7 +2451,7 @@ async def add_loyalty_points(
     profile_id: str, points: int, reason: str, order_id: Optional[str] = None
 ):
     loyalty = await get_or_create_loyalty(profile_id)
-    
+
     new_points = (loyalty["points"] or 0) + points
     new_total_earned = (loyalty["total_earned"] or 0) + points
 
