@@ -270,6 +270,36 @@ export default function AccountPage() {
 													return `${count} article${count > 1 ? "s" : ""}${names ? ` — ${names}` : ""}`;
 												})()}
 											</p>
+											{o.carrier &&
+												o.tracking_number &&
+												(() => {
+													const TRACKING_URLS = {
+														laposte: (n) =>
+															`https://www.post.ch/fr/suivi?item=${n}`,
+														chronopost: (n) =>
+															`https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLt=${n}`,
+														dhl: (n) =>
+															`https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${n}`,
+														ups: (n) =>
+															`https://www.ups.com/track?tracknum=${n}`,
+														fedex: (n) =>
+															`https://www.fedex.com/fedextrack/?trknbr=${n}`,
+													};
+													const url = TRACKING_URLS[o.carrier]?.(
+														o.tracking_number,
+													);
+													if (!url) return null;
+													return (
+														<a
+															href={url}
+															target="_blank"
+															rel="noopener noreferrer"
+															className="mt-2 inline-flex items-center gap-1 text-[12px] text-baume-burgundy font-semibold hover:underline underline-offset-2"
+														>
+															📦 Suivre mon colis →
+														</a>
+													);
+												})()}
 										</div>
 
 										<div className="md:text-right">

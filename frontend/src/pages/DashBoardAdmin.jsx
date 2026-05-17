@@ -201,7 +201,7 @@ export default function DashBoardAdmin() {
 							</div>
 						</div>
 
-						{loading ? (
+						{loading && active !== "accueil" ? (
 							<div className="py-24 flex justify-center">
 								<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
 							</div>
@@ -339,7 +339,13 @@ function AdminTable({ table, rows, onDelete, onRefresh }) {
 					`${Number(o.total || o.amount || 0).toFixed(2)} ${o.currency || "CHF"}`,
 					<StatusBadge status={o.status} />,
 					o.created_at
-						? new Date(o.created_at).toLocaleDateString("fr-CH")
+						? new Date(o.created_at).toLocaleString("fr-CH", {
+								day: "2-digit",
+								month: "2-digit",
+								year: "numeric",
+								hour: "2-digit",
+								minute: "2-digit",
+							})
 						: "-",
 					<Link
 						key={`view-${o.id}`}

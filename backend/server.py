@@ -2332,6 +2332,29 @@ async def get_analytics(period: str = "7d", profile=Depends(require_admin)):
         return {"pageviews": 0, "active_users": 0, "unique_visitors": 0}
 
 
+@api_router.patch("/ecom/admin/orders/{order_id}/tracking")
+async def update_order_tracking(
+    order_id: str,
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    carrier = payload.get("carrier")
+    tracking_number = payload.get("tracking_number")
+
+    await sb_update(
+        "orders",
+        {
+            "carrier": carrier,
+            "tracking_number": tracking_number,
+            "updated_at": now_iso(),
+        },
+        "id",
+        order_id,
+    )
+
+    return {"success": True, "carrier": carrier, "tracking_number": tracking_number}
+
+
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)

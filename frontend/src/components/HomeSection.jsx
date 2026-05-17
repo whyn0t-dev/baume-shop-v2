@@ -169,6 +169,14 @@ export default function HomeSection() {
 		}
 	}, [period]);
 
+	useEffect(() => {
+		loadData();
+	}, [loadData]);
+
+	useEffect(() => {
+		loadPosthog();
+	}, [loadPosthog]);
+
 	// ── Calculs période ─────────────────────────────────────────────────────
 	const periodOrders = filterByPeriod(orders, selectedPeriod.days);
 	const periodProfiles = filterByPeriod(profiles, selectedPeriod.days);
