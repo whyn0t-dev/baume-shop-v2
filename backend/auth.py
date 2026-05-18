@@ -130,6 +130,20 @@ async def register(payload: RegisterRequest):
         print(f"Customer creation failed: {e}")
         customer_id = None
 
+    # ── Initialiser les points fidélité ───────────────────────────────────
+    try:
+        supabase_admin.table("loyalty_points").insert(
+            {
+                "profile_id": result.user.id,
+                "points": 0,
+                "total_earned": 0,
+                "total_spent": 0,
+                "generated_codes": [],
+            }
+        ).execute()
+    except Exception as e:
+        print(f"Loyalty points init failed: {e}")
+
     # ── Associer les commandes guest ──────────────────────────────────────
     if customer_id:
         try:

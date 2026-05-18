@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { useAuth } from "../lib/auth";
@@ -19,7 +19,6 @@ export default function RegisterPage() {
 	});
 	const [loading, setLoading] = useState(false);
 	const { register } = useAuth();
-	const navigate = useNavigate();
 
 	const [searchParams] = useSearchParams();
 	const [referralCode, setReferralCode] = useState(
@@ -27,6 +26,7 @@ export default function RegisterPage() {
 	);
 	const [referralValid, setReferralValid] = useState(null);
 	const [referralName, setReferralName] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
 
 	// Vérifier le code parrainage au chargement si présent dans l'URL
 	useEffect(() => {
@@ -57,22 +57,17 @@ export default function RegisterPage() {
 			// Enregistrer le parrainage si code valide
 			if (referralCode && referralValid) {
 				try {
-					const res = await api.post("/referral/register", {
+					await api.post("/referral/register", {
 						referral_code: referralCode,
 						email: form.email,
 					});
-					toast.success("Bienvenue chez Baume !", {
-						description: `Code −10% offert par ${referralName} : ${res.data.promo_code}`,
-						duration: 10000,
-					});
 				} catch {
-					toast.success("Bienvenue chez Baume !");
+					// silencieux — ne pas bloquer
 				}
-			} else {
-				toast.success("Bienvenue chez Baume !");
 			}
 
-			navigate("/compte");
+			// Afficher l'écran de confirmation email
+			setEmailSent(true);
 		} catch (err) {
 			toast.error("Inscription impossible", {
 				description: formatApiError(err),
@@ -81,6 +76,82 @@ export default function RegisterPage() {
 			setLoading(false);
 		}
 	};
+
+	
+
+	if (emailSent) {
+		return (
+			<div className="bg-baume-ivory min-h-[70vh]">
+				<div className="baume-container py-16 md:py-24 max-w-[480px] mx-auto text-center">
+					{/* Icône */}
+					<div className="w-16 h-16 rounded-full bg-baume-burgundy/10 flex items-center justify-center mx-auto mb-6">
+						<svg
+							width="32"
+							height="32"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="#6B1E3A"
+							strokeWidth="1.5"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+						>
+							<rect x="2" y="4" width="20" height="16" rx="2" />
+							<path d="M2 7l10 7 10-7" />
+						</svg>
+					</div>
+
+					<p className="text-[12px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold mb-3">
+						Vérifiez votre boîte mail
+					</p>
+					<h1 className="font-editorial text-[36px] md:text-[44px] leading-[1.1] text-baume-charcoal">
+						Un email vous attend
+					</h1>
+					<p className="mt-4 text-[15px] text-baume-charcoal/70 leading-[1.7]">
+						Nous avons envoyé un lien de confirmation à{" "}
+						<span className="font-semibold text-baume-charcoal">
+							{form.email}
+						</span>
+						.
+						<br />
+						Cliquez sur ce lien pour activer votre compte.
+					</p>
+
+					<div className="mt-8 rounded-2xl bg-baume-white border border-baume-border p-6 text-left space-y-3">
+						<p className="text-[13px] font-semibold text-baume-charcoal">
+							Vous ne trouvez pas l'email ?
+						</p>
+						<div className="space-y-2 text-[13px] text-baume-charcoal/65">
+							<div className="flex items-start gap-2">
+								<span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
+								<span>Vérifiez vos spams ou courriers indésirables</span>
+							</div>
+							<div className="flex items-start gap-2">
+								<span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
+								<span>L'email peut prendre quelques minutes à arriver</span>
+							</div>
+							<div className="flex items-start gap-2">
+								<span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
+								<span>
+									Vérifiez que l'adresse <strong>{form.email}</strong> est
+									correcte
+								</span>
+							</div>
+						</div>
+					</div>
+
+					<p className="mt-6 text-[13px] text-baume-charcoal/55">
+						Mauvaise adresse ?{" "}
+						<button
+							onClick={() => setEmailSent(false)}
+							className="baume-link font-semibold"
+						>
+							Recommencer
+						</button>
+					</p>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div data-testid="register-page" className="bg-baume-ivory min-h-[70vh]">
