@@ -94,6 +94,43 @@ async def register(payload: RegisterRequest):
         }
     ).execute()
 
+    # ── Associer les commandes guest existantes ───────────────────────────
+    try:
+        # Créer le customer
+        existing_customer = (
+            supabase.table("customers")
+            .select("*")
+            .eq("profile_id", result.user.id)
+            .limit(1)
+            .execute()
+        )
+
+        if not existing_customer.data:
+            customer = (
+                supabase.table("customers")
+                .insert(
+                    {
+                        "profile_id": result.user.id,
+                        "email": result.user.email,
+                        "first_name": payload.first_name,
+                        "last_name": payload.last_name,
+                    }
+                )
+                .execute()
+                .data[0]
+            )
+        else:
+            customer = existing_customer.data[0]
+
+        # Chercher les commandes passées avec cet email sans customer_id
+        supabase.table("orders").update({"customer_id": customer["id"]}).eq(
+            "email", result.user.email
+        ).is_("customer_id", "null").execute()
+
+    except Exception as e:
+        # Ne pas bloquer l'inscription si l'association échoue
+        pass
+
     return {
         "user": {
             "id": result.user.id,
