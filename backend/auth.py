@@ -89,23 +89,25 @@ async def register(payload: RegisterRequest):
     if not result.user:
         raise HTTPException(status_code=400, detail="Inscription impossible")
 
-    # ← utiliser supabase_admin pour bypasser RLS
-    supabase_admin.table("profiles").upsert(
-        {
-            "id": result.user.id,
-            "email": result.user.email,
-            "first_name": payload.first_name,
-            "last_name": payload.last_name,
-            "role": "customer",
-        }
-    ).execute()
+    user_id = result.user.id
 
-    # ── Créer le customer ─────────────────────────────────────────────────
     try:
+        # ── Profil ────────────────────────────────────────────────────────
+        supabase_admin.table("profiles").upsert(
+            {
+                "id": user_id,
+                "email": result.user.email,
+                "first_name": payload.first_name,
+                "last_name": payload.last_name,
+                "role": "customer",
+            }
+        ).execute()
+
+        # ── Customer ──────────────────────────────────────────────────────
         existing_customer = (
             supabase_admin.table("customers")
             .select("id")
-            .eq("profile_id", result.user.id)
+            .eq("profile_id", user_id)
             .limit(1)
             .execute()
         )
@@ -115,7 +117,7 @@ async def register(payload: RegisterRequest):
                 supabase_admin.table("customers")
                 .insert(
                     {
-                        "profile_id": result.user.id,
+                        "profile_id": user_id,
                         "email": result.user.email,
                         "first_name": payload.first_name,
                         "last_name": payload.last_name,
@@ -126,23 +128,33 @@ async def register(payload: RegisterRequest):
             customer_id = customer_result.data[0]["id"]
         else:
             customer_id = existing_customer.data[0]["id"]
-    except Exception as e:
-        print(f"Customer creation failed: {e}")
-        customer_id = None
 
-    # ── Initialiser les points fidélité ───────────────────────────────────
-    try:
+        # ── Loyalty points ────────────────────────────────────────────────
         supabase_admin.table("loyalty_points").insert(
             {
-                "profile_id": result.user.id,
+                "profile_id": user_id,
                 "points": 0,
                 "total_earned": 0,
                 "total_spent": 0,
                 "generated_codes": [],
             }
         ).execute()
+
     except Exception as e:
-        print(f"Loyalty points init failed: {e}")
+        print(f"Register setup failed: {e} — rollback")
+        # Supprimer le profil et le user Supabase Auth pour éviter les données orphelines
+        try:
+            supabase_admin.table("profiles").delete().eq("id", user_id).execute()
+        except:
+            pass
+        try:
+            supabase_admin.auth.admin.delete_user(user_id)
+        except:
+            pass
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur lors de la création du compte. Veuillez réessayer.",
+        )
 
     # ── Associer les commandes guest ──────────────────────────────────────
     if customer_id:
@@ -154,7 +166,6 @@ async def register(payload: RegisterRequest):
                 .is_("customer_id", "null")
                 .execute()
             )
-
             for order in guest_orders.data or []:
                 try:
                     supabase_admin.table("orders").update(
@@ -163,13 +174,12 @@ async def register(payload: RegisterRequest):
                 except Exception as e:
                     print(f"Order association failed for {order['id']}: {e}")
                     continue
-
         except Exception as e:
             print(f"Guest orders lookup failed: {e}")
 
     return {
         "user": {
-            "id": result.user.id,
+            "id": user_id,
             "email": result.user.email,
             "first_name": payload.first_name,
             "last_name": payload.last_name,

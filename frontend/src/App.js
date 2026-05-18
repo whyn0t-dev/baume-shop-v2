@@ -39,6 +39,7 @@ import QuizResultsPage from "./pages/QuizResultsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
 
 import AdminScannerPage from "./pages/AdminScannerPage";
+import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -148,6 +149,7 @@ function AppShell() {
               </AdminRoute>
             }
           />
+          <Route path="/confirmation-email" element={<EmailConfirmationPage />} />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>
