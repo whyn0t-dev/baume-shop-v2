@@ -5,8 +5,13 @@ import os
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
+SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
+# Client anon pour l'auth Supabase
 supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+# Client service role pour les opérations DB (bypass RLS)
+supabase_admin = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -84,7 +89,8 @@ async def register(payload: RegisterRequest):
     if not result.user:
         raise HTTPException(status_code=400, detail="Inscription impossible")
 
-    supabase.table("profiles").upsert(
+    # ← utiliser supabase_admin pour bypasser RLS
+    supabase_admin.table("profiles").upsert(
         {
             "id": result.user.id,
             "email": result.user.email,
@@ -97,7 +103,7 @@ async def register(payload: RegisterRequest):
     # ── Créer le customer ─────────────────────────────────────────────────
     try:
         existing_customer = (
-            supabase.table("customers")
+            supabase_admin.table("customers")
             .select("id")
             .eq("profile_id", result.user.id)
             .limit(1)
@@ -106,7 +112,7 @@ async def register(payload: RegisterRequest):
 
         if not existing_customer.data:
             customer_result = (
-                supabase.table("customers")
+                supabase_admin.table("customers")
                 .insert(
                     {
                         "profile_id": result.user.id,
@@ -124,24 +130,22 @@ async def register(payload: RegisterRequest):
         print(f"Customer creation failed: {e}")
         customer_id = None
 
-    # ── Associer les commandes guest — séparé pour ne pas bloquer ────────
+    # ── Associer les commandes guest ──────────────────────────────────────
     if customer_id:
         try:
-            # Récupérer les commandes guest sans customer_id
             guest_orders = (
-                supabase.table("orders")
+                supabase_admin.table("orders")
                 .select("id")
                 .eq("email", result.user.email)
                 .is_("customer_id", "null")
                 .execute()
             )
 
-            # Mettre à jour une par une pour éviter la récursion de stack
             for order in guest_orders.data or []:
                 try:
-                    supabase.table("orders").update({"customer_id": customer_id}).eq(
-                        "id", order["id"]
-                    ).execute()
+                    supabase_admin.table("orders").update(
+                        {"customer_id": customer_id}
+                    ).eq("id", order["id"]).execute()
                 except Exception as e:
                     print(f"Order association failed for {order['id']}: {e}")
                     continue
@@ -158,6 +162,7 @@ async def register(payload: RegisterRequest):
             "role": "customer",
         }
     }
+
 
 def extract_token(request: Request):
     auth = request.headers.get("Authorization")
