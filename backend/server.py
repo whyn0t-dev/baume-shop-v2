@@ -221,8 +221,11 @@ class CheckoutItem(BaseModel):
     product_id: str
     name: str
     quantity: int
+    variant_id: Optional[str] = None  # ← ajouter
     size: Optional[str] = None
     color: Optional[str] = None
+    price: Optional[float] = None  # ← ajouter pour prix variante
+    sku: Optional[str] = None
 
 
 class CheckoutRequest(BaseModel):
@@ -1076,7 +1079,34 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
     if country not in {"CH"} | EU_COUNTRIES:
         raise HTTPException(status_code=400, detail="Pays non desservi")
 
-    priced = await _price_cart(payload.items, country, payload.discount_code)
+    # ── Pricer le panier ──────────────────────────────────────────────────
+    priced = await _price_cart([item.model_dump() for item in payload.items])
+
+    # ── Calcul livraison ──────────────────────────────────────────────────
+    shipping_rules = SHIPPING_RULES.get(country, SHIPPING_RULES["default"])
+    shipping = (
+        0.0
+        if priced["subtotal"] >= shipping_rules["threshold"]
+        else shipping_rules["fee"]
+    )
+
+    # ── Calcul réduction ──────────────────────────────────────────────────
+    discount_amount = 0.0
+    discount_code = None
+    if payload.discount_code:
+        discount = await sb_select_one(
+            "discounts", "code", payload.discount_code.upper()
+        )
+        if discount and discount.get("active"):
+            if discount["type"] == "percentage":
+                discount_amount = round(
+                    priced["subtotal"] * float(discount["value"]) / 100, 2
+                )
+            else:
+                discount_amount = float(discount["value"])
+            discount_code = payload.discount_code.upper()
+
+    total = round(priced["subtotal"] - discount_amount + shipping, 2)
 
     origin = payload.origin_url.rstrip("/")
     success_url = f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
@@ -1087,29 +1117,30 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
     metadata = {
         "source": "baume_checkout",
         "country": country,
-        "email": email,
+        "email": email or "",
         "user_id": user_id or "",
         "items_count": str(sum(i.quantity for i in payload.items)),
-        "discount_code": priced["discount_code"] or "",
-        "discount_amount": str(priced["discount_amount"]),
+        "discount_code": discount_code or "",
+        "discount_amount": str(discount_amount),
     }
-    # ── Coupon Stripe pour la réduction ──────────────────────────────────
+
+    # ── Coupon Stripe ─────────────────────────────────────────────────────
     stripe_coupon_id = None
-    if priced["discount_amount"] > 0 and priced["discount_code"]:
+    if discount_amount > 0 and discount_code:
         try:
             coupon = await asyncio.to_thread(
                 stripe.Coupon.create,
-                amount_off=int(round(priced["discount_amount"] * 100)),
+                amount_off=int(round(discount_amount * 100)),
                 currency="chf",
                 duration="once",
-                name=f"Réduction ({priced['discount_code']})",
+                name=f"Réduction ({discount_code})",
                 max_redemptions=1,
             )
             stripe_coupon_id = coupon.id
         except Exception as e:
             logger.warning(f"Coupon Stripe création échouée: {e}")
 
-    # ── Line items (sans montant négatif) ─────────────────────────────────
+    # ── Line items Stripe ─────────────────────────────────────────────────
     stripe_line_items = [
         {
             "price_data": {
@@ -1122,22 +1153,22 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
             },
             "quantity": item["quantity"],
         }
-        for item in priced["line_items"]
+        for item in priced["items"]
     ]
 
-    if priced["shipping"] > 0:
+    if shipping > 0:
         stripe_line_items.append(
             {
                 "price_data": {
                     "currency": "chf",
                     "product_data": {"name": "Livraison"},
-                    "unit_amount": int(round(priced["shipping"] * 100)),
+                    "unit_amount": int(round(shipping * 100)),
                 },
                 "quantity": 1,
             }
         )
 
-    # ── Paramètres session ────────────────────────────────────────────────
+    # ── Créer session Stripe ──────────────────────────────────────────────
     session_params = dict(
         mode="payment",
         payment_method_types=["card"],
@@ -1146,7 +1177,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         cancel_url=cancel_url,
         metadata=metadata,
         line_items=stripe_line_items,
-        expires_at=int(time.time()) + (30 * 60),  # ← expire dans 30 minutes
+        expires_at=int(time.time()) + (30 * 60),
     )
 
     if stripe_coupon_id:
@@ -1157,19 +1188,20 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
         **session_params,
     )
 
+    # ── Sauvegarder la transaction ────────────────────────────────────────
     tx = {
         "id": str(uuid.uuid4()),
         "session_id": session.id,
-        "amount": priced["total"],
+        "amount": total,
         "subtotal": priced["subtotal"],
-        "shipping": priced["shipping"],
-        "discount_code": priced["discount_code"],
-        "discount_amount": priced["discount_amount"],
+        "shipping": shipping,
+        "discount_code": discount_code,
+        "discount_amount": discount_amount,
         "currency": "chf",
         "email": email,
         "user_id": user_id,
         "country": country,
-        "items": priced["line_items"],
+        "items": priced["items"],
         "shipping_address": payload.shipping_address or {},
         "status": "initiated",
         "payment_status": "pending",
@@ -1183,7 +1215,7 @@ async def create_checkout(payload: CheckoutRequest, http_request: Request):
     return {
         "url": session.url,
         "session_id": session.id,
-        "total": priced["total"],
+        "total": total,
     }
 
 
@@ -1321,15 +1353,15 @@ async def _ensure_order_from_tx(session_id: str):
             {
                 "order_id": order["id"],
                 "product_id": item.get("product_id"),
+                "variant_id": item.get("variant_id"),  # ← ajouter
                 "product_title": item.get("name"),
                 "variant_title": " · ".join(
                     filter(None, [item.get("size"), item.get("color")])
-                )
-                or None,
+                ) or None,
                 "sku": item.get("sku"),
                 "quantity": item.get("quantity", 1),
                 "unit_price": item.get("unit_price", 0),
-                "total_price": item.get("subtotal", 0),
+                "total_price": item.get("total_price", item.get("unit_price", 0) * item.get("quantity", 1)),
             }
             for item in line_items
         ]

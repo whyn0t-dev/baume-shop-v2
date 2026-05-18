@@ -85,11 +85,12 @@ export default function ProductCard({ product, onQuickAdd }) {
 							)}
 						</div>
 
-						{product.stock && (
-							<span className="text-[11px] text-baume-charcoal/50">
-								Stock {product.stock}
-							</span>
-						)}
+						{product.variants?.[0]?.stock <= 5 &&
+							product.variants?.[0]?.stock > 0 && (
+								<span className="text-[11px] text-amber-600 font-medium">
+									Plus que {product.variants[0].stock} en stock
+								</span>
+							)}
 					</div>
 					{onQuickAdd && (
 						<button

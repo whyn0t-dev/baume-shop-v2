@@ -10,6 +10,7 @@ import {
 	getReviews,
 	getProductImages,
 	submitReview,
+	api,
 } from "../lib/api";
 import { useCart } from "../lib/cart";
 import {
@@ -720,23 +721,42 @@ export default function ProductPage() {
 		window.scrollTo({ top: 0, behavior: "instant" });
 
 		getProduct(slug).then(async (p) => {
-			const productImages = await getProductImages(p.id).catch(() => []);
+			const [productImages, variantsRes] = await Promise.all([
+				getProductImages(p.id).catch(() => []),
+				api.get(`/products/${p.id}/variants`).catch(() => ({ data: [] })),
+			]);
 
-			setProduct({ ...p, images: productImages });
-			setSize(null);
+			const variants = variantsRes.data || [];
+
+			setProduct({ ...p, images: productImages, variants });
+			setSize(p.sizes?.[0] || null);
 			setColor(p.colors?.[0] || null);
 			setQty(1);
 
 			if (p.product_category) {
-				getProducts({ category: p.product_category, limit: 8 }).then((list) =>
-					setRelated(list.filter((x) => x.id !== p.id).slice(0, 4)),
+				getProducts({ category: p.product_category, limit: 8 }).then(
+					async (list) => {
+						const filtered = list.filter((x) => x.id !== p.id).slice(0, 4);
+
+						// Charger les variantes pour chaque produit associé
+						const withVariants = await Promise.all(
+							filtered.map(async (prod) => {
+								const varRes = await api
+									.get(`/products/${prod.id}/variants`)
+									.catch(() => ({ data: [] }));
+								return { ...prod, variants: varRes.data || [] };
+							}),
+						);
+
+						setRelated(withVariants);
+					},
 				);
 			}
 
 			getReviews(p.id)
 				.then((r) => {
 					setReviews(r);
-					setAllReviews(r); // pour l'instant identique, peut être remplacé par une API globale
+					setAllReviews(r);
 				})
 				.catch(() => {
 					setReviews([]);
@@ -744,6 +764,26 @@ export default function ProductPage() {
 				});
 		});
 	}, [slug]);
+
+	const selectedVariant = useMemo(() => {
+		if (!product?.variants?.length) return null;
+
+		const match = product.variants.find((v) => {
+			const values = [v.option1, v.option2, v.option3].filter(Boolean);
+			const wantSize = !size || values.includes(size);
+			const wantColor = !color || values.includes(color);
+			return wantSize && wantColor;
+		});
+
+		return (
+			match || product.variants.find((v) => v.available) || product.variants[0]
+		);
+	}, [product, size, color]);
+
+	const displayPrice = selectedVariant?.price ?? product?.price ?? 0;
+	const isAvailable = selectedVariant
+		? selectedVariant.available && selectedVariant.stock > 0
+		: (product?.available ?? false);
 
 	const crumbs = useMemo(() => {
 		if (!product) return [];
@@ -795,7 +835,20 @@ export default function ProductPage() {
 			});
 			return;
 		}
-		addItem(product, { size, color, quantity: qty });
+		if (product.colors?.length > 0 && !color) {
+			toast.error("Choisissez une couleur", {
+				description: "Merci de sélectionner une couleur avant d'ajouter.",
+			});
+			return;
+		}
+
+		addItem(product, {
+			size,
+			color,
+			quantity: qty,
+			variant_id: selectedVariant?.id,
+			price: selectedVariant?.price, 
+		});
 		toast.success("Ajouté à votre routine", { description: product.name });
 	};
 
@@ -834,7 +887,7 @@ export default function ProductPage() {
 											Best-seller
 										</span>
 									)}
-									{product.available ? (
+									{isAvailable ? (
 										<span className="inline-block text-[11px] font-semibold uppercase tracking-wider bg-baume-ivory text-baume-charcoal px-3 py-1 rounded-full border border-baume-border">
 											Disponible
 										</span>
@@ -877,7 +930,7 @@ export default function ProductPage() {
 										data-testid="product-price"
 										className="font-editorial text-[36px] leading-none text-baume-charcoal"
 									>
-										{product.price.toFixed(2)} CHF
+										{displayPrice.toFixed(2)} CHF
 									</span>
 									{product.compare_price && (
 										<span className="text-[16px] text-baume-charcoal/40 line-through">
@@ -957,6 +1010,20 @@ export default function ProductPage() {
 									</div>
 								)}
 
+								{/* ← AJOUTER ICI */}
+								{selectedVariant &&
+									selectedVariant.stock > 0 &&
+									selectedVariant.stock <= 5 && (
+										<p className="text-[12px] text-amber-600 font-medium mt-2">
+											⚠️ Plus que {selectedVariant.stock} en stock
+										</p>
+									)}
+								{selectedVariant && !isAvailable && (
+									<p className="text-[12px] text-red-500 font-medium mt-2">
+										Cette combinaison est en rupture de stock.
+									</p>
+								)}
+
 								<div className="mt-8 flex items-stretch gap-3">
 									<div className="inline-flex items-center rounded-full border border-baume-border bg-baume-white">
 										<button
@@ -984,12 +1051,10 @@ export default function ProductPage() {
 									<button
 										data-testid="add-to-cart-button"
 										onClick={handleAdd}
-										disabled={!product.available}
+										disabled={!isAvailable}
 										className="flex-1 h-12 px-6 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 									>
-										{product.available
-											? "Ajouter à ma routine"
-											: "Indisponible"}
+										{isAvailable ? "Ajouter à ma routine" : "Indisponible"}
 									</button>
 								</div>
 							</div>
@@ -1293,7 +1358,13 @@ export default function ProductPage() {
 							<ProductCard
 								key={p.id}
 								product={p}
-								onQuickAdd={(prod) => addItem(prod, { quantity: 1 })}
+								onQuickAdd={(prod) => {
+									const firstVariant = prod.variants?.[0];
+									addItem(prod, {
+										quantity: 1,
+										variant_id: firstVariant?.id,
+									});
+								}}
 							/>
 						))}
 					</div>
@@ -1307,16 +1378,16 @@ export default function ProductPage() {
 						{product.name}
 					</p>
 					<p className="text-[16px] font-semibold text-baume-charcoal mt-1">
-						{product.price.toFixed(2)} CHF
+						{displayPrice.toFixed(2)} CHF
 					</p>
 				</div>
 				<button
 					onClick={handleAdd}
 					data-testid="sticky-add-to-cart-mobile"
-					disabled={!product.available}
+					disabled={!isAvailable}
 					className="flex-1 h-12 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[14px] disabled:opacity-50"
 				>
-					{product.available ? "Ajouter" : "Indisponible"}
+					{isAvailable ? "Ajouter" : "Indisponible"}
 				</button>
 			</div>
 		</div>

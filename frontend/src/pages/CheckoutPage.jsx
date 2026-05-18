@@ -242,6 +242,7 @@ export default function CheckoutPage() {
 			const payload = {
 				items: items.map((i) => ({
 					product_id: i.product_id || i.id,
+					variant_id: i.variant_id || null, // ← ajouter
 					name: i.name,
 					price: Number(i.price || 0),
 					quantity: Number(i.quantity || 1),
