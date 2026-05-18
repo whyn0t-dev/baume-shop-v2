@@ -267,6 +267,9 @@ class ReviewUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=120)
     body: Optional[str] = Field(None, min_length=20, max_length=800)
 
+class OrderStatusUpdate(BaseModel):
+    status: str
+
 
 # ---------- Startup / Seed ----------
 
@@ -2340,6 +2343,48 @@ async def update_order_tracking(
     )
 
     return {"success": True, "carrier": carrier, "tracking_number": tracking_number}
+
+# ── Route ────────────────────────────────────────────────────────────────────
+
+ALLOWED_TRANSITIONS = {
+    "pending":    ["paid", "cancelled"],
+    "paid":       ["processing", "cancelled"],
+    "processing": ["shipped", "cancelled"],
+    "shipped":    ["delivered"],
+    "delivered":  [],
+    "cancelled":  [],
+    "refunded":   [],
+}
+
+@api_router.patch("/ecom/admin/orders/{order_id}/status")
+async def update_order_status(
+    order_id: str,
+    payload: OrderStatusUpdate,
+    profile=Depends(require_admin),
+):
+    order = await sb_select_one("orders", "id", order_id)
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    current_status = order.get("status")
+    new_status = payload.status
+
+    allowed = ALLOWED_TRANSITIONS.get(current_status, [])
+    if new_status not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Transition invalide : {current_status} → {new_status}",
+        )
+
+    await sb_update(
+        "orders",
+        {"status": new_status, "updated_at": now_iso()},
+        "id",
+        order_id,
+    )
+
+    return {"success": True, "order_id": order_id, "status": new_status}
 
 
 # ── Quiz bien-être ─────────────────────────────────────────────────────────

@@ -11,6 +11,10 @@ import {
 	ArrowRight,
 	Loader2,
 	ExternalLink,
+	ShieldCheck,
+	ChevronRight,
+	Lock,
+	AlertTriangle,
 } from "lucide-react";
 import { api } from "../lib/api";
 
@@ -68,6 +72,23 @@ const TIMELINE_STEPS = [
 ];
 
 const STATUS_ORDER = ["paid", "processing", "shipped", "delivered"];
+
+// Labels lisibles pour chaque statut
+const STATUS_LABELS = {
+	paid: "Commande confirmée",
+	processing: "En préparation",
+	shipped: "Expédiée",
+	delivered: "Livrée",
+	cancelled: "Annulée",
+	refunded: "Remboursée",
+};
+
+// Libellé de l'action pour passer à l'étape suivante
+const NEXT_STEP_ACTION = {
+	paid: "Passer en préparation",
+	processing: "Marquer comme expédiée",
+	shipped: "Marquer comme livrée",
+};
 
 function getStepIndex(status) {
 	const idx = STATUS_ORDER.indexOf(status);
@@ -157,12 +178,215 @@ function Timeline({ status }) {
 	);
 }
 
+// ── Composant Section Admin ──────────────────────────────────────────────────
+function AdminStatusPanel({ order, onStatusUpdate }) {
+	const [updating, setUpdating] = useState(false);
+	const [confirmStep, setConfirmStep] = useState(null); // null | "next" | "cancel"
+	const [error, setError] = useState(null);
+
+	const currentStatus = order.status;
+	const currentIndex = getStepIndex(currentStatus);
+	const isFinalStatus =
+		currentStatus === "delivered" ||
+		currentStatus === "cancelled" ||
+		currentStatus === "refunded";
+
+	const nextStatus = STATUS_ORDER[currentIndex + 1] || null;
+	const canAdvance = !isFinalStatus && nextStatus !== null;
+	const canCancel =
+		!isFinalStatus &&
+		currentStatus !== "cancelled" &&
+		currentStatus !== "refunded";
+
+	const handleConfirm = async () => {
+		if (!confirmStep) return;
+		setUpdating(true);
+		setError(null);
+		try {
+			const newStatus = confirmStep === "next" ? nextStatus : "cancelled";
+			await api.patch(`/ecom/admin/orders/${order.id}/status`, {
+				status: newStatus,
+			});
+			onStatusUpdate(newStatus);
+		} catch (e) {
+			setError("Une erreur est survenue. Veuillez réessayer.");
+		} finally {
+			setUpdating(false);
+			setConfirmStep(null);
+		}
+	};
+
+	return (
+		<div className="rounded-2xl border-2 border-dashed border-baume-burgundy/30 bg-baume-white overflow-hidden">
+			{/* En-tête */}
+			<div className="flex items-center gap-3 px-5 py-4 bg-baume-burgundy/5 border-b border-baume-burgundy/15">
+				<ShieldCheck className="h-4 w-4 text-baume-burgundy shrink-0" />
+				<p className="text-[13px] font-semibold text-baume-burgundy tracking-wide uppercase">
+					Panneau administrateur
+				</p>
+			</div>
+
+			<div className="p-5 space-y-4">
+				{/* Statut actuel */}
+				<div className="flex items-center justify-between">
+					<span className="text-[13px] text-baume-charcoal/60">
+						Statut actuel
+					</span>
+					<span
+						className={`text-[12px] font-semibold px-3 py-1 rounded-full ${
+							isFinalStatus && currentStatus === "delivered"
+								? "bg-emerald-100 text-emerald-700"
+								: isFinalStatus
+									? "bg-red-100 text-red-700"
+									: "bg-baume-burgundy/10 text-baume-burgundy"
+						}`}
+					>
+						{STATUS_LABELS[currentStatus] || currentStatus}
+					</span>
+				</div>
+
+				{/* Progression visuelle */}
+				{!["cancelled", "refunded"].includes(currentStatus) && (
+					<div className="flex items-center gap-1">
+						{STATUS_ORDER.map((s, i) => (
+							<React.Fragment key={s}>
+								<div
+									className={`flex-1 h-1.5 rounded-full transition-all ${
+										i <= currentIndex ? "bg-baume-burgundy" : "bg-baume-border"
+									}`}
+								/>
+								{i < STATUS_ORDER.length - 1 && (
+									<div className="w-1 h-1 rounded-full bg-baume-border shrink-0" />
+								)}
+							</React.Fragment>
+						))}
+					</div>
+				)}
+
+				{/* Zone de confirmation */}
+				{confirmStep && (
+					<div
+						className={`rounded-xl p-4 border ${
+							confirmStep === "cancel"
+								? "bg-red-50 border-red-200"
+								: "bg-amber-50 border-amber-200"
+						}`}
+					>
+						<div className="flex items-start gap-3">
+							<AlertTriangle
+								className={`h-4 w-4 mt-0.5 shrink-0 ${
+									confirmStep === "cancel" ? "text-red-500" : "text-amber-600"
+								}`}
+							/>
+							<div className="flex-1">
+								<p
+									className={`text-[13px] font-semibold ${
+										confirmStep === "cancel" ? "text-red-700" : "text-amber-800"
+									}`}
+								>
+									{confirmStep === "cancel"
+										? "Confirmer l'annulation ?"
+										: `Passer au statut "${STATUS_LABELS[nextStatus]}" ?`}
+								</p>
+								<p
+									className={`text-[12px] mt-0.5 ${
+										confirmStep === "cancel" ? "text-red-600" : "text-amber-700"
+									}`}
+								>
+									{confirmStep === "cancel"
+										? "Cette action est irréversible."
+										: "Vous ne pourrez pas revenir en arrière."}
+								</p>
+								<div className="flex gap-2 mt-3">
+									<button
+										onClick={handleConfirm}
+										disabled={updating}
+										className={`h-8 px-4 rounded-full text-[12px] font-semibold text-white inline-flex items-center gap-1.5 transition-colors disabled:opacity-60 ${
+											confirmStep === "cancel"
+												? "bg-red-500 hover:bg-red-600"
+												: "bg-baume-burgundy hover:bg-baume-burgundyDark"
+										}`}
+									>
+										{updating ? (
+											<Loader2 className="h-3 w-3 animate-spin" />
+										) : null}
+										Confirmer
+									</button>
+									<button
+										onClick={() => setConfirmStep(null)}
+										disabled={updating}
+										className="h-8 px-4 rounded-full text-[12px] font-semibold text-baume-charcoal border border-baume-border hover:border-baume-burgundy transition-colors disabled:opacity-60"
+									>
+										Annuler
+									</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Message d'erreur */}
+				{error && (
+					<p className="text-[12px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+						{error}
+					</p>
+				)}
+
+				{/* Actions */}
+				{!confirmStep && (
+					<div className="space-y-2">
+						{isFinalStatus ? (
+							/* État terminal : commande verrouillée */
+							<div className="flex items-center gap-2.5 text-[13px] text-baume-charcoal/50 bg-baume-ivory rounded-xl px-4 py-3">
+								<Lock className="h-4 w-4 shrink-0" />
+								<span>
+									{currentStatus === "delivered"
+										? "Commande terminée — aucune modification possible."
+										: "Commande clôturée — aucune modification possible."}
+								</span>
+							</div>
+						) : (
+							<>
+								{/* Bouton avancer */}
+								{canAdvance && (
+									<button
+										onClick={() => setConfirmStep("next")}
+										className="w-full h-10 rounded-full bg-baume-burgundy text-white text-[13px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-baume-burgundyDark transition-colors"
+									>
+										{NEXT_STEP_ACTION[currentStatus]}
+										<ChevronRight className="h-4 w-4" />
+									</button>
+								)}
+
+								{/* Bouton annuler */}
+								{canCancel && (
+									<button
+										onClick={() => setConfirmStep("cancel")}
+										className="w-full h-10 rounded-full border border-red-200 text-red-500 text-[13px] font-semibold inline-flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
+									>
+										<XCircle className="h-4 w-4" />
+										Annuler la commande
+									</button>
+								)}
+							</>
+						)}
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}
+
 // ── Composant principal ──────────────────────────────────────────────────────
 export default function OrderTrackingPage() {
 	const { orderId } = useParams();
 	const [order, setOrder] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
+
+	// Avec un hook useAuth ou useProfile selon ce que vous avez
+	const { profile } = useAuth();
+	const isAdmin = profile?.role === "admin";
 
 	useEffect(() => {
 		if (!orderId) return;
@@ -173,6 +397,10 @@ export default function OrderTrackingPage() {
 			.catch(() => setError("Commande introuvable"))
 			.finally(() => setLoading(false));
 	}, [orderId]);
+
+	const handleStatusUpdate = (newStatus) => {
+		setOrder((prev) => ({ ...prev, status: newStatus }));
+	};
 
 	if (loading) {
 		return (
@@ -343,6 +571,14 @@ export default function OrderTrackingPage() {
 
 					{/* Colonne droite */}
 					<div className="space-y-4">
+						{/* ── SECTION ADMIN ── */}
+						{isAdmin && (
+							<AdminStatusPanel
+								order={order}
+								onStatusUpdate={handleStatusUpdate}
+							/>
+						)}
+
 						{/* Adresse */}
 						{Object.keys(shippingAddress).length > 0 && (
 							<div className="rounded-2xl border border-baume-border bg-baume-white p-5">
