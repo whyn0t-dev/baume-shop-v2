@@ -1241,20 +1241,6 @@ async def _decrease_stock_for_order(order: dict):
             logger.warning(f"Product {product_id} not found during stock decrement.")
             continue
 
-        current_stock = int(product.get("stock", 0))
-        new_stock = max(current_stock - quantity, 0)
-
-        await sb_update(
-            "products",
-            {
-                "stock": new_stock,
-                "available": new_stock > 0,
-                "updated_at": now_iso(),
-            },
-            "id",
-            product_id,
-        )
-
         # Shopify-like inventory tables are variant-based.
         # If no variant_id exists yet, we update products.stock only.
         variant_id = item.get("variant_id")
@@ -1354,7 +1340,7 @@ async def _ensure_order_from_tx(session_id: str):
                 "order_id": order["id"],
                 "product_id": item.get("product_id"),
                 "variant_id": item.get("variant_id"),  # ← ajouter
-                "product_title": item.get("name"),
+                "product_title": item.get("product_title") or item.get("name"),
                 "variant_title": " · ".join(
                     filter(None, [item.get("size"), item.get("color")])
                 ) or None,
