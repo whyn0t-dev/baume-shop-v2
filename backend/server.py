@@ -267,6 +267,7 @@ class ReviewUpdateRequest(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=120)
     body: Optional[str] = Field(None, min_length=20, max_length=800)
 
+
 class OrderStatusUpdate(BaseModel):
     status: str
 
@@ -2344,17 +2345,19 @@ async def update_order_tracking(
 
     return {"success": True, "carrier": carrier, "tracking_number": tracking_number}
 
+
 # ── Route ────────────────────────────────────────────────────────────────────
 
 ALLOWED_TRANSITIONS = {
-    "pending":    ["paid", "cancelled"],
-    "paid":       ["processing", "cancelled"],
+    "pending": ["paid", "cancelled"],
+    "paid": ["processing", "cancelled"],
     "processing": ["shipped", "cancelled"],
-    "shipped":    ["delivered"],
-    "delivered":  [],
-    "cancelled":  [],
-    "refunded":   [],
+    "shipped": ["delivered"],
+    "delivered": [],
+    "cancelled": [],
+    "refunded": [],
 }
+
 
 @api_router.patch("/ecom/admin/orders/{order_id}/status")
 async def update_order_status(
@@ -2383,6 +2386,24 @@ async def update_order_status(
         "id",
         order_id,
     )
+
+    # ── Déclencher l'email de statut ─────────────────────────────────────
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{SUPABASE_URL}/functions/v1/send-order-status-email",
+                json={
+                    "order_id": order_id,
+                    "new_status": new_status,
+                },
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=10,
+            )
+    except Exception as e:
+        logger.error(f"send-order-status-email failed: {e}")
 
     return {"success": True, "order_id": order_id, "status": new_status}
 

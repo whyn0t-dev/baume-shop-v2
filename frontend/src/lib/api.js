@@ -134,16 +134,6 @@ export const getAdminTable = (table, limit = 200) =>
 export const deleteAdminItem = (table, id) =>
   api.delete(`/ecom/admin/${table}/${id}`).then((r) => r.data);
 
-export function formatApiError(err) {
-  const d = err?.response?.data?.detail;
-  if (d == null) return err?.message || "Une erreur est survenue.";
-  if (typeof d === "string") return d;
-  if (Array.isArray(d))
-    return d.map((e) => (e && typeof e.msg === "string" ? e.msg : JSON.stringify(e))).join(" · ");
-  if (d && typeof d.msg === "string") return d.msg;
-  return String(d);
-}
-
 async function callOrderFunction(name, payload) {
   const token = localStorage.getItem("access_token");
 
@@ -258,3 +248,48 @@ export const uploadReviewImages = (reviewId, files) => {
 
 export const getDiscount = (code) =>
   api.get(`/discounts/${code}`).then((r) => r.data);
+
+// Dans lib/api.js — remplacer la fonction existante
+
+const AUTH_ERRORS = {
+  "Invalid login credentials": "Email ou mot de passe incorrect.",
+  "Email not confirmed": "Votre email n'a pas encore été confirmé. Vérifiez votre boîte mail.",
+  "User already registered": "Un compte existe déjà avec cet email.",
+  "Password should be at least 6 characters": "Le mot de passe doit contenir au moins 6 caractères.",
+  "Email rate limit exceeded": "Trop de tentatives. Veuillez patienter avant de réessayer.",
+  "User not found": "Aucun compte associé à cet email.",
+  "Token has expired or is invalid": "Le lien a expiré. Veuillez en demander un nouveau.",
+  "New password should be different from the old password": "Le nouveau mot de passe doit être différent de l'ancien.",
+  "signup_disabled": "Les inscriptions sont temporairement désactivées.",
+  "Network Error": "Impossible de contacter le serveur. Vérifiez votre connexion.",
+};
+
+export function formatApiError(err) {
+  // 1. Erreur réseau pure (pas de réponse)
+  if (!err?.response) {
+    return AUTH_ERRORS["Network Error"] ?? err?.message ?? "Une erreur est survenue.";
+  }
+
+  const data = err.response.data;
+
+  // 2. Erreur FastAPI standard { detail: "..." }
+  const detail = data?.detail;
+  if (detail != null) {
+    if (typeof detail === "string") return AUTH_ERRORS[detail] ?? detail;
+    if (Array.isArray(detail))
+      return detail.map((e) => e?.msg ?? JSON.stringify(e)).join(" · ");
+    if (typeof detail?.msg === "string") return detail.msg;
+    return String(detail);
+  }
+
+  // 3. Erreur GoTrue/Supabase { error_description: "..." } ou { msg: "..." }
+  const gtrueMsg =
+    data?.error_description ||
+    data?.msg ||
+    data?.message ||
+    data?.error;
+
+  if (gtrueMsg) return AUTH_ERRORS[gtrueMsg] ?? gtrueMsg;
+
+  return err?.message ?? "Une erreur est survenue.";
+}
