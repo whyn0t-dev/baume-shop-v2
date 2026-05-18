@@ -25,16 +25,25 @@ class RegisterRequest(BaseModel):
 
 @auth_router.post("/login")
 async def login(payload: LoginRequest):
-    result = supabase.auth.sign_in_with_password(
-        {
-            "email": payload.email,
-            "password": payload.password,
-        }
-    )
-
-    if not result.user or not result.session:
+    try:
+        result = supabase.auth.sign_in_with_password(
+            {
+                "email": payload.email,
+                "password": payload.password,
+            }
+        )
+    except Exception as e:
+        msg = str(e)
+        if "Invalid login credentials" in msg:
+            raise HTTPException(status_code=401, detail="Invalid login credentials")
+        if "Email not confirmed" in msg:
+            raise HTTPException(status_code=401, detail="Email not confirmed")
+        if "rate limit" in msg.lower():
+            raise HTTPException(status_code=429, detail="Email rate limit exceeded")
         raise HTTPException(status_code=401, detail="Identifiants invalides")
 
+    if not result.user or not result.session:
+        raise HTTPException(status_code=401, detail="Invalid login credentials")
     profile_result = (
         supabase.table("profiles")
         .select("*")

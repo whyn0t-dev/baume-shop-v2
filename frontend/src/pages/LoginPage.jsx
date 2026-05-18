@@ -5,7 +5,7 @@ import { Label } from "../components/ui/label";
 import { useAuth } from "../lib/auth";
 import { formatApiError } from "../lib/api";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react"; // ← ajouter Eye, EyeOff
 
 export default function LoginPage() {
 	const [email, setEmail] = useState("");
@@ -33,6 +33,8 @@ export default function LoginPage() {
 			setLoading(false);
 		}
 	};
+
+	const [showPassword, setShowPassword] = useState(false);
 
 	return (
 		<div data-testid="login-page" className="bg-baume-ivory min-h-[70vh]">
@@ -73,15 +75,29 @@ export default function LoginPage() {
 								Oublié ?
 							</Link>
 						</div>
-						<Input
-							id="password"
-							type="password"
-							data-testid="login-password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							required
-							className="mt-1.5 h-12 rounded-lg border-baume-border focus-visible:ring-baume-burgundy"
-						/>
+						<div className="relative mt-1.5">
+							<Input
+								id="password"
+								type={showPassword ? "text" : "password"}
+								data-testid="login-password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								required
+								className="h-12 rounded-lg border-baume-border focus-visible:ring-baume-burgundy pr-12"
+							/>
+							<button
+								type="button"
+								onClick={() => setShowPassword((v) => !v)}
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-baume-charcoal/40 hover:text-baume-charcoal transition-colors"
+								tabIndex={-1}
+							>
+								{showPassword ? (
+									<EyeOff className="h-4 w-4" />
+								) : (
+									<Eye className="h-4 w-4" />
+								)}
+							</button>
+						</div>
 					</div>
 					<div className="flex items-center gap-2">
 						<input
