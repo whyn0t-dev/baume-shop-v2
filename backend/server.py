@@ -1343,11 +1343,14 @@ async def _ensure_order_from_tx(session_id: str):
                 "product_title": item.get("product_title") or item.get("name"),
                 "variant_title": " · ".join(
                     filter(None, [item.get("size"), item.get("color")])
-                ) or None,
+                )
+                or None,
                 "sku": item.get("sku"),
                 "quantity": item.get("quantity", 1),
                 "unit_price": item.get("unit_price", 0),
-                "total_price": item.get("total_price", item.get("unit_price", 0) * item.get("quantity", 1)),
+                "total_price": item.get(
+                    "total_price", item.get("unit_price", 0) * item.get("quantity", 1)
+                ),
             }
             for item in line_items
         ]
@@ -1357,6 +1360,26 @@ async def _ensure_order_from_tx(session_id: str):
             logger.error(f"Order items insert failed: {e}")
 
     order["items"] = line_items
+
+    # ── Enregistrer les pré-commandes ─────────────────────────────────────
+    for item in line_items:
+        product_id = item.get("product_id")
+        if not product_id:
+            continue
+        try:
+            product = await sb_select_one("products", "id", product_id)
+            if product and product.get("preorder"):
+                await sb_insert(
+                    "preorder_notifications",
+                    {
+                        "product_id": product_id,
+                        "order_id": order["id"],
+                        "email": order.get("email", ""),
+                        "notified_at": None,
+                    },
+                )
+        except Exception as e:
+            logger.error(f"Preorder notification insert failed: {e}")
 
     try:
         await _decrease_stock_for_order(order)
@@ -2946,6 +2969,114 @@ async def process_scan(payload: dict, profile=Depends(require_admin)):
         "previous_stock": previous_stock,
         "current_stock": new_stock,
     }
+
+
+# ── Pré-commandes ──────────────────────────────────────────────────────────
+
+
+@api_router.post("/ecom/admin/products/{product_id}/preorder")
+async def set_product_preorder(
+    product_id: str,
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    """Active ou désactive le mode pré-commande sur un produit."""
+    await sb_update(
+        "products",
+        {
+            "preorder": payload.get("preorder", False),
+            "preorder_shipping_date": payload.get("preorder_shipping_date"),
+            "preorder_message": payload.get("preorder_message"),
+            "updated_at": now_iso(),
+        },
+        "id",
+        product_id,
+    )
+    return await sb_select_one("products", "id", product_id)
+
+
+@api_router.post("/ecom/admin/products/{product_id}/preorder/notify")
+async def notify_preorder_customers(
+    product_id: str,
+    profile=Depends(require_admin),
+):
+    """Envoie un email à tous les clients ayant précommandé ce produit."""
+    product = await sb_select_one("products", "id", product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Produit introuvable")
+
+    # Récupérer toutes les notifications non encore envoyées
+    result = await asyncio.to_thread(
+        lambda: supabase.table("preorder_notifications")
+        .select("*")
+        .eq("product_id", product_id)
+        .is_("notified_at", "null")
+        .execute()
+    )
+
+    notifications = result.data or []
+
+    if not notifications:
+        return {"success": True, "notified": 0, "message": "Aucun client à notifier"}
+
+    notified = 0
+    for notif in notifications:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{SUPABASE_URL}/functions/v1/send-preorder-available",
+                    json={
+                        "email": notif["email"],
+                        "product_id": product_id,
+                        "product_name": product.get("name"),
+                        "product_slug": product.get("slug"),
+                        "notification_id": notif["id"],
+                    },
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10,
+                )
+
+            # Marquer comme notifié
+            await sb_update(
+                "preorder_notifications",
+                {"notified_at": now_iso()},
+                "id",
+                notif["id"],
+            )
+            notified += 1
+
+        except Exception as e:
+            logger.error(f"Preorder notification failed for {notif['email']}: {e}")
+            continue
+
+    # Désactiver le mode pré-commande sur le produit
+    await sb_update(
+        "products",
+        {"preorder": False, "updated_at": now_iso()},
+        "id",
+        product_id,
+    )
+
+    return {"success": True, "notified": notified}
+
+
+@api_router.get("/ecom/admin/products/{product_id}/preorder/subscribers")
+async def get_preorder_subscribers(
+    product_id: str,
+    profile=Depends(require_admin),
+):
+    """Liste les clients ayant précommandé ce produit."""
+    result = await asyncio.to_thread(
+        lambda: supabase.table("preorder_notifications")
+        .select("*")
+        .eq("product_id", product_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
 
 
 api_router.include_router(auth_router)

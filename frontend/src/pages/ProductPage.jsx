@@ -847,7 +847,7 @@ export default function ProductPage() {
 			color,
 			quantity: qty,
 			variant_id: selectedVariant?.id,
-			price: selectedVariant?.price, 
+			price: selectedVariant?.price,
 		});
 		toast.success("Ajouté à votre routine", { description: product.name });
 	};
@@ -1024,6 +1024,30 @@ export default function ProductPage() {
 									</p>
 								)}
 
+								{product.preorder && (
+									<div className="mt-6 rounded-2xl bg-baume-burgundy/5 border border-baume-burgundy/20 p-4">
+										<p className="text-[13px] font-semibold text-baume-burgundy mb-1">
+											🕐 Produit en pré-commande
+										</p>
+										<p className="text-[12px] text-baume-charcoal/65 leading-[1.6]">
+											{product.preorder_message ||
+												"Ce produit est disponible en pré-commande. Votre commande sera expédiée dès réception du stock."}
+										</p>
+										{product.preorder_shipping_date && (
+											<p className="text-[12px] text-baume-burgundy font-semibold mt-2">
+												Expédition estimée :{" "}
+												{new Date(
+													product.preorder_shipping_date,
+												).toLocaleDateString("fr-CH", {
+													day: "numeric",
+													month: "long",
+													year: "numeric",
+												})}
+											</p>
+										)}
+									</div>
+								)}
+
 								<div className="mt-8 flex items-stretch gap-3">
 									<div className="inline-flex items-center rounded-full border border-baume-border bg-baume-white">
 										<button
@@ -1051,10 +1075,14 @@ export default function ProductPage() {
 									<button
 										data-testid="add-to-cart-button"
 										onClick={handleAdd}
-										disabled={!isAvailable}
+										disabled={!isAvailable && !product.preorder}
 										className="flex-1 h-12 px-6 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 									>
-										{isAvailable ? "Ajouter à ma routine" : "Indisponible"}
+										{product.preorder
+											? "Pré-commander"
+											: isAvailable
+												? "Ajouter à ma routine"
+												: "Indisponible"}
 									</button>
 								</div>
 							</div>
@@ -1384,10 +1412,14 @@ export default function ProductPage() {
 				<button
 					onClick={handleAdd}
 					data-testid="sticky-add-to-cart-mobile"
-					disabled={!isAvailable}
+					disabled={!isAvailable && !product.preorder}
 					className="flex-1 h-12 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[14px] disabled:opacity-50"
 				>
-					{isAvailable ? "Ajouter" : "Indisponible"}
+					{product.preorder
+						? "Pré-commander"
+						: isAvailable
+							? "Ajouter"
+							: "Indisponible"}
 				</button>
 			</div>
 		</div>

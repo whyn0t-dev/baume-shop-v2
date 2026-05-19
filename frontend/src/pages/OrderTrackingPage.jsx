@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 
+import { useAuth } from "../lib/auth";
+
 // ── Transporteurs ────────────────────────────────────────────────────────────
 const CARRIERS = {
 	laposte: {

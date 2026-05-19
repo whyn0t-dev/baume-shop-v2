@@ -9,6 +9,37 @@ import {
 	getProductBucketImages,
 } from "../lib/api";
 
+function PreorderSubscriberCount({ productId }) {
+	const [count, setCount] = React.useState(null);
+
+	React.useEffect(() => {
+		fetch(
+			`${process.env.REACT_APP_BACKEND_URL}/api/ecom/admin/products/${productId}/preorder/subscribers`,
+			{
+				headers: {
+					Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+				},
+			},
+		)
+			.then((r) => r.json())
+			.then((data) => setCount(Array.isArray(data) ? data.length : 0))
+			.catch(() => setCount(0));
+	}, [productId]);
+
+	if (count === null) return null;
+
+	return (
+		<div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-baume-white border border-baume-border">
+			<span className="text-[13px] text-baume-charcoal/60 font-semibold">
+				Clients ayant précommandé
+			</span>
+			<span className="ml-auto text-[18px] font-editorial text-baume-burgundy">
+				{count}
+			</span>
+		</div>
+	);
+}
+
 export default function AdminProductEdit() {
 	const { productId } = useParams();
 	const navigate = useNavigate();
@@ -60,6 +91,9 @@ export default function AdminProductEdit() {
 				sizes: data.sizes || [],
 				benefits: data.benefits || [],
 				needs: data.needs || [],
+				preorder: data.preorder ?? false,
+				preorder_shipping_date: data.preorder_shipping_date || "",
+				preorder_message: data.preorder_message || "",
 			});
 
 			setVariants(data.variants || []);
@@ -125,6 +159,9 @@ export default function AdminProductEdit() {
 					sizes: product.sizes || [],
 					benefits: product.benefits || [],
 					needs: product.needs || [],
+					preorder: product.preorder ?? false,
+					preorder_shipping_date: product.preorder_shipping_date || null,
+					preorder_message: product.preorder_message || null,
 				},
 				options: options.filter((o) => o.name?.trim()),
 				variants: variants
@@ -598,6 +635,123 @@ export default function AdminProductEdit() {
 						className="md:col-span-2"
 					/>
 				</div>
+
+				{/* Section Pré-commande */}
+				<section className="rounded-[28px] border border-baume-burgundy/20 bg-baume-burgundy/5 p-6">
+					<div className="flex items-center justify-between mb-6">
+						<div>
+							<p className="text-[11px] uppercase tracking-[0.22em] text-baume-burgundy/70 font-semibold">
+								Disponibilité
+							</p>
+							<h2 className="mt-1 text-[24px] font-semibold text-baume-burgundy">
+								Pré-commande
+							</h2>
+						</div>
+
+						{/* Bouton notifier — visible uniquement si preorder actif */}
+						{product.preorder && (
+							<button
+								type="button"
+								onClick={async () => {
+									if (
+										!window.confirm(
+											"Envoyer un email à tous les clients ayant précommandé ce produit ?",
+										)
+									)
+										return;
+									try {
+										const res = await fetch(
+											`${process.env.REACT_APP_BACKEND_URL}/api/ecom/admin/products/${productId}/preorder/notify`,
+											{
+												method: "POST",
+												headers: {
+													"Content-Type": "application/json",
+													Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+												},
+											},
+										);
+										const data = await res.json();
+										alert(`✅ ${data.notified} client(s) notifié(s)`);
+									} catch (err) {
+										alert("Erreur lors de l'envoi des notifications");
+									}
+								}}
+								className="h-11 px-5 rounded-full bg-baume-burgundy text-baume-white text-[13px] font-semibold hover:bg-baume-burgundyDark transition"
+							>
+								📦 Notifier les clients
+							</button>
+						)}
+					</div>
+
+					<div className="space-y-4">
+						{/* Toggle pré-commande */}
+						<label className="flex items-center gap-3 cursor-pointer">
+							<div
+								onClick={() =>
+									setProduct({ ...product, preorder: !product.preorder })
+								}
+								className={`relative w-12 h-6 rounded-full transition-colors ${
+									product.preorder ? "bg-baume-burgundy" : "bg-baume-border"
+								}`}
+							>
+								<span
+									className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+										product.preorder ? "translate-x-6" : "translate-x-0"
+									}`}
+								/>
+							</div>
+							<span className="text-[14px] font-semibold text-baume-charcoal">
+								{product.preorder
+									? "Pré-commande activée"
+									: "Pré-commande désactivée"}
+							</span>
+						</label>
+
+						{product.preorder && (
+							<>
+								{/* Date d'expédition estimée */}
+								<label className="block">
+									<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+										Date d'expédition estimée
+									</span>
+									<input
+										type="date"
+										value={product.preorder_shipping_date || ""}
+										onChange={(e) =>
+											setProduct({
+												...product,
+												preorder_shipping_date: e.target.value,
+											})
+										}
+										className="h-12 w-full rounded-2xl border border-baume-border bg-baume-white px-4 text-[14px] outline-none focus:ring-2 focus:ring-baume-taupe"
+									/>
+								</label>
+
+								{/* Message pré-commande */}
+								<label className="block">
+									<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+										Message affiché sur la page produit
+									</span>
+									<textarea
+										value={product.preorder_message || ""}
+										onChange={(e) =>
+											setProduct({
+												...product,
+												preorder_message: e.target.value,
+											})
+										}
+										rows={3}
+										placeholder="Ex: Ce produit sera disponible fin mars. Commandez dès maintenant pour être livré en priorité."
+										className="w-full rounded-2xl border border-baume-border bg-baume-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-baume-taupe resize-none"
+									/>
+								</label>
+
+								{/* Compteur abonnés */}
+								<PreorderSubscriberCount productId={productId} />
+							</>
+						)}
+					</div>
+				</section>
 
 				<div className="flex justify-end">
 					<button
