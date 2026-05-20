@@ -1075,11 +1075,11 @@ async def _price_cart(items: list[dict]) -> dict:
 
 @api_router.post("/checkout/session")
 @limiter.limit("10/minute")
-async def create_checkout(payload: CheckoutRequest, http_request: Request):
+async def create_checkout(request: Request, payload: CheckoutRequest):  # ← http_request → request
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
-    user = await get_optional_user(http_request)
+    user = await get_optional_user(request)  # ← http_request → request
     user_id = auth_user_id(user)
     user_email = auth_user_email(user)
 
