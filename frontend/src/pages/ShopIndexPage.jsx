@@ -10,6 +10,23 @@ import { getCategories, getProducts } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { toast } from "sonner";
 
+// En haut du fichier, après les imports existants
+function ProductSkeleton() {
+	return (
+		<div className="rounded-[16px] border border-baume-border bg-baume-white overflow-hidden flex flex-col">
+			<div className="skeleton h-[200px] rounded-t-[14px]" />
+			<div className="p-3 flex flex-col gap-2">
+				<div className="skeleton h-3 w-[70%] rounded" />
+				<div className="skeleton h-2.5 w-[45%] rounded" />
+				<div className="flex justify-between items-center mt-1">
+					<div className="skeleton h-4 w-[35%] rounded" />
+					<div className="skeleton h-8 w-8 rounded-full" />
+				</div>
+			</div>
+		</div>
+	);
+}
+
 const DEFAULT_FILTERS = {
 	need: null,
 	category: null,
@@ -27,6 +44,8 @@ export default function ShopIndexPage({ kind }) {
 	const [filters, setFilters] = useState(DEFAULT_FILTERS);
 	const { addItem } = useCart();
 
+	const [loading, setLoading] = useState(true);
+
 	useEffect(() => {
 		if (kind === "produit") {
 			getProducts({ limit: 100 })
@@ -35,7 +54,8 @@ export default function ShopIndexPage({ kind }) {
 						Array.isArray(data) && data.length > 0 ? data : PRODUCT_CATS,
 					),
 				)
-				.catch(() => setItems(PRODUCT_CATS));
+				.catch(() => setItems(PRODUCT_CATS))
+				.finally(() => setLoading(false));
 
 			getCategories("besoin")
 				.then(setNeeds)
@@ -48,7 +68,8 @@ export default function ShopIndexPage({ kind }) {
 				.then((data) =>
 					setItems(Array.isArray(data) && data.length > 0 ? data : NEEDS),
 				)
-				.catch(() => setItems(NEEDS));
+				.catch(() => setItems(NEEDS))
+				.finally(() => setLoading(false));
 		}
 	}, [kind]);
 
@@ -168,7 +189,13 @@ export default function ShopIndexPage({ kind }) {
 							</div>
 
 							{/* Grille produits */}
-							{filtered.length === 0 ? (
+							{loading ? (
+								<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+									{Array.from({ length: 8 }).map((_, i) => (
+										<ProductSkeleton key={i} />
+									))}
+								</div>
+							) : filtered.length === 0 ? (
 								<div className="rounded-3xl border border-baume-border bg-baume-white p-16 text-center">
 									<p className="font-editorial text-[28px] text-baume-charcoal/50">
 										Aucun produit trouvé
