@@ -828,7 +828,7 @@ async def list_experts():
 
 @api_router.post("/contact")
 @limiter.limit("10/minute")
-async def submit_contact(payload: ContactRequest):
+async def submit_contact(request: Request, payload: ContactRequest):
     msg = {
         "id": str(uuid.uuid4()),
         "name": payload.name,
@@ -3295,6 +3295,7 @@ async def _auto_lock_expired_conversations():
 @api_router.post("/conversations")
 @limiter.limit("20/minute")
 async def create_conversation(
+    request: Request,  # ← ajouter
     payload: ConversationCreateRequest,
     profile=Depends(get_current_profile),
 ):
@@ -3371,6 +3372,7 @@ async def get_my_conversations(profile=Depends(get_current_profile)):
 @api_router.get("/conversations/{conversation_id}/messages")
 @limiter.limit("30/minute")
 async def get_conversation_messages(
+    request: Request,  # ← ajouter
     conversation_id: str,
     profile=Depends(get_current_profile),
 ):
