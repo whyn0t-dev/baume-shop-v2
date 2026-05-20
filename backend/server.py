@@ -49,8 +49,6 @@ from emails import (
 )
 
 limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,6 +78,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Baume API", lifespan=lifespan)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
