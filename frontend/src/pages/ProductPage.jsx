@@ -781,9 +781,11 @@ export default function ProductPage() {
 	}, [product, size, color]);
 
 	const displayPrice = selectedVariant?.price ?? product?.price ?? 0;
-	const isAvailable = selectedVariant
-		? selectedVariant.available && selectedVariant.stock > 0
-		: (product?.available ?? false);
+	const isAvailable = product?.preorder
+		? true
+		: selectedVariant
+			? selectedVariant.available && selectedVariant.stock > 0
+			: (product?.available ?? false);
 
 	const crumbs = useMemo(() => {
 		if (!product) return [];

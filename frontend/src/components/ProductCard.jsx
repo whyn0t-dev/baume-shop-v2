@@ -96,14 +96,37 @@ export default function ProductCard({ product, onQuickAdd }) {
 						<button
 							onClick={(e) => {
 								e.preventDefault();
-								onQuickAdd(product);
+
+								const needsSize = product.sizes?.length > 0;
+								const needsColor = product.colors?.length > 0;
+								const hasMultipleVariants = product.variants?.length > 1;
+
+								// Si le produit nécessite un choix → rediriger vers la page produit
+								if (needsSize || needsColor || hasMultipleVariants) {
+									window.location.href = `/produit/${product.slug}`;
+									return;
+								}
+
+								// Sinon ajout direct avec la première variante disponible
+								const firstVariant =
+									product.variants?.find((v) => v.available) ||
+									product.variants?.[0];
+								onQuickAdd({
+									...product,
+									variant_id: firstVariant?.id,
+									price: firstVariant?.price ?? product.price,
+								});
 							}}
 							data-testid={`quick-add-${product.slug}`}
 							aria-label={`Ajouter ${product.name} au panier`}
 							className="h-9 w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-baume-ivory text-baume-burgundy text-[12px] font-semibold hover:bg-baume-burgundy hover:text-baume-white transition-colors border border-baume-border"
 						>
 							<ShoppingBag className="h-3.5 w-3.5" />
-							Ajout rapide
+							{product.sizes?.length > 0 ||
+							product.colors?.length > 0 ||
+							product.variants?.length > 1
+								? "Choisir"
+								: "Ajout rapide"}
 						</button>
 					)}
 				</div>
