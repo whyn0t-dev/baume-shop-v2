@@ -38,21 +38,25 @@ from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from supabase import create_client, Client
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 from emails import (
     send_contact_notification,
     send_contact_acknowledgement,
     send_order_confirmation,
 )
 
-# from seed_data import PRODUCTS, NEEDS, PRODUCT_CATEGORIES, REVIEWS, GUIDES, EXPERTS
-
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
@@ -822,6 +826,7 @@ async def list_experts():
 
 
 @api_router.post("/contact")
+@limiter.limit("10/minute")
 async def submit_contact(payload: ContactRequest):
     msg = {
         "id": str(uuid.uuid4()),
@@ -1068,6 +1073,7 @@ async def _price_cart(items: list[dict]) -> dict:
 
 
 @api_router.post("/checkout/session")
+@limiter.limit("10/minute")
 async def create_checkout(payload: CheckoutRequest, http_request: Request):
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
@@ -3286,6 +3292,7 @@ async def _auto_lock_expired_conversations():
 
 
 @api_router.post("/conversations")
+@limiter.limit("20/minute")
 async def create_conversation(
     payload: ConversationCreateRequest,
     profile=Depends(get_current_profile),
@@ -3361,6 +3368,7 @@ async def get_my_conversations(profile=Depends(get_current_profile)):
 
 
 @api_router.get("/conversations/{conversation_id}/messages")
+@limiter.limit("30/minute")
 async def get_conversation_messages(
     conversation_id: str,
     profile=Depends(get_current_profile),

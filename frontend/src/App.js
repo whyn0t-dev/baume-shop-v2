@@ -44,6 +44,8 @@ import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 import AdminChatPage from "./pages/AdminChatPage";
 import ChatBubble from "./components/ChatBubble";
 
+import ErrorBoundary from "./components/ErrorBoundary";
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -194,7 +196,9 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
-          <AppShell />
+          <ErrorBoundary>
+            <AppShell />
+          </ErrorBoundary>
         </BrowserRouter>
       </CartProvider>
     </AuthProvider>

@@ -8,7 +8,11 @@ if (!BASE_URL) {
 
 const API = `${BASE_URL}/api`;
 
-export const api = axios.create({ baseURL: API, withCredentials: true });
+export const api = axios.create({
+  baseURL: API,
+  withCredentials: true,
+  timeout: 15000, // ← 15 secondes max
+});
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("access_token");
