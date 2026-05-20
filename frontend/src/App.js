@@ -41,6 +41,9 @@ import OrderTrackingPage from "./pages/OrderTrackingPage";
 import AdminScannerPage from "./pages/AdminScannerPage";
 import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 
+import AdminChatPage from "./pages/AdminChatPage";
+import ChatBubble from "./components/ChatBubble";
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -150,11 +153,20 @@ function AppShell() {
             }
           />
           <Route path="/confirmation-email" element={<EmailConfirmationPage />} />
+          <Route
+            path="/admin/chat"
+            element={
+              <AdminRoute>
+                <AdminChatPage />
+              </AdminRoute>
+            }
+          />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>
       <Footer />
       <CartDrawer />
+      <ChatBubble />
       <Toaster
         position="top-right"
         richColors
