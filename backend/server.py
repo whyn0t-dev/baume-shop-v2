@@ -1473,7 +1473,6 @@ async def stripe_webhook(request: Request):
     sig = request.headers.get("Stripe-Signature", "")
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
-    # FIX: reject webhook if secret is not configured — never accept unsigned events
     if not webhook_secret:
         logger.error("STRIPE_WEBHOOK_SECRET is not set. Rejecting webhook.")
         raise HTTPException(status_code=503, detail="Webhook Stripe non configuré")
@@ -1492,20 +1491,11 @@ async def stripe_webhook(request: Request):
     event_type = event.get("type", "")
     obj = event.get("data", {}).get("object", {})
 
-    if obj.get("object") != "checkout.session":
-        return {"received": True, "processed": False}
-
-    session_id = obj.get("id")
-    payment_status = obj.get("payment_status", "")
-
-    if not session_id:
-        return {"received": True, "processed": False}
-
+    # ── Déduplication ─────────────────────────────────────────────────────
     if event_id:
         existing_event = await sb_select_one(
             "stripe_webhook_events", "event_id", event_id
         )
-
         if existing_event:
             return {"received": True, "processed": False, "duplicate": True}
 
@@ -1515,35 +1505,216 @@ async def stripe_webhook(request: Request):
                 "id": str(uuid.uuid4()),
                 "event_id": event_id,
                 "event_type": event_type,
-                "session_id": session_id,
-                "payment_status": payment_status,
+                "session_id": obj.get("id"),
+                "payment_status": obj.get("payment_status", ""),
                 "received_at": now_iso(),
             },
         )
 
-    await sb_update(
-        "payment_transactions",
-        {
-            "payment_status": payment_status or "unknown",
-            "last_webhook_event": event_type,
-            "last_webhook_event_id": event_id,
-            "updated_at": now_iso(),
-        },
-        "session_id",
-        session_id,
-    )
+    # ── checkout.session.completed ────────────────────────────────────────
+    if event_type in (
+        "checkout.session.completed",
+        "checkout.session.async_payment_succeeded",
+    ):
+        if obj.get("object") != "checkout.session":
+            return {"received": True, "processed": False}
 
-    if payment_status == "paid":
-        order = await _ensure_order_from_tx(session_id)
-        logger.info(
-            f"Order processed for session={session_id} "
-            f"order_id={order.get('id') if order else None}"
+        session_id = obj.get("id")
+        payment_status = obj.get("payment_status", "")
+
+        if not session_id:
+            return {"received": True, "processed": False}
+
+        await sb_update(
+            "payment_transactions",
+            {
+                "payment_status": payment_status or "unknown",
+                "last_webhook_event": event_type,
+                "last_webhook_event_id": event_id,
+                "updated_at": now_iso(),
+            },
+            "session_id",
+            session_id,
         )
+
+        if payment_status == "paid":
+            order = await _ensure_order_from_tx(session_id)
+            logger.info(
+                f"Order processed for session={session_id} "
+                f"order_id={order.get('id') if order else None}"
+            )
+
+    # ── payment_intent.payment_failed ─────────────────────────────────────
+    elif event_type == "payment_intent.payment_failed":
+        payment_intent_id = obj.get("id")
+        error_message = obj.get("last_payment_error", {}).get(
+            "message", "Paiement échoué"
+        )
+
+        logger.warning(f"Payment failed: {payment_intent_id} — {error_message}")
+
+        # Chercher la transaction par payment_intent si possible
+        result = await asyncio.to_thread(
+            lambda: supabase.table("payment_transactions")
+            .select("session_id")
+            .eq("status", "initiated")
+            .limit(1)
+            .execute()
+        )
+
+        if result.data:
+            await sb_update(
+                "payment_transactions",
+                {
+                    "payment_status": "failed",
+                    "last_webhook_event": event_type,
+                    "last_webhook_event_id": event_id,
+                    "updated_at": now_iso(),
+                },
+                "session_id",
+                result.data[0]["session_id"],
+            )
+
+    # ── charge.refunded ───────────────────────────────────────────────────
+    elif event_type == "charge.refunded":
+        payment_intent_id = obj.get("payment_intent")
+        amount_refunded = (obj.get("amount_refunded") or 0) / 100
+
+        if payment_intent_id:
+            order_result = await asyncio.to_thread(
+                lambda: supabase.table("orders")
+                .select("id, payments(*)")
+                .eq("stripe_payment_intent_id", payment_intent_id)
+                .limit(1)
+                .execute()
+            )
+
+            if order_result.data:
+                o = order_result.data[0]
+                payments = o.get("payments") or []
+                payment_id = payments[0]["id"] if payments else None
+
+                # Vérifier que le remboursement n'existe pas déjà
+                existing_refund = await asyncio.to_thread(
+                    lambda: supabase.table("refunds")
+                    .select("id")
+                    .eq("order_id", o["id"])
+                    .limit(1)
+                    .execute()
+                )
+
+                if not existing_refund.data:
+                    await sb_insert(
+                        "refunds",
+                        {
+                            "id": str(uuid.uuid4()),
+                            "order_id": o["id"],
+                            "payment_id": payment_id,
+                            "amount": amount_refunded,
+                            "reason": "Remboursement Stripe",
+                            "created_at": now_iso(),
+                        },
+                    )
+                    logger.info(
+                        f"Refund enregistré pour order={o['id']} "
+                        f"montant={amount_refunded} CHF"
+                    )
+
+    # ── charge.dispute.created ────────────────────────────────────────────
+    elif event_type == "charge.dispute.created":
+        dispute_id = obj.get("id")
+        payment_intent_id = obj.get("payment_intent")
+        dispute_amount = (obj.get("amount") or 0) / 100
+        dispute_reason = obj.get("reason", "unknown")
+
+        logger.error(
+            f"⚠️ LITIGE CRÉÉ — dispute_id={dispute_id} "
+            f"payment_intent={payment_intent_id} "
+            f"montant={dispute_amount} CHF "
+            f"raison={dispute_reason}"
+        )
+
+        # Mettre la commande en statut spécial si trouvée
+        if payment_intent_id:
+            order_result = await asyncio.to_thread(
+                lambda: supabase.table("orders")
+                .select("id")
+                .eq("stripe_payment_intent_id", payment_intent_id)
+                .limit(1)
+                .execute()
+            )
+
+            if order_result.data:
+                order_id = order_result.data[0]["id"]
+                await sb_update(
+                    "orders",
+                    {
+                        "notes": f"⚠️ Litige Stripe ouvert — {dispute_reason} — {dispute_amount} CHF",
+                        "updated_at": now_iso(),
+                    },
+                    "id",
+                    order_id,
+                )
+
+                # Envoyer un email d'alerte admin
+                try:
+                    async with httpx.AsyncClient() as client:
+                        await client.post(
+                            f"{SUPABASE_URL}/functions/v1/send-dispute-alert",
+                            json={
+                                "order_id": order_id,
+                                "dispute_id": dispute_id,
+                                "amount": dispute_amount,
+                                "reason": dispute_reason,
+                            },
+                            headers={
+                                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                                "Content-Type": "application/json",
+                            },
+                            timeout=10,
+                        )
+                except Exception as e:
+                    logger.error(f"send-dispute-alert failed: {e}")
+
+    # ── charge.dispute.closed ─────────────────────────────────────────────
+    elif event_type == "charge.dispute.closed":
+        dispute_id = obj.get("id")
+        payment_intent_id = obj.get("payment_intent")
+        dispute_status = obj.get("status", "unknown")
+
+        logger.info(
+            f"Litige fermé — dispute_id={dispute_id} "
+            f"payment_intent={payment_intent_id} "
+            f"statut={dispute_status}"
+        )
+
+        if payment_intent_id:
+            order_result = await asyncio.to_thread(
+                lambda: supabase.table("orders")
+                .select("id")
+                .eq("stripe_payment_intent_id", payment_intent_id)
+                .limit(1)
+                .execute()
+            )
+
+            if order_result.data:
+                await sb_update(
+                    "orders",
+                    {
+                        "notes": f"Litige Stripe fermé — statut : {dispute_status}",
+                        "updated_at": now_iso(),
+                    },
+                    "id",
+                    order_result.data[0]["id"],
+                )
+
+    else:
+        logger.info(f"Webhook event non géré : {event_type}")
 
     return {
         "received": True,
         "processed": True,
-        "session_id": session_id,
+        "event_type": event_type,
     }
 
 
@@ -1754,6 +1925,8 @@ ADMIN_TABLES = {
     "stripe_webhook_events",
     "workshops",
     "workshop_bookings",
+    "conversations",
+    "messages",
 }
 
 
@@ -3079,6 +3252,261 @@ async def get_preorder_subscribers(
         .execute()
     )
     return result.data or []
+
+
+# ── Chat / Conversations ───────────────────────────────────────────────────
+
+
+class MessageRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+
+
+class ConversationCreateRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+
+
+async def _auto_lock_expired_conversations():
+    """Verrouille automatiquement les conversations inactives depuis 48h."""
+    from datetime import timedelta
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat()
+
+    await asyncio.to_thread(
+        lambda: supabase.table("conversations")
+        .update(
+            {
+                "status": "locked",
+                "locked_at": now_iso(),
+            }
+        )
+        .eq("status", "open")
+        .lt("last_message_at", cutoff)
+        .execute()
+    )
+
+
+@api_router.post("/conversations")
+async def create_conversation(
+    payload: ConversationCreateRequest,
+    profile=Depends(get_current_profile),
+):
+    """Crée une nouvelle conversation et envoie le premier message."""
+    await _auto_lock_expired_conversations()
+
+    customer = await get_or_create_customer(profile)
+
+    # Vérifier si une conversation ouverte existe déjà
+    existing = await asyncio.to_thread(
+        lambda: supabase.table("conversations")
+        .select("*")
+        .eq("profile_id", profile["id"])
+        .eq("status", "open")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+
+    if existing.data:
+        conversation = existing.data[0]
+    else:
+        inserted = await sb_insert(
+            "conversations",
+            {
+                "profile_id": profile["id"],
+                "customer_id": customer["id"],
+                "email": profile.get("email"),
+                "status": "open",
+                "last_message_at": now_iso(),
+                "created_at": now_iso(),
+            },
+        )
+        conversation = inserted.data[0]
+
+    # Insérer le premier message
+    await sb_insert(
+        "messages",
+        {
+            "conversation_id": conversation["id"],
+            "sender_id": profile["id"],
+            "sender_role": profile.get("role", "customer"),
+            "content": payload.content,
+            "created_at": now_iso(),
+        },
+    )
+
+    # Mettre à jour last_message_at
+    await sb_update(
+        "conversations",
+        {"last_message_at": now_iso()},
+        "id",
+        conversation["id"],
+    )
+
+    return conversation
+
+
+@api_router.get("/conversations/mine")
+async def get_my_conversations(profile=Depends(get_current_profile)):
+    """Récupère toutes les conversations du client connecté."""
+    await _auto_lock_expired_conversations()
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("conversations")
+        .select("*")
+        .eq("profile_id", profile["id"])
+        .order("last_message_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/conversations/{conversation_id}/messages")
+async def get_conversation_messages(
+    conversation_id: str,
+    profile=Depends(get_current_profile),
+):
+    """Récupère les messages d'une conversation."""
+    conversation = await sb_select_one("conversations", "id", conversation_id)
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation introuvable")
+
+    is_admin = profile.get("role") == "admin"
+    if not is_admin and conversation.get("profile_id") != profile["id"]:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    # Marquer les messages comme lus
+    await asyncio.to_thread(
+        lambda: supabase.table("messages")
+        .update({"read_at": now_iso()})
+        .eq("conversation_id", conversation_id)
+        .neq("sender_id", profile["id"])
+        .is_("read_at", "null")
+        .execute()
+    )
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("messages")
+        .select("*")
+        .eq("conversation_id", conversation_id)
+        .order("created_at")
+        .execute()
+    )
+
+    return result.data or []
+
+
+@api_router.post("/conversations/{conversation_id}/messages")
+async def send_message(
+    conversation_id: str,
+    payload: MessageRequest,
+    profile=Depends(get_current_profile),
+):
+    """Envoie un message dans une conversation."""
+    conversation = await sb_select_one("conversations", "id", conversation_id)
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation introuvable")
+
+    is_admin = profile.get("role") == "admin"
+
+    if not is_admin and conversation.get("profile_id") != profile["id"]:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    if conversation.get("status") == "locked":
+        raise HTTPException(
+            status_code=403, detail="Cette conversation est verrouillée."
+        )
+
+    inserted = await sb_insert(
+        "messages",
+        {
+            "conversation_id": conversation_id,
+            "sender_id": profile["id"],
+            "sender_role": "admin" if is_admin else "customer",
+            "content": payload.content,
+            "created_at": now_iso(),
+        },
+    )
+
+    await sb_update(
+        "conversations",
+        {"last_message_at": now_iso()},
+        "id",
+        conversation_id,
+    )
+
+    return inserted.data[0]
+
+
+@api_router.get("/ecom/admin/conversations")
+async def list_all_conversations(
+    status: Optional[str] = None,
+    profile=Depends(require_admin),
+):
+    """Liste toutes les conversations — admin uniquement."""
+    await _auto_lock_expired_conversations()
+
+    def run():
+        q = (
+            supabase.table("conversations")
+            .select("*")
+            .order("last_message_at", desc=True)
+        )
+        if status:
+            q = q.eq("status", status)
+        return q.limit(100).execute()
+
+    result = await asyncio.to_thread(run)
+    return result.data or []
+
+
+@api_router.patch("/ecom/admin/conversations/{conversation_id}/lock")
+async def lock_conversation(
+    conversation_id: str,
+    profile=Depends(require_admin),
+):
+    """Verrouille une conversation — admin uniquement."""
+    await sb_update(
+        "conversations",
+        {
+            "status": "locked",
+            "locked_at": now_iso(),
+            "locked_by": profile["id"],
+        },
+        "id",
+        conversation_id,
+    )
+    return {"success": True, "status": "locked"}
+
+
+@api_router.patch("/ecom/admin/conversations/{conversation_id}/unlock")
+async def unlock_conversation(
+    conversation_id: str,
+    profile=Depends(require_admin),
+):
+    """Déverrouille une conversation — admin uniquement."""
+    await sb_update(
+        "conversations",
+        {
+            "status": "open",
+            "locked_at": None,
+            "locked_by": None,
+        },
+        "id",
+        conversation_id,
+    )
+    return {"success": True, "status": "open"}
+
+
+@api_router.delete("/ecom/admin/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    profile=Depends(require_admin),
+):
+    """Supprime une conversation — admin uniquement."""
+    await sb_delete("conversations", "id", conversation_id)
+    return {"success": True}
 
 
 api_router.include_router(auth_router)

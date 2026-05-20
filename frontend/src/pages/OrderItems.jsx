@@ -14,6 +14,7 @@ import {
 	getAdminOrder,
 	updateOrderStatus,
 	updateOrderItemStatus,
+	refundOrder,
 	api,
 } from "../lib/api";
 
@@ -34,6 +35,24 @@ export default function OrderItems() {
 
 	async function handleStatusChange(newStatus) {
 		if (!order?.id) return;
+
+		if (newStatus === "refunded") {
+			if (
+				!window.confirm(
+					"Rembourser cette commande via Stripe ? Cette action est irréversible.",
+				)
+			)
+				return;
+			try {
+				await refundOrder(order.id);
+				setCurrentStatus("refunded");
+				setOrder((prev) => ({ ...prev, status: "refunded" }));
+			} catch (err) {
+				alert(`Erreur remboursement : ${err.message}`);
+			}
+			return;
+		}
+
 		try {
 			await updateOrderStatus(order.id, newStatus);
 			setCurrentStatus(newStatus);
