@@ -175,8 +175,6 @@ async def get_or_create_customer(profile: dict) -> dict:
 
 
 # ---------- Models ----------
-
-
 class Product(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -190,7 +188,7 @@ class Product(BaseModel):
     image: str
     gallery: List[str] = []
     product_category: str
-    product_type: Optional[str] = None  # ← AJOUTER CETTE LIGNE
+    product_type: Optional[str] = None
     needs: List[str] = []
     flux: Optional[str] = None
     usage: Optional[str] = None
@@ -207,6 +205,10 @@ class Product(BaseModel):
     available: bool = True
     bestseller: bool = False
     featured: bool = False
+    # ← Ajouter ces 3 lignes
+    preorder: bool = False
+    preorder_shipping_date: Optional[str] = None
+    preorder_message: Optional[str] = None
 
 
 class ContactRequest(BaseModel):
