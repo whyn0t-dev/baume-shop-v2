@@ -822,10 +822,168 @@ export default function ProductPage() {
 
 	if (!product) {
 		return (
-			<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-24 text-center">
-				<p className="font-editorial text-[24px] text-baume-charcoal/70">
-					Chargement…
-				</p>
+			<div className="bg-baume-ivory">
+				{/* Breadcrumb skeleton */}
+				<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pt-8">
+					<div className="flex items-center gap-2">
+						<div className="skeleton h-3 w-10 rounded" />
+						<div className="skeleton h-3 w-3 rounded" />
+						<div className="skeleton h-3 w-16 rounded" />
+						<div className="skeleton h-3 w-3 rounded" />
+						<div className="skeleton h-3 w-28 rounded" />
+					</div>
+				</div>
+
+				<section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-8 md:py-14">
+					<div className="grid grid-cols-1 lg:grid-cols-12 gap-10 xl:gap-14 lg:items-start">
+						{/* Galerie skeleton */}
+						<div className="lg:col-span-7 space-y-3">
+							<div className="skeleton rounded-3xl w-full aspect-square" />
+							<div className="grid grid-cols-4 gap-2">
+								{Array.from({ length: 4 }).map((_, i) => (
+									<div
+										key={i}
+										className="skeleton rounded-xl w-full aspect-square"
+									/>
+								))}
+							</div>
+						</div>
+
+						{/* Colonne droite skeleton */}
+						<div className="lg:col-span-5 flex flex-col gap-4">
+							{/* Carte principale */}
+							<div className="rounded-3xl border border-baume-border bg-baume-white p-6 md:p-8 shadow-sm space-y-5">
+								{/* Badges disponibilité */}
+								<div className="flex gap-2">
+									<div className="skeleton h-6 w-20 rounded-full" />
+									<div className="skeleton h-6 w-24 rounded-full" />
+								</div>
+								{/* Titre */}
+								<div className="space-y-2">
+									<div className="skeleton h-10 w-4/5 rounded" />
+									<div className="skeleton h-10 w-3/5 rounded" />
+								</div>
+								{/* Tagline */}
+								<div className="space-y-1.5">
+									<div className="skeleton h-4 w-full rounded" />
+									<div className="skeleton h-4 w-4/5 rounded" />
+								</div>
+								{/* Étoiles */}
+								<div className="flex items-center gap-2">
+									<div className="skeleton h-4 w-24 rounded" />
+									<div className="skeleton h-4 w-20 rounded" />
+								</div>
+								{/* Prix */}
+								<div className="skeleton h-10 w-36 rounded" />
+								{/* Points forts */}
+								<div className="rounded-2xl bg-baume-ivory border border-baume-border p-5 space-y-2.5">
+									<div className="skeleton h-3 w-20 rounded" />
+									{Array.from({ length: 4 }).map((_, i) => (
+										<div key={i} className="flex items-center gap-2">
+											<div className="skeleton h-1.5 w-1.5 rounded-full shrink-0" />
+											<div
+												className="skeleton h-3 rounded"
+												style={{ width: `${60 + i * 8}%` }}
+											/>
+										</div>
+									))}
+								</div>
+								{/* Tailles */}
+								<div className="space-y-3">
+									<div className="flex items-center justify-between">
+										<div className="skeleton h-3 w-28 rounded" />
+										<div className="skeleton h-3 w-20 rounded" />
+									</div>
+									<div className="flex gap-2">
+										{Array.from({ length: 4 }).map((_, i) => (
+											<div
+												key={i}
+												className="skeleton h-11 w-14 rounded-full"
+											/>
+										))}
+									</div>
+								</div>
+								{/* Couleurs */}
+								<div className="space-y-3">
+									<div className="skeleton h-3 w-16 rounded" />
+									<div className="flex gap-2">
+										{Array.from({ length: 3 }).map((_, i) => (
+											<div
+												key={i}
+												className="skeleton h-10 w-20 rounded-full"
+											/>
+										))}
+									</div>
+								</div>
+								{/* Boutons quantité + ajout */}
+								<div className="flex gap-3 mt-2">
+									<div className="skeleton h-12 w-32 rounded-full" />
+									<div className="skeleton h-12 flex-1 rounded-full" />
+								</div>
+							</div>
+
+							{/* Infos livraison */}
+							<div className="rounded-3xl border border-baume-border bg-baume-white p-5 shadow-sm">
+								<div className="flex items-center justify-center gap-6 flex-wrap">
+									{Array.from({ length: 3 }).map((_, i) => (
+										<div key={i} className="flex flex-col items-center gap-1.5">
+											<div className="skeleton h-9 w-9 rounded-full" />
+											<div className="skeleton h-3 w-20 rounded" />
+											<div className="skeleton h-2.5 w-16 rounded" />
+										</div>
+									))}
+								</div>
+							</div>
+
+							{/* Bloc aide */}
+							<div className="rounded-3xl border border-baume-border bg-baume-white p-5 shadow-sm flex gap-3">
+								<div className="skeleton h-5 w-5 rounded shrink-0 mt-0.5" />
+								<div className="flex-1 space-y-2">
+									<div className="skeleton h-5 w-48 rounded" />
+									<div className="skeleton h-3 w-full rounded" />
+									<div className="skeleton h-3 w-3/5 rounded" />
+								</div>
+							</div>
+
+							{/* Bloc laisser un avis */}
+							<div className="rounded-3xl border border-baume-border bg-baume-white p-5 shadow-sm flex items-center justify-between gap-4">
+								<div className="space-y-1.5">
+									<div className="skeleton h-3 w-40 rounded" />
+									<div className="skeleton h-3 w-52 rounded" />
+								</div>
+								<div className="skeleton h-9 w-28 rounded-full shrink-0" />
+							</div>
+
+							{/* Accordéons */}
+							<div className="border-t border-baume-border divide-y divide-baume-border">
+								{Array.from({ length: 5 }).map((_, i) => (
+									<div
+										key={i}
+										className="py-4 flex items-center justify-between"
+									>
+										<div className="flex items-center gap-3">
+											<div className="skeleton h-4 w-4 rounded" />
+											<div
+												className="skeleton h-4 rounded"
+												style={{ width: `${90 + i * 18}px` }}
+											/>
+										</div>
+										<div className="skeleton h-3 w-3 rounded" />
+									</div>
+								))}
+							</div>
+						</div>
+					</div>
+				</section>
+
+				{/* Sticky mobile skeleton */}
+				<div className="lg:hidden sticky bottom-0 z-30 bg-baume-white border-t border-baume-border p-3 flex items-center gap-3">
+					<div className="space-y-1.5 min-w-0">
+						<div className="skeleton h-2.5 w-28 rounded" />
+						<div className="skeleton h-5 w-20 rounded" />
+					</div>
+					<div className="skeleton flex-1 h-12 rounded-full" />
+				</div>
 			</div>
 		);
 	}
