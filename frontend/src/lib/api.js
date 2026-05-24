@@ -68,12 +68,11 @@ export const getGuides = () =>
 export const getGuide = (slug) =>
   api.get(`/guides/${slug}`).then((r) => r.data);
 
-export const getExperts = () =>
-  api.get("/experts").then((r) => normalizeArray(r.data));
-
 export const submitContact = (payload) =>
   api.post("/contact", payload).then((r) => r.data);
-api.get("/experts").then((r) => normalizeArray(r.data));
+
+// export const getExperts = () =>
+//   api.get("/experts").then((r) => normalizeArray(r.data));
 
 // Checkout
 export const createCheckout = (payload) =>

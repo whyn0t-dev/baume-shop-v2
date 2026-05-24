@@ -50,6 +50,10 @@ export default function AdminProductCreate() {
 		featured: false,
 		bestseller: false,
 		flux: "",
+		needs: [],
+		preorder: false,
+		preorder_shipping_date: "",
+		preorder_message: "",
 		price: "",
 		compare_price: "",
 		currency: "CHF",
@@ -607,6 +611,39 @@ export default function AdminProductCreate() {
 								/>
 							</div>
 						))}
+					</div>
+				</section>
+
+				<section className="rounded-[28px] bg-baume-white border border-baume-burgundy/20 bg-baume-burgundy/5 p-6 md:p-8">
+					<h2 className="text-[24px] font-semibold text-baume-burgundy mb-6">
+						Pré-commande
+					</h2>
+
+					<div className="space-y-4">
+						<Checkbox
+							label="Activer la pré-commande"
+							checked={product.preorder}
+							onChange={(value) => updateProduct("preorder", value)}
+						/>
+
+						{product.preorder && (
+							<>
+								<Input
+									label="Date d'expédition estimée"
+									type="date"
+									value={product.preorder_shipping_date}
+									onChange={(value) =>
+										updateProduct("preorder_shipping_date", value)
+									}
+								/>
+								<Textarea
+									label="Message affiché sur la page produit"
+									value={product.preorder_message}
+									onChange={(value) => updateProduct("preorder_message", value)}
+									className="md:col-span-2"
+								/>
+							</>
+						)}
 					</div>
 				</section>
 
