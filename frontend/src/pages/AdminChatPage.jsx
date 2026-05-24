@@ -31,6 +31,62 @@ export default function AdminChatPage() {
 	}
 	const supabase = supabaseRef.current;
 
+	const [isCustomerTyping, setIsCustomerTyping] = useState(false);
+	const typingTimeoutRef = useRef(null);
+
+	// Dans subscribeToMessages
+	function subscribeToMessages(conversationId) {
+		if (!supabase) return;
+		if (channelRef.current) supabase.removeChannel(channelRef.current);
+
+		const channel = supabase
+			.channel(`messages:${conversationId}`)
+			.on(
+				"postgres_changes",
+				{
+					event: "INSERT",
+					schema: "public",
+					table: "messages",
+					filter: `conversation_id=eq.${conversationId}`,
+				},
+				(payload) => {
+					setMessages((prev) => {
+						if (prev.find((m) => m.id === payload.new.id)) return prev;
+						return [...prev, payload.new];
+					});
+					if (payload.new.sender_role === "customer") {
+						setIsCustomerTyping(false);
+					}
+				},
+			)
+			.on("presence", { event: "sync" }, () => {
+				const state = channel.presenceState();
+				const customerTyping = Object.values(state).some((presences) =>
+					presences.some((p) => p.role === "customer" && p.typing),
+				);
+				setIsCustomerTyping(customerTyping);
+			})
+			.subscribe(async () => {
+				await channel.track({ role: "admin", typing: false });
+			});
+
+		channelRef.current = channel;
+	}
+
+	const handleInputChange = async (e) => {
+		setInput(e.target.value);
+		if (!channelRef.current) return;
+
+		await channelRef.current.track({ role: "admin", typing: true });
+
+		clearTimeout(typingTimeoutRef.current);
+		typingTimeoutRef.current = setTimeout(async () => {
+			if (channelRef.current) {
+				await channelRef.current.track({ role: "admin", typing: false });
+			}
+		}, 2000);
+	};
+
 	useEffect(() => {
 		loadConversations();
 	}, [filter]);
@@ -70,31 +126,6 @@ export default function AdminChatPage() {
 		} catch (err) {
 			console.error(err);
 		}
-	}
-
-	function subscribeToMessages(conversationId) {
-		if (channelRef.current) supabase.removeChannel(channelRef.current);
-
-		const channel = supabase
-			.channel(`admin-messages:${conversationId}`)
-			.on(
-				"postgres_changes",
-				{
-					event: "INSERT",
-					schema: "public",
-					table: "messages",
-					filter: `conversation_id=eq.${conversationId}`,
-				},
-				(payload) => {
-					setMessages((prev) => {
-						if (prev.find((m) => m.id === payload.new.id)) return prev;
-						return [...prev, payload.new];
-					});
-				},
-			)
-			.subscribe();
-
-		channelRef.current = channel;
 	}
 
 	async function handleSend() {
@@ -321,6 +352,29 @@ export default function AdminChatPage() {
 										</div>
 									</div>
 								))}
+								{isCustomerTyping && (
+									<div className="flex justify-start">
+										<div className="bg-baume-white border border-baume-border rounded-2xl rounded-bl-sm px-4 py-2.5">
+											<p className="text-[10px] font-semibold text-baume-burgundy mb-0.5">
+												Client
+											</p>
+											<div className="flex items-center gap-1">
+												<span
+													className="w-1.5 h-1.5 rounded-full bg-baume-charcoal/40 animate-bounce"
+													style={{ animationDelay: "0ms" }}
+												/>
+												<span
+													className="w-1.5 h-1.5 rounded-full bg-baume-charcoal/40 animate-bounce"
+													style={{ animationDelay: "150ms" }}
+												/>
+												<span
+													className="w-1.5 h-1.5 rounded-full bg-baume-charcoal/40 animate-bounce"
+													style={{ animationDelay: "300ms" }}
+												/>
+											</div>
+										</div>
+									</div>
+								)}
 								<div ref={bottomRef} />
 							</div>
 
@@ -337,7 +391,7 @@ export default function AdminChatPage() {
 									<div className="flex items-end gap-2">
 										<textarea
 											value={input}
-											onChange={(e) => setInput(e.target.value)}
+											onChange={handleInputChange}
 											onKeyDown={(e) => {
 												if (e.key === "Enter" && !e.shiftKey) {
 													e.preventDefault();

@@ -30,6 +30,8 @@ import {
 import { LayoutDashboard } from "lucide-react";
 import HomeSection from "../components/HomeSection";
 
+import { MessageCircle } from "lucide-react";
+
 import { ScanLine } from "lucide-react";
 
 const SECTIONS = [
@@ -43,6 +45,7 @@ const SECTIONS = [
 	{ key: "store_settings", label: "Paramètres boutique", icon: Settings },
 	{ key: "reviews", label: "Avis clients", icon: Star },
 	{ key: "scanner", label: "Scanner", icon: ScanLine },
+	{ key: "chat", label: "Conversations", icon: MessageCircle },
 ];
 
 export default function DashBoardAdmin() {
@@ -75,7 +78,8 @@ export default function DashBoardAdmin() {
 			status === "authenticated" &&
 			isAdmin &&
 			active !== "accueil" &&
-			active !== "scanner"
+			active !== "scanner" &&
+			active !== "chat"
 		) {
 			loadData(active);
 		}
@@ -417,6 +421,20 @@ function AdminTable({ table, rows, onDelete, onRefresh }) {
 				>
 					<ScanLine className="h-5 w-5" />
 					Ouvrir le scanner
+				</Link>
+			</div>
+		);
+	}
+
+	if (table === "chat") {
+		return (
+			<div className="p-8 text-center">
+				<Link
+					to="/admin/chat"
+					className="h-12 px-8 rounded-full bg-baume-burgundy text-white font-semibold text-[15px] inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition-colors"
+				>
+					<MessageCircle className="h-5 w-5" />
+					Ouvrir le panneau conversations
 				</Link>
 			</div>
 		);
