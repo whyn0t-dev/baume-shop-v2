@@ -100,6 +100,12 @@ export default function ChatBubble() {
 	async function loadConversation() {
 		setLoading(true);
 		try {
+			// ← Authentifier le client Supabase Realtime
+			if (supabase) {
+				const token = localStorage.getItem("access_token");
+				if (token) await supabase.realtime.setAuth(token);
+			}
+
 			const convs = await api.get("/conversations/mine").then((r) => r.data);
 			if (convs && convs.length > 0) {
 				const conv = convs[0];

@@ -71,8 +71,8 @@ export const getGuide = (slug) =>
 export const submitContact = (payload) =>
   api.post("/contact", payload).then((r) => r.data);
 
-// export const getExperts = () =>
-//   api.get("/experts").then((r) => normalizeArray(r.data));
+export const getExperts = () =>
+  api.get("/experts").then((r) => normalizeArray(r.data));
 
 // Checkout
 export const createCheckout = (payload) =>

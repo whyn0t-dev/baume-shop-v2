@@ -56,22 +56,18 @@ export default function DashBoardAdmin() {
 
 	const isAdmin = user?.role === "admin";
 
-	const loadData = useCallback(
-		async (table = active) => {
-			setLoading(true);
-
-			try {
-				const data = await getAdminTable(table, 300);
-				setRows(Array.isArray(data) ? data : []);
-			} catch (err) {
-				toast.error("Erreur admin", { description: formatApiError(err) });
-				setRows([]);
-			} finally {
-				setLoading(false);
-			}
-		},
-		[active],
-	);
+	const loadData = useCallback(async (table) => {
+		setLoading(true);
+		try {
+			const data = await getAdminTable(table, 300);
+			setRows(Array.isArray(data) ? data : []);
+		} catch (err) {
+			toast.error("Erreur admin", { description: formatApiError(err) });
+			setRows([]);
+		} finally {
+			setLoading(false);
+		}
+	}, []); // ← dépendances vides, table passée en paramètre
 
 	useEffect(() => {
 		if (
@@ -82,6 +78,8 @@ export default function DashBoardAdmin() {
 			active !== "chat"
 		) {
 			loadData(active);
+		} else {
+			setRows([]); // ← vider les rows pour les sections sans données
 		}
 	}, [active, status, isAdmin, loadData]);
 
@@ -213,14 +211,18 @@ export default function DashBoardAdmin() {
 							</div>
 						</div>
 
-						{loading && active !== "accueil" ? (
+						{loading &&
+						active !== "accueil" &&
+						active !== "scanner" &&
+						active !== "chat" ? (
 							<div className="py-24 flex justify-center">
 								<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
 							</div>
 						) : rows.length === 0 &&
 						  active !== "discounts" &&
 						  active !== "accueil" &&
-						  active !== "scanner" ? (
+						  active !== "scanner" &&
+						  active !== "chat" ? ( // ← ajouter
 							<div className="p-10 text-center text-baume-charcoal/65">
 								Aucun élément trouvé.
 							</div>

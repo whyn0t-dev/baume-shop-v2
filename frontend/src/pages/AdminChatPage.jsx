@@ -118,6 +118,16 @@ export default function AdminChatPage() {
 
 	async function loadMessages(conversationId) {
 		try {
+			// ← Authentifier le Realtime
+			if (supabase) {
+				const {
+					data: { session },
+				} = await supabase.auth.getSession();
+				if (session) {
+					await supabase.realtime.setAuth(session.access_token);
+				}
+			}
+
 			const data = await api
 				.get(`/conversations/${conversationId}/messages`)
 				.then((r) => r.data);
