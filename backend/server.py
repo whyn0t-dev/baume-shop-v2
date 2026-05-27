@@ -1075,7 +1075,9 @@ async def _price_cart(items: list[dict]) -> dict:
 
 @api_router.post("/checkout/session")
 @limiter.limit("10/minute")
-async def create_checkout(request: Request, payload: CheckoutRequest):  # ← http_request → request
+async def create_checkout(
+    request: Request, payload: CheckoutRequest
+):  # ← http_request → request
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
@@ -3517,6 +3519,33 @@ async def delete_conversation(
 ):
     """Supprime une conversation — admin uniquement."""
     await sb_delete("conversations", "id", conversation_id)
+    return {"success": True}
+
+
+@api_router.patch("/conversations/{conversation_id}/typing")
+async def update_typing(
+    conversation_id: str,
+    payload: dict,
+    profile=Depends(get_current_profile),
+):
+    role = payload.get("role")
+    is_admin = profile.get("role") == "admin"
+
+    if is_admin:
+        await sb_update(
+            "conversations",
+            {"admin_typing_at": now_iso() if role else None},
+            "id",
+            conversation_id,
+        )
+    else:
+        await sb_update(
+            "conversations",
+            {"customer_typing_at": now_iso() if role else None},
+            "id",
+            conversation_id,
+        )
+
     return {"success": True}
 
 

@@ -32,62 +32,62 @@ export default function ChatBubble() {
 	const [isAdminTyping, setIsAdminTyping] = useState(false);
 	const typingTimeoutRef = useRef(null);
 
-	// Dans subscribeToMessages, ajoutez un channel de présence
+	const pollingRef = useRef(null);
+
 	function subscribeToMessages(conversationId) {
-		if (!supabase) return;
-		if (channelRef.current) supabase.removeChannel(channelRef.current);
+		// Arrêter le polling précédent
+		if (pollingRef.current) clearInterval(pollingRef.current);
 
-		const channel = supabase
-			.channel(`messages:${conversationId}`)
-			.on(
-				"postgres_changes",
-				{
-					event: "INSERT",
-					schema: "public",
-					table: "messages",
-					filter: `conversation_id=eq.${conversationId}`,
-				},
-				(payload) => {
-					const newMsg = payload.new;
-					setMessages((prev) => {
-						if (prev.find((m) => m.id === newMsg.id)) return prev;
-						return [...prev, newMsg];
-					});
-					if (!open && newMsg.sender_role === "admin") {
-						setUnread((n) => n + 1);
-					}
-					// Stopper l'indicateur quand un message arrive
-					if (newMsg.sender_role === "admin") {
-						setIsAdminTyping(false);
-					}
-				},
-			)
-			.on("presence", { event: "sync" }, () => {
-				const state = channel.presenceState();
-				const adminTyping = Object.values(state).some((presences) =>
-					presences.some((p) => p.role === "admin" && p.typing),
-				);
-				setIsAdminTyping(adminTyping);
-			})
-			.subscribe(async () => {
-				await channel.track({ role: "customer", typing: false });
-			});
+		pollingRef.current = setInterval(async () => {
+			try {
+				const msgs = await api
+					.get(`/conversations/${conversationId}/messages`)
+					.then((r) => r.data);
+				setMessages(msgs || []);
 
-		channelRef.current = channel;
+				// Vérifier si la conversation a été verrouillée
+				const convs = await api.get("/conversations/mine").then((r) => r.data);
+				if (convs?.[0]) setConversation(convs[0]);
+			} catch (err) {
+				// Silencieux
+			}
+		}, 2000); // ← toutes les 2 secondes
 	}
+
+	// Cleanup dans useEffect
+	useEffect(() => {
+		return () => {
+			if (pollingRef.current) clearInterval(pollingRef.current);
+		};
+	}, []);
+
+	// Arrêter le polling quand le chat est fermé
+	useEffect(() => {
+		if (!open && pollingRef.current) {
+			clearInterval(pollingRef.current);
+			pollingRef.current = null;
+		}
+	}, [open]);
 
 	// Envoyer l'état "typing" quand le client écrit
 	const handleInputChange = async (e) => {
 		setInput(e.target.value);
-		if (!channelRef.current) return;
-
-		await channelRef.current.track({ role: "customer", typing: true });
+		if (!conversation) return;
 
 		clearTimeout(typingTimeoutRef.current);
+
+		try {
+			await api.patch(`/conversations/${conversation.id}/typing`, {
+				role: "customer",
+			});
+		} catch {}
+
 		typingTimeoutRef.current = setTimeout(async () => {
-			if (channelRef.current) {
-				await channelRef.current.track({ role: "customer", typing: false });
-			}
+			try {
+				await api.patch(`/conversations/${conversation.id}/typing`, {
+					role: null,
+				});
+			} catch {}
 		}, 2000);
 	};
 
@@ -140,12 +140,13 @@ export default function ChatBubble() {
 	async function handleSend() {
 		if (!input.trim() || sending || isLocked) return;
 		setSending(true);
+		const content = input.trim();
+		setInput("");
 
 		try {
 			if (!conversation) {
-				// Créer la conversation avec le premier message
 				const conv = await api
-					.post("/conversations", { content: input.trim() })
+					.post("/conversations", { content })
 					.then((r) => r.data);
 				setConversation(conv);
 				const msgs = await api
@@ -154,13 +155,19 @@ export default function ChatBubble() {
 				setMessages(msgs || []);
 				subscribeToMessages(conv.id);
 			} else {
-				await api.post(`/conversations/${conversation.id}/messages`, {
-					content: input.trim(),
+				const sent = await api
+					.post(`/conversations/${conversation.id}/messages`, { content })
+					.then((r) => r.data);
+
+				// ← Ajouter le message localement immédiatement
+				setMessages((prev) => {
+					if (prev.find((m) => m.id === sent.id)) return prev;
+					return [...prev, sent];
 				});
 			}
-			setInput("");
 		} catch (err) {
 			console.error("Send error:", err);
+			setInput(content); // ← Restaurer en cas d'erreur
 		} finally {
 			setSending(false);
 		}

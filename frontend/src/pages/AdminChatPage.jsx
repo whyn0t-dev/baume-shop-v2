@@ -34,56 +34,56 @@ export default function AdminChatPage() {
 	const [isCustomerTyping, setIsCustomerTyping] = useState(false);
 	const typingTimeoutRef = useRef(null);
 
-	// Dans subscribeToMessages
+	const pollingRef = useRef(null);
+
 	function subscribeToMessages(conversationId) {
-		if (!supabase) return;
-		if (channelRef.current) supabase.removeChannel(channelRef.current);
+		if (pollingRef.current) clearInterval(pollingRef.current);
 
-		const channel = supabase
-			.channel(`messages:${conversationId}`)
-			.on(
-				"postgres_changes",
-				{
-					event: "INSERT",
-					schema: "public",
-					table: "messages",
-					filter: `conversation_id=eq.${conversationId}`,
-				},
-				(payload) => {
-					setMessages((prev) => {
-						if (prev.find((m) => m.id === payload.new.id)) return prev;
-						return [...prev, payload.new];
-					});
-					if (payload.new.sender_role === "customer") {
-						setIsCustomerTyping(false);
-					}
-				},
-			)
-			.on("presence", { event: "sync" }, () => {
-				const state = channel.presenceState();
-				const customerTyping = Object.values(state).some((presences) =>
-					presences.some((p) => p.role === "customer" && p.typing),
-				);
-				setIsCustomerTyping(customerTyping);
-			})
-			.subscribe(async () => {
-				await channel.track({ role: "admin", typing: false });
-			});
-
-		channelRef.current = channel;
+		pollingRef.current = setInterval(async () => {
+			try {
+				const data = await api
+					.get(`/conversations/${conversationId}/messages`)
+					.then((r) => r.data);
+				setMessages(data || []);
+			} catch (err) {
+				// Silencieux
+			}
+		}, 2000);
 	}
+
+	// Dans le useEffect de cleanup existant
+	useEffect(() => {
+		return () => {
+			if (pollingRef.current) clearInterval(pollingRef.current);
+			if (channelRef.current && supabase)
+				supabase.removeChannel(channelRef.current);
+		};
+	}, []);
+
+	// Arrêter le polling quand on change de conversation
+	useEffect(() => {
+		if (pollingRef.current) clearInterval(pollingRef.current);
+		if (selected) loadMessages(selected.id);
+	}, [selected]);
 
 	const handleInputChange = async (e) => {
 		setInput(e.target.value);
-		if (!channelRef.current) return;
-
-		await channelRef.current.track({ role: "admin", typing: true });
+		if (!selected) return;
 
 		clearTimeout(typingTimeoutRef.current);
+
+		try {
+			await api.patch(`/conversations/${selected.id}/typing`, {
+				role: "admin",
+			});
+		} catch {}
+
 		typingTimeoutRef.current = setTimeout(async () => {
-			if (channelRef.current) {
-				await channelRef.current.track({ role: "admin", typing: false });
-			}
+			try {
+				await api.patch(`/conversations/${selected.id}/typing`, {
+					role: null,
+				});
+			} catch {}
 		}, 2000);
 	};
 
@@ -118,14 +118,10 @@ export default function AdminChatPage() {
 
 	async function loadMessages(conversationId) {
 		try {
-			// ← Authentifier le Realtime
+			// ← Authentifier le client Supabase Realtime
 			if (supabase) {
-				const {
-					data: { session },
-				} = await supabase.auth.getSession();
-				if (session) {
-					await supabase.realtime.setAuth(session.access_token);
-				}
+				const token = localStorage.getItem("access_token");
+				if (token) await supabase.realtime.setAuth(token);
 			}
 
 			const data = await api
@@ -141,13 +137,22 @@ export default function AdminChatPage() {
 	async function handleSend() {
 		if (!input.trim() || sending || !selected) return;
 		setSending(true);
+		const content = input.trim();
+		setInput("");
+
 		try {
-			await api.post(`/conversations/${selected.id}/messages`, {
-				content: input.trim(),
+			const sent = await api
+				.post(`/conversations/${selected.id}/messages`, { content })
+				.then((r) => r.data);
+
+			// ← Ajouter le message localement immédiatement
+			setMessages((prev) => {
+				if (prev.find((m) => m.id === sent.id)) return prev;
+				return [...prev, sent];
 			});
-			setInput("");
 		} catch (err) {
 			console.error(err);
+			setInput(content); // ← Restaurer le message en cas d'erreur
 		} finally {
 			setSending(false);
 		}
