@@ -3371,10 +3371,10 @@ async def get_my_conversations(profile=Depends(get_current_profile)):
     return result.data or []
 
 
+# Retirer le décorateur @limiter.limit("30/minute") complètement
 @api_router.get("/conversations/{conversation_id}/messages")
-@limiter.limit("30/minute")
 async def get_conversation_messages(
-    request: Request,  # ← ajouter
+    request: Request,
     conversation_id: str,
     profile=Depends(get_current_profile),
 ):

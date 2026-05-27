@@ -127,8 +127,21 @@ export default function ChatBubble() {
 		if (open) setUnread(0);
 	}, [open]);
 
+	// Remplacer bottomRef par messagesContainerRef
+	const messagesContainerRef = useRef(null);
+	const lastMessageIdRef = useRef(null);
+
 	useEffect(() => {
-		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+		if (messages.length === 0) return;
+		const lastMessage = messages[messages.length - 1];
+		if (lastMessage?.id !== lastMessageIdRef.current) {
+			lastMessageIdRef.current = lastMessage?.id;
+			// ← Scroller le conteneur, pas la page
+			if (messagesContainerRef.current) {
+				messagesContainerRef.current.scrollTop =
+					messagesContainerRef.current.scrollHeight;
+			}
+		}
 	}, [messages]);
 
 	useEffect(() => {
@@ -259,7 +272,7 @@ export default function ChatBubble() {
 					</div>
 
 					{/* Messages */}
-					<div className="flex-1 overflow-y-auto p-4 space-y-3 bg-baume-ivory/30">
+					<div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-baume-ivory/30">
 						{loading ? (
 							<div className="flex items-center justify-center h-full">
 								<Loader2 className="h-6 w-6 animate-spin text-baume-burgundy" />
@@ -305,7 +318,6 @@ export default function ChatBubble() {
 								</div>
 							</div>
 						)}
-						<div ref={bottomRef} />
 					</div>
 
 					{/* Input */}

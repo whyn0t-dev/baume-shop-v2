@@ -95,8 +95,21 @@ export default function AdminChatPage() {
 		if (selected) loadMessages(selected.id);
 	}, [selected]);
 
+	// Remplacer bottomRef par messagesContainerRef
+	const messagesContainerRef = useRef(null);
+	const lastMessageIdRef = useRef(null);
+
 	useEffect(() => {
-		bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+		if (messages.length === 0) return;
+		const lastMessage = messages[messages.length - 1];
+		if (lastMessage?.id !== lastMessageIdRef.current) {
+			lastMessageIdRef.current = lastMessage?.id;
+			// ← Scroller le conteneur, pas la page
+			if (messagesContainerRef.current) {
+				messagesContainerRef.current.scrollTop =
+					messagesContainerRef.current.scrollHeight;
+			}
+		}
 	}, [messages]);
 
 	useEffect(() => {
@@ -200,8 +213,8 @@ export default function AdminChatPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-baume-ivory flex flex-col">
-			<div className="px-6 lg:px-10 py-8">
+		<div className="h-screen bg-baume-ivory flex flex-col overflow-hidden">
+			<div className="px-6 lg:px-10 py-8 shrink-0">
 				<p className="text-[12px] uppercase tracking-[0.22em] text-baume-burgundy font-semibold">
 					Admin
 				</p>
@@ -210,7 +223,7 @@ export default function AdminChatPage() {
 				</h1>
 			</div>
 
-			<div className="flex flex-1 gap-0 px-6 lg:px-10 pb-8 overflow-hidden">
+			<div className="flex flex-1 min-h-0 gap-0 px-6 lg:px-10 pb-8 overflow-hidden">
 				{/* Colonne gauche — liste */}
 				<div className="w-80 shrink-0 rounded-3xl border border-baume-border bg-baume-white mr-4 flex flex-col overflow-hidden">
 					{/* Filtres */}
@@ -324,7 +337,10 @@ export default function AdminChatPage() {
 							</div>
 
 							{/* Messages */}
-							<div className="flex-1 overflow-y-auto p-5 space-y-3 bg-baume-ivory/30">
+							<div
+								ref={messagesContainerRef}
+								className="flex-1 overflow-y-auto p-5 space-y-3 bg-baume-ivory/30"
+							>
 								{messages.map((msg) => (
 									<div
 										key={msg.id}
@@ -390,7 +406,6 @@ export default function AdminChatPage() {
 										</div>
 									</div>
 								)}
-								<div ref={bottomRef} />
 							</div>
 
 							{/* Input admin */}
