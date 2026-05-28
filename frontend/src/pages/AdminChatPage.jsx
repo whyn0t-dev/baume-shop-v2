@@ -45,6 +45,20 @@ export default function AdminChatPage() {
 					.get(`/conversations/${conversationId}/messages`)
 					.then((r) => r.data);
 				setMessages(data || []);
+
+				// ← Détecter si le client est en train d'écrire
+				const convData = await api
+					.get("/ecom/admin/conversations")
+					.then((r) => r.data);
+				const currentConv = convData?.find((c) => c.id === conversationId);
+				if (currentConv) {
+					const customerTypingAt = currentConv.customer_typing_at
+						? new Date(currentConv.customer_typing_at)
+						: null;
+					setIsCustomerTyping(
+						customerTypingAt && new Date() - customerTypingAt < 3000,
+					);
+				}
 			} catch (err) {
 				// Silencieux
 			}

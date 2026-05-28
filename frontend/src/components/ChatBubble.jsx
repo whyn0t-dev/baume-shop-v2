@@ -35,7 +35,6 @@ export default function ChatBubble() {
 	const pollingRef = useRef(null);
 
 	function subscribeToMessages(conversationId) {
-		// Arrêter le polling précédent
 		if (pollingRef.current) clearInterval(pollingRef.current);
 
 		pollingRef.current = setInterval(async () => {
@@ -45,13 +44,22 @@ export default function ChatBubble() {
 					.then((r) => r.data);
 				setMessages(msgs || []);
 
-				// Vérifier si la conversation a été verrouillée
+				// Vérifier la conversation pour le statut et le typing
 				const convs = await api.get("/conversations/mine").then((r) => r.data);
-				if (convs?.[0]) setConversation(convs[0]);
+				if (convs?.[0]) {
+					const conv = convs[0];
+					setConversation(conv);
+
+					// ← Détecter si l'admin est en train d'écrire
+					const adminTypingAt = conv.admin_typing_at
+						? new Date(conv.admin_typing_at)
+						: null;
+					setIsAdminTyping(adminTypingAt && new Date() - adminTypingAt < 3000);
+				}
 			} catch (err) {
 				// Silencieux
 			}
-		}, 2000); // ← toutes les 2 secondes
+		}, 2000);
 	}
 
 	// Cleanup dans useEffect
@@ -272,7 +280,10 @@ export default function ChatBubble() {
 					</div>
 
 					{/* Messages */}
-					<div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-baume-ivory/30">
+					<div
+						ref={messagesContainerRef}
+						className="flex-1 overflow-y-auto p-4 space-y-3 bg-baume-ivory/30"
+					>
 						{loading ? (
 							<div className="flex items-center justify-center h-full">
 								<Loader2 className="h-6 w-6 animate-spin text-baume-burgundy" />
