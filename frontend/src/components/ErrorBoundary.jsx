@@ -1,4 +1,15 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
+
+// Wrapper pour détecter les changements de route
+export function ErrorBoundaryWithReset({ children, fallback }) {
+	const location = useLocation();
+	return (
+		<ErrorBoundary key={location.pathname} fallback={fallback}>
+			{children}
+		</ErrorBoundary>
+	);
+}
 
 export default class ErrorBoundary extends React.Component {
 	constructor(props) {

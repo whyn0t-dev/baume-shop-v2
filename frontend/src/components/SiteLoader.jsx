@@ -5,8 +5,17 @@ export default function SiteLoader() {
 	const [hide, setHide] = useState(false);
 
 	useEffect(() => {
+		// ← Si déjà affiché dans cette session, masquer immédiatement
+		if (sessionStorage.getItem("loader_shown")) {
+			setHide(true);
+			return;
+		}
+
 		const t1 = setTimeout(() => setLeaving(true), 1900);
-		const t2 = setTimeout(() => setHide(true), 2500);
+		const t2 = setTimeout(() => {
+			setHide(true);
+			sessionStorage.setItem("loader_shown", "true"); // ← Mémoriser
+		}, 2500);
 
 		return () => {
 			clearTimeout(t1);

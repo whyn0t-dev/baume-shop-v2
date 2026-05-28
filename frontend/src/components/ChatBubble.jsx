@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { MessageCircle, X, Send, Lock, Loader2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
-import { createClient } from "@supabase/supabase-js";
 
 export default function ChatBubble() {
 	const { user, status } = useAuth();
@@ -13,21 +12,9 @@ export default function ChatBubble() {
 	const [loading, setLoading] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [unread, setUnread] = useState(0);
-	const bottomRef = useRef(null);
-	const channelRef = useRef(null);
 
 	const isLoggedIn = status === "authenticated" && user;
 	const isLocked = conversation?.status === "locked";
-
-	// ← Créer le client ici à l'intérieur
-	const supabaseRef = useRef(null);
-	if (!supabaseRef.current && process.env.REACT_APP_SUPABASE_URL) {
-		supabaseRef.current = createClient(
-			process.env.REACT_APP_SUPABASE_URL,
-			process.env.REACT_APP_SUPABASE_ANON_KEY,
-		);
-	}
-	const supabase = supabaseRef.current;
 
 	const [isAdminTyping, setIsAdminTyping] = useState(false);
 	const typingTimeoutRef = useRef(null);
@@ -61,6 +48,19 @@ export default function ChatBubble() {
 			}
 		}, 2000);
 	}
+
+	// ← Relancer le polling quand l'onglet redevient actif
+	useEffect(() => {
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible" && conversation && open) {
+				subscribeToMessages(conversation.id);
+			}
+		};
+
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () =>
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+	}, [conversation, open]);
 
 	// Cleanup dans useEffect
 	useEffect(() => {
@@ -108,12 +108,6 @@ export default function ChatBubble() {
 	async function loadConversation() {
 		setLoading(true);
 		try {
-			// ← Authentifier le client Supabase Realtime
-			if (supabase) {
-				const token = localStorage.getItem("access_token");
-				if (token) await supabase.realtime.setAuth(token);
-			}
-
 			const convs = await api.get("/conversations/mine").then((r) => r.data);
 			if (convs && convs.length > 0) {
 				const conv = convs[0];
@@ -152,12 +146,6 @@ export default function ChatBubble() {
 		}
 	}, [messages]);
 
-	useEffect(() => {
-		return () => {
-			if (channelRef.current) supabase.removeChannel(channelRef.current);
-		};
-	}, []);
-
 	async function handleSend() {
 		if (!input.trim() || sending || isLocked) return;
 		setSending(true);
@@ -193,6 +181,9 @@ export default function ChatBubble() {
 			setSending(false);
 		}
 	}
+	
+	if (status === "loading") return null; // ← ajouter
+	if (user?.role === "admin") return null;
 
 	// ── Pas connecté ──────────────────────────────────────────────────────
 	if (!isLoggedIn) {

@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Instagram, Facebook, Mail, MapPin, ArrowRight } from "lucide-react";
 import { NEEDS, PRODUCT_CATS } from "../lib/constants";
+import { resetConsent } from "../lib/consent";
 
 export default function Footer() {
 	return (
@@ -137,7 +138,6 @@ export default function Footer() {
 			<div className="border-t border-baume-white/10">
 				<div className="w-full px-6 lg:px-10 py-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-[12px] text-baume-white/55">
 					<p>© {new Date().getFullYear()} Baume Sàrl · Conçu à Genève</p>
-
 					<ul className="flex flex-wrap items-center gap-4">
 						<li>
 							<Link
@@ -170,6 +170,14 @@ export default function Footer() {
 							<Link to="/contact" className="hover:text-baume-white">
 								Contact
 							</Link>
+						</li>
+						<li>
+							<button
+								onClick={resetConsent}
+								className="text-[12px] text-baume-white/55 hover:text-baume-white transition"
+							>
+								Gérer mes cookies
+							</button>
 						</li>
 					</ul>
 				</div>

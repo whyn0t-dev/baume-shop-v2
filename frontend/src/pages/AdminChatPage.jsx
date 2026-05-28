@@ -9,27 +9,16 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { createClient } from "@supabase/supabase-js";
 
 export default function AdminChatPage() {
-	const { user } = useAuth();
+	const { user, status } = useAuth();
+
 	const [conversations, setConversations] = useState([]);
 	const [selected, setSelected] = useState(null);
 	const [messages, setMessages] = useState([]);
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
 	const [filter, setFilter] = useState("open");
-	const bottomRef = useRef(null);
-	const channelRef = useRef(null);
-
-	const supabaseRef = useRef(null);
-	if (!supabaseRef.current && process.env.REACT_APP_SUPABASE_URL) {
-		supabaseRef.current = createClient(
-			process.env.REACT_APP_SUPABASE_URL,
-			process.env.REACT_APP_SUPABASE_ANON_KEY,
-		);
-	}
-	const supabase = supabaseRef.current;
 
 	const [isCustomerTyping, setIsCustomerTyping] = useState(false);
 	const typingTimeoutRef = useRef(null);
@@ -65,12 +54,23 @@ export default function AdminChatPage() {
 		}, 2000);
 	}
 
+	// ← Relancer le polling quand l'onglet redevient actif
+	useEffect(() => {
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === "visible" && selected) {
+				subscribeToMessages(selected.id);
+			}
+		};
+
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () =>
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+	}, [selected]);
+
 	// Dans le useEffect de cleanup existant
 	useEffect(() => {
 		return () => {
 			if (pollingRef.current) clearInterval(pollingRef.current);
-			if (channelRef.current && supabase)
-				supabase.removeChannel(channelRef.current);
 		};
 	}, []);
 
@@ -105,10 +105,6 @@ export default function AdminChatPage() {
 		loadConversations();
 	}, [filter]);
 
-	useEffect(() => {
-		if (selected) loadMessages(selected.id);
-	}, [selected]);
-
 	// Remplacer bottomRef par messagesContainerRef
 	const messagesContainerRef = useRef(null);
 	const lastMessageIdRef = useRef(null);
@@ -126,12 +122,6 @@ export default function AdminChatPage() {
 		}
 	}, [messages]);
 
-	useEffect(() => {
-		return () => {
-			if (channelRef.current) supabase.removeChannel(channelRef.current);
-		};
-	}, []);
-
 	async function loadConversations() {
 		try {
 			const data = await api
@@ -145,12 +135,6 @@ export default function AdminChatPage() {
 
 	async function loadMessages(conversationId) {
 		try {
-			// ← Authentifier le client Supabase Realtime
-			if (supabase) {
-				const token = localStorage.getItem("access_token");
-				if (token) await supabase.realtime.setAuth(token);
-			}
-
 			const data = await api
 				.get(`/conversations/${conversationId}/messages`)
 				.then((r) => r.data);
@@ -225,6 +209,9 @@ export default function AdminChatPage() {
 			console.error(err);
 		}
 	}
+
+	if (status === "loading") return null;
+	if (!user) return null;
 
 	return (
 		<div className="h-screen bg-baume-ivory flex flex-col overflow-hidden">

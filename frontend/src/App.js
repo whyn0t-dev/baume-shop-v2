@@ -44,7 +44,10 @@ import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 import AdminChatPage from "./pages/AdminChatPage";
 import ChatBubble from "./components/ChatBubble";
 
-import ErrorBoundary from "./components/ErrorBoundary";
+import CookieBanner from "./components/CookieBanner";
+import { getConsent, applyConsent } from "./lib/consent";
+
+import ErrorBoundary, { ErrorBoundaryWithReset } from "./components/ErrorBoundary";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -159,7 +162,9 @@ function AppShell() {
             path="/admin/chat"
             element={
               <AdminRoute>
-                <AdminChatPage />
+                <React.Suspense fallback={null}>
+                  <AdminChatPage />
+                </React.Suspense>
               </AdminRoute>
             }
           />
@@ -169,6 +174,7 @@ function AppShell() {
       <Footer />
       <CartDrawer />
       <ChatBubble />
+      <CookieBanner />
       <Toaster
         position="top-right"
         richColors
@@ -185,20 +191,28 @@ function AppShell() {
   );
 }
 
+const consent = getConsent();
 posthog.init(process.env.REACT_APP_POSTHOG_KEY, {
-  api_host: "https://us.posthog.com",
+  api_host: process.env.REACT_APP_POSTHOG_HOST || "https://us.posthog.com",
   capture_pageview: true,
   capture_pageleave: true,
+  // ← Démarrer en opt-out si pas de consentement ou si refusé
+  opt_out_capturing_by_default: !consent?.choices?.analytics,
 });
+
+// Appliquer les préférences existantes au démarrage
+if (consent) {
+  applyConsent(consent.choices);
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
-          <ErrorBoundary>
+          <ErrorBoundaryWithReset>
             <AppShell />
-          </ErrorBoundary>
+          </ErrorBoundaryWithReset>
         </BrowserRouter>
       </CartProvider>
     </AuthProvider>
