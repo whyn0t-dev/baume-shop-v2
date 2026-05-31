@@ -1,5 +1,6 @@
 import React from "react";
 import Breadcrumb from "../components/Breadcrumb";
+import { resetConsent } from "../lib/consent";
 
 function LegalLayout({ testid, title, updated, children }) {
 	return (
@@ -339,21 +340,31 @@ export function PrivacyPage() {
 			</p>
 
 			<h2>Cookies</h2>
+			<p>Le site utilise les catégories de cookies suivantes :</p>
+			<ul>
+				<li>
+					<strong>Cookies strictement nécessaires</strong> — session, panier,
+					authentification. Toujours actifs, indispensables au fonctionnement du
+					site. Durée : session ou 7 jours maximum.
+				</li>
+				<li>
+					<strong>Cookies analytiques</strong> — nous utilisons{" "}
+					<strong>PostHog</strong> (posthog.com) pour analyser les comportements
+					de navigation de façon anonymisée et améliorer l'expérience
+					utilisateur. Ces cookies ne sont déposés qu'après votre consentement
+					explicite. Durée : 13 mois maximum. Google Analytics sera
+					prochainement intégré dans les mêmes conditions.
+				</li>
+			</ul>
 			<p>
-				Le site utilise des cookies techniques strictement nécessaires (session,
-				panier, authentification). Les cookies analytiques ne sont posés
-				qu'après votre consentement explicite (bandeau cookies).
-			</p>
-
-			<h2>Réclamation</h2>
-			<p>
-				En cas de désaccord persistant, vous pouvez saisir le{" "}
-				<strong>
-					Préposé fédéral à la protection des données et à la transparence
-					(PFPDT)
-				</strong>{" "}
-				en Suisse, ou l'autorité de contrôle de votre pays de résidence au sein
-				de l'Union européenne.
+				Vous pouvez modifier vos préférences à tout moment en cliquant sur{" "}
+				<button
+					onClick={resetConsent}
+					className="text-baume-burgundy underline cursor-pointer"
+				>
+					Gérer mes cookies
+				</button>
+				ou depuis le lien en bas de chaque page.
 			</p>
 		</LegalLayout>
 	);

@@ -1936,6 +1936,7 @@ ADMIN_TABLES = {
     "workshop_bookings",
     "conversations",
     "messages",
+    "return_requests",
 }
 
 
@@ -3547,6 +3548,325 @@ async def update_typing(
         )
 
     return {"success": True}
+
+
+# ── Retours & Remboursements ───────────────────────────────────────────────────
+
+
+class ReturnRequestCreate(BaseModel):
+    order_id: str
+    reason: str = Field(
+        ..., pattern="^(defective|wrong_item|not_as_described|changed_mind|other)$"
+    )
+    message: str = Field(..., min_length=10, max_length=2000)
+    images: List[str] = []
+
+
+class ReturnRequestReview(BaseModel):
+    status: str = Field(..., pattern="^(approved|rejected)$")
+    admin_note: Optional[str] = None
+
+
+@api_router.post("/returns")
+async def create_return_request(
+    payload: ReturnRequestCreate,
+    profile=Depends(get_current_profile),
+):
+    """Client soumet une demande de retour."""
+    customer = await get_or_create_customer(profile)
+
+    # Vérifier que la commande appartient au client
+    order = await sb_select_one("orders", "id", payload.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    owns = order.get("customer_id") == customer["id"] or order.get(
+        "email"
+    ) == profile.get("email")
+    if not owns:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    # Vérifier qu'une demande n'existe pas déjà pour cette commande
+    existing = await asyncio.to_thread(
+        lambda: supabase.table("return_requests")
+        .select("id, status")
+        .eq("order_id", payload.order_id)
+        .limit(1)
+        .execute()
+    )
+    if existing.data:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Une demande de retour existe déjà pour cette commande (statut : {existing.data[0]['status']}).",
+        )
+
+    # Vérifier que la commande est dans un état retournable
+    if order.get("status") not in ("paid", "processing", "shipped", "delivered"):
+        raise HTTPException(
+            status_code=400,
+            detail="Cette commande ne peut pas faire l'objet d'un retour.",
+        )
+
+    inserted = await sb_insert(
+        "return_requests",
+        {
+            "order_id": payload.order_id,
+            "customer_id": customer["id"],
+            "email": profile.get("email", order.get("email", "")),
+            "reason": payload.reason,
+            "message": payload.message,
+            "images": payload.images,
+            "status": "pending",
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        },
+    )
+
+    return_request = inserted.data[0]
+
+    # Notifier l'admin par email
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{SUPABASE_URL}/functions/v1/send-return-status-email",
+                json={
+                    "return_request_id": return_request["id"],
+                    "type": "new_request",
+                    "email": return_request["email"],
+                    "order_id": payload.order_id,
+                    "reason": payload.reason,
+                },
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=10,
+            )
+    except Exception as e:
+        logger.error(f"send-return-status-email failed: {e}")
+
+    return return_request
+
+
+@api_router.get("/returns/mine")
+async def get_my_return_requests(profile=Depends(get_current_profile)):
+    """Récupère toutes les demandes de retour du client."""
+    customer = await get_or_create_customer(profile)
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("return_requests")
+        .select("*, orders(id, total, currency, created_at, status)")
+        .eq("customer_id", customer["id"])
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/returns/{return_id}")
+async def get_return_request(
+    return_id: str,
+    profile=Depends(get_current_profile),
+):
+    """Récupère une demande de retour."""
+    result = await asyncio.to_thread(
+        lambda: supabase.table("return_requests")
+        .select("*, orders(id, total, currency, created_at, status, order_items(*))")
+        .eq("id", return_id)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+
+    req = result.data[0]
+    is_admin = profile.get("role") == "admin"
+
+    if not is_admin:
+        customer = await get_or_create_customer(profile)
+        if req.get("customer_id") != customer["id"]:
+            raise HTTPException(status_code=403, detail="Accès refusé")
+
+    return req
+
+
+@api_router.get("/ecom/admin/returns")
+async def list_all_return_requests(
+    status: Optional[str] = None,
+    profile=Depends(require_admin),
+):
+    """Liste toutes les demandes de retour — admin uniquement."""
+
+    def run():
+        q = (
+            supabase.table("return_requests")
+            .select(
+                "*, orders(id, total, currency, created_at, status, order_items(*))"
+            )
+            .order("created_at", desc=True)
+        )
+        if status:
+            q = q.eq("status", status)
+        return q.limit(200).execute()
+
+    result = await asyncio.to_thread(run)
+    return result.data or []
+
+
+@api_router.patch("/ecom/admin/returns/{return_id}/review")
+async def review_return_request(
+    return_id: str,
+    payload: ReturnRequestReview,
+    profile=Depends(require_admin),
+):
+    """Admin approuve ou refuse une demande de retour."""
+    req = await sb_select_one("return_requests", "id", return_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+
+    if req.get("status") != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cette demande a déjà été traitée (statut : {req['status']}).",
+        )
+
+    await sb_update(
+        "return_requests",
+        {
+            "status": payload.status,
+            "admin_note": payload.admin_note,
+            "reviewed_at": now_iso(),
+            "reviewed_by": profile["id"],
+            "updated_at": now_iso(),
+        },
+        "id",
+        return_id,
+    )
+
+    # Envoyer email au client
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{SUPABASE_URL}/functions/v1/send-return-status-email",
+                json={
+                    "return_request_id": return_id,
+                    "type": payload.status,  # "approved" ou "rejected"
+                    "email": req["email"],
+                    "order_id": req["order_id"],
+                    "admin_note": payload.admin_note,
+                },
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=10,
+            )
+    except Exception as e:
+        logger.error(f"send-return-status-email failed: {e}")
+
+    return await sb_select_one("return_requests", "id", return_id)
+
+
+@api_router.patch("/ecom/admin/returns/{return_id}/refund")
+async def process_return_refund(
+    return_id: str,
+    profile=Depends(require_admin),
+):
+    """Admin déclenche le remboursement manuellement."""
+    req = await sb_select_one("return_requests", "id", return_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+
+    if req.get("status") != "approved":
+        raise HTTPException(
+            status_code=400,
+            detail="La demande doit être approuvée avant de déclencher le remboursement.",
+        )
+
+    # Déclencher le remboursement via l'Edge Function existante
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                f"{SUPABASE_URL}/functions/v1/refund-order",
+                json={"orderId": req["order_id"]},
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=30,
+            )
+            refund_data = res.json()
+    except Exception as e:
+        logger.error(f"refund-order failed: {e}")
+        raise HTTPException(status_code=500, detail="Erreur lors du remboursement")
+
+    # Mettre à jour la demande
+    await sb_update(
+        "return_requests",
+        {
+            "status": "refunded",
+            "refunded_at": now_iso(),
+            "updated_at": now_iso(),
+        },
+        "id",
+        return_id,
+    )
+
+    # Envoyer email de confirmation au client
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{SUPABASE_URL}/functions/v1/send-return-status-email",
+                json={
+                    "return_request_id": return_id,
+                    "type": "refunded",
+                    "email": req["email"],
+                    "order_id": req["order_id"],
+                },
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=10,
+            )
+    except Exception as e:
+        logger.error(f"send-return-status-email failed: {e}")
+
+    return {
+        "success": True,
+        "refund": refund_data,
+        "return_request_id": return_id,
+    }
+
+
+@api_router.post("/returns/upload-image")
+async def upload_return_image(
+    file: UploadFile = File(...),
+    profile=Depends(get_current_profile),
+):
+    """Upload une image pour une demande de retour."""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=400, detail="Fichier non valide — image uniquement."
+        )
+
+    file_bytes = await file.read()
+
+    if len(file_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image trop lourde — 5 Mo maximum.")
+
+    file_path = f"returns/{profile['id']}/{uuid.uuid4()}-{file.filename}"
+
+    await asyncio.to_thread(
+        lambda: supabase.storage.from_("return-images").upload(
+            file_path, file_bytes, {"content-type": file.content_type}
+        )
+    )
+
+    public_url = supabase.storage.from_("return-images").get_public_url(file_path)
+
+    return {"path": file_path, "url": public_url}
 
 
 api_router.include_router(auth_router)
