@@ -29,10 +29,9 @@ import {
 
 import { LayoutDashboard } from "lucide-react";
 import HomeSection from "../components/HomeSection";
-
 import { MessageCircle } from "lucide-react";
-
 import { ScanLine } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 
 const SECTIONS = [
 	{ key: "accueil", label: "Accueil", icon: LayoutDashboard },
@@ -46,6 +45,7 @@ const SECTIONS = [
 	{ key: "reviews", label: "Avis clients", icon: Star },
 	{ key: "scanner", label: "Scanner", icon: ScanLine },
 	{ key: "chat", label: "Conversations", icon: MessageCircle },
+	{ key: "returns", label: "Retours", icon: RotateCcw },
 ];
 
 export default function DashBoardAdmin() {
@@ -75,7 +75,8 @@ export default function DashBoardAdmin() {
 			isAdmin &&
 			active !== "accueil" &&
 			active !== "scanner" &&
-			active !== "chat"
+			active !== "chat" &&
+			active !== "returns" // ← ajouter aux exceptions
 		) {
 			loadData(active);
 		} else {
@@ -437,6 +438,20 @@ function AdminTable({ table, rows, onDelete, onRefresh }) {
 				>
 					<MessageCircle className="h-5 w-5" />
 					Ouvrir le panneau conversations
+				</Link>
+			</div>
+		);
+	}
+
+	if (table === "returns") {
+		return (
+			<div className="p-8 text-center">
+				<Link
+					to="/admin/returns"
+					className="h-12 px-8 rounded-full bg-baume-burgundy text-white font-semibold text-[15px] inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition"
+				>
+					<RotateCcw className="h-5 w-5" />
+					Ouvrir la gestion des retours
 				</Link>
 			</div>
 		);

@@ -50,6 +50,7 @@ import { getConsent, applyConsent } from "./lib/consent";
 import ErrorBoundary, { ErrorBoundaryWithReset } from "./components/ErrorBoundary";
 
 import ReturnRequestPage from "./pages/ReturnRequestPage";
+import AdminReturnsPage from "./pages/AdminReturnsPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -171,6 +172,14 @@ function AppShell() {
             }
           />
           <Route path="/retour/:orderId" element={<ReturnRequestPage />} />
+          <Route
+            path="/admin/returns"
+            element={
+              <AdminRoute>
+                <AdminReturnsPage />
+              </AdminRoute>
+            }
+          />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>
