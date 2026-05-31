@@ -49,6 +49,8 @@ import { getConsent, applyConsent } from "./lib/consent";
 
 import ErrorBoundary, { ErrorBoundaryWithReset } from "./components/ErrorBoundary";
 
+import ReturnRequestPage from "./pages/ReturnRequestPage";
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -168,6 +170,7 @@ function AppShell() {
               </AdminRoute>
             }
           />
+          <Route path="/retour/:orderId" element={<ReturnRequestPage />} />
           <Route path="*" element={<HomePage />} />
         </Routes>
       </main>
