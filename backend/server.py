@@ -1605,51 +1605,51 @@ async def stripe_webhook(request: Request):
         payment_intent_id = obj.get("payment_intent")
         amount_refunded = (obj.get("amount_refunded") or 0) / 100
 
-    if payment_intent_id:
-        order_result = await asyncio.to_thread(
-            lambda: supabase.table("orders")
-            .select("id, payments(*)")
-            .eq("stripe_payment_intent_id", payment_intent_id)
-            .limit(1)
-            .execute()
-        )
-
-        if order_result.data:
-            o = order_result.data[0]
-            payments = o.get("payments") or []
-            payment_id = payments[0]["id"] if payments else None
-
-            # ← Ajouter la mise à jour du statut
-            await sb_update(
-                "orders",
-                {
-                    "status": "refunded",
-                    "updated_at": now_iso(),
-                },
-                "id",
-                o["id"],
-            )
-
-            existing_refund = await asyncio.to_thread(
-                lambda: supabase.table("refunds")
-                .select("id")
-                .eq("order_id", o["id"])
+        if payment_intent_id:
+            order_result = await asyncio.to_thread(
+                lambda: supabase.table("orders")
+                .select("id, payments(*)")
+                .eq("stripe_payment_intent_id", payment_intent_id)
                 .limit(1)
                 .execute()
             )
 
-            if not existing_refund.data:
-                await sb_insert(
-                    "refunds",
+            if order_result.data:
+                o = order_result.data[0]
+                payments = o.get("payments") or []
+                payment_id = payments[0]["id"] if payments else None
+
+                # ← Ajouter la mise à jour du statut
+                await sb_update(
+                    "orders",
                     {
-                        "id": str(uuid.uuid4()),
-                        "order_id": o["id"],
-                        "payment_id": payment_id,
-                        "amount": amount_refunded,
-                        "reason": "Remboursement Stripe",
-                        "created_at": now_iso(),
+                        "status": "refunded",
+                        "updated_at": now_iso(),
                     },
+                    "id",
+                    o["id"],
                 )
+
+                existing_refund = await asyncio.to_thread(
+                    lambda: supabase.table("refunds")
+                    .select("id")
+                    .eq("order_id", o["id"])
+                    .limit(1)
+                    .execute()
+                )
+
+                if not existing_refund.data:
+                    await sb_insert(
+                        "refunds",
+                        {
+                            "id": str(uuid.uuid4()),
+                            "order_id": o["id"],
+                            "payment_id": payment_id,
+                            "amount": amount_refunded,
+                            "reason": "Remboursement Stripe",
+                            "created_at": now_iso(),
+                        },
+                    )
 
     # ── charge.dispute.created ────────────────────────────────────────────
     elif event_type == "charge.dispute.created":
@@ -3819,7 +3819,21 @@ async def process_return_refund(
                 },
                 timeout=30,
             )
-            refund_data = res.json()
+            # ← Lire le body une seule fois
+            response_text = res.text
+            try:
+                refund_data = res.json()
+            except Exception:
+                refund_data = {"raw": response_text}
+
+            if res.status_code != 200:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Erreur remboursement : {response_text}"
+                )
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"refund-order failed: {e}")
         raise HTTPException(status_code=500, detail="Erreur lors du remboursement")
