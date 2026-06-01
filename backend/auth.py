@@ -27,6 +27,14 @@ class RegisterRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
 
+class UpdateProfileRequest(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    postal_code: str | None = None
+    city: str | None = None
+    country: str | None = None
 
 @auth_router.post("/login")
 async def login(payload: LoginRequest):
@@ -248,3 +256,45 @@ async def require_admin(profile=Depends(get_current_profile)):
         raise HTTPException(status_code=403, detail="Accès refusé")
 
     return profile
+
+@auth_router.get("/me")
+async def get_me(user=Depends(get_current_user)):
+    result = (
+        supabase_admin.table("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybe_single()
+        .execute()
+    )
+    profile = result.data or {}
+    return {
+        "id": user.id,
+        "email": user.email,
+        **profile,
+    }
+
+
+@auth_router.patch("/me")
+async def update_me(
+    payload: UpdateProfileRequest,
+    user=Depends(get_current_user),
+):
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="Aucune donnée à mettre à jour")
+
+    result = (
+        supabase_admin.table("profiles")
+        .update(updates)
+        .eq("id", user.id)
+        .execute()
+    )
+
+    profile = result.data[0] if result.data else {}
+
+    return {
+        "id": user.id,
+        "email": user.email,
+        **profile,
+    }

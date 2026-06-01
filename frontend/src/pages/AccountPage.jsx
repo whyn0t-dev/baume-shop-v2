@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { getMyOrders, formatApiError, api } from "../lib/api";
@@ -59,8 +59,74 @@ export default function AccountPage() {
 
 	const [loyalty, setLoyalty] = useState(null);
 	const [converting, setConverting] = useState(false);
-
 	const [referral, setReferral] = useState(null);
+	const [addressLocked, setAddressLocked] = useState(false);
+	const addressInputRef = useRef(null);
+
+	const [activeTab, setActiveTab] = useState("orders");
+
+	// ← Charger Google Maps si pas déjà chargé
+	useEffect(() => {
+		if (window.google) return;
+		if (document.querySelector("#google-maps-script")) return;
+		const script = document.createElement("script");
+		script.id = "google-maps-script";
+		script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_MAPS_KEY}&libraries=places&language=fr&loading=async`;
+		script.async = true;
+		script.defer = true;
+		document.head.appendChild(script);
+	}, []);
+
+	// ← Initialiser l'autocomplete sur le champ adresse
+	useEffect(() => {
+		if (activeTab !== "profile") return; // ← attendre que l'onglet soit actif
+
+		const init = () => {
+			if (!window.google || !addressInputRef.current) return;
+			const autocomplete = new window.google.maps.places.Autocomplete(
+				addressInputRef.current,
+				{ types: ["address"], fields: ["address_components"] },
+			);
+			autocomplete.addListener("place_changed", () => {
+				const place = autocomplete.getPlace();
+				if (!place.address_components) return;
+				const get = (type) =>
+					place.address_components.find((c) => c.types.includes(type))
+						?.long_name || "";
+				const getShort = (type) =>
+					place.address_components.find((c) => c.types.includes(type))
+						?.short_name || "";
+				const streetNumber = get("street_number");
+				const route = get("route");
+				const country = getShort("country");
+				setProfile((prev) => ({
+					...prev,
+					address: `${route}${streetNumber ? " " + streetNumber : ""}`.trim(),
+					city:
+						get("locality") ||
+						get("administrative_area_level_2") ||
+						get("postal_town"),
+					postal_code: get("postal_code"),
+					country: COUNTRIES.find((c) => c.code === country)
+						? country
+						: prev.country,
+				}));
+				setAddressLocked(true);
+			});
+		};
+
+		if (window.google) {
+			init();
+		} else {
+			const interval = setInterval(() => {
+				if (window.google) {
+					clearInterval(interval);
+					init();
+				}
+			}, 100);
+			return () => clearInterval(interval);
+		}
+	}, [activeTab]); // ← dépendance sur activeTab
 
 	useEffect(() => {
 		if (status !== "authenticated") return;
@@ -201,7 +267,11 @@ export default function AccountPage() {
 			</section>
 
 			<section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pb-24">
-				<Tabs defaultValue="orders" className="w-full">
+				<Tabs
+					defaultValue="orders"
+					onValueChange={setActiveTab}
+					className="w-full"
+				>
 					<TabsList className="grid grid-cols-4 bg-baume-white border border-baume-border rounded-full h-12 p-1 mb-8 max-w-[640px]">
 						<TabsTrigger
 							value="orders"
@@ -429,16 +499,39 @@ export default function AccountPage() {
 								</p>
 							</div>
 
-							<Field label="Adresse" htmlFor="addr">
-								<Input
+							<div>
+								<Label htmlFor="addr">Adresse</Label>
+								<input
+									ref={addressInputRef}
 									id="addr"
+									type="text"
 									value={profile.address}
 									onChange={(e) =>
 										setProfile({ ...profile, address: e.target.value })
 									}
-									className="mt-1.5 h-12 rounded-xl border-baume-border"
+									onFocus={() => setAddressLocked(false)}
+									placeholder="Commencez à taper votre adresse…"
+									autoComplete="off"
+									className="mt-1.5 h-12 w-full rounded-xl border border-baume-border bg-white px-3 text-[14px] text-baume-charcoal focus:outline-none focus:ring-2 focus:ring-baume-burgundy"
 								/>
-							</Field>
+								{addressLocked && (
+									<button
+										type="button"
+										onClick={() => {
+											setAddressLocked(false);
+											setProfile((prev) => ({
+												...prev,
+												address: "",
+												city: "",
+												postal_code: "",
+											}));
+										}}
+										className="text-[12px] text-baume-burgundy baume-link mt-1"
+									>
+										Modifier l'adresse
+									</button>
+								)}
+							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 								<Field label="Code postal" htmlFor="pc">
