@@ -46,7 +46,7 @@ export function CartProvider({ children }) {
 				{
 					key,
 					product_id: product.id,
-          variant_id: options.variant_id || null,
+					variant_id: options.variant_id || null,
 					slug: product.slug,
 					name: product.name,
 					price: options.price ?? product.price,
@@ -77,7 +77,15 @@ export function CartProvider({ children }) {
 		[],
 	);
 
-	const clear = useCallback(() => setItems([]), []);
+	const clear = useCallback(() => {
+		setItems([]);
+		// ← Vider le localStorage immédiatement sans attendre le useEffect
+		try {
+			localStorage.removeItem(STORAGE_KEY);
+		} catch (e) {
+			/* ignore */
+		}
+	}, []);
 
 	const subtotal = items.reduce((acc, i) => acc + i.price * i.quantity, 0);
 	const count = items.reduce((acc, i) => acc + i.quantity, 0);

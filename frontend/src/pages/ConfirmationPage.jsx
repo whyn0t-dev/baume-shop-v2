@@ -32,17 +32,35 @@ export default function ConfirmationPage() {
 
 	const handleRetry = async () => {
 		if (items.length === 0) {
-			toast.error("Votre panier est vide", {
-				description: "Ajoutez des produits avant de relancer le paiement.",
-			});
+			toast.error("Votre panier est vide");
 			return;
 		}
 
 		setRetrying(true);
 		try {
+			// ← Récupérer la session Stripe en cours si elle existe
+			const sessionIdFromStorage = sessionStorage.getItem("stripe_session_id");
+			if (sessionIdFromStorage) {
+				const res = await fetch(
+					`${process.env.REACT_APP_BACKEND_URL}/api/checkout/status/${sessionIdFromStorage}`,
+				);
+				const data = await res.json();
+
+				// Si la session est encore ouverte, rediriger vers Stripe
+				if (data.status === "open") {
+					const sessionRes = await fetch(
+						`https://checkout.stripe.com/pay/${sessionIdFromStorage}`,
+					);
+					window.location.href = `https://checkout.stripe.com/pay/${sessionIdFromStorage}`;
+					return;
+				}
+			}
+
+			// Sinon créer une nouvelle session
 			const payload = {
 				items: items.map((i) => ({
 					product_id: i.product_id || i.id,
+					variant_id: i.variant_id || null,
 					name: i.name,
 					price: Number(i.price || 0),
 					quantity: Number(i.quantity || 1),
@@ -54,16 +72,12 @@ export default function ConfirmationPage() {
 				shipping_country: "CH",
 			};
 
-			const res = await createCheckout(payload);
-			if (res?.url) {
-				window.location.href = res.url;
-			} else {
-				toast.error("Impossible de relancer le paiement");
+			const result = await createCheckout(payload);
+			if (result?.url) {
+				window.location.href = result.url;
 			}
 		} catch (e) {
-			toast.error("Erreur lors du rechargement du paiement", {
-				description: e?.message,
-			});
+			toast.error("Erreur lors du rechargement du paiement");
 		} finally {
 			setRetrying(false);
 		}

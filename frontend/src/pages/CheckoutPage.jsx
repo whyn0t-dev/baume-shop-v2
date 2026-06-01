@@ -270,6 +270,8 @@ export default function CheckoutPage() {
 			};
 			const res = await createCheckout(payload);
 			if (res?.url) {
+				// ← Sauvegarder la session ID
+				sessionStorage.setItem("stripe_session_id", res.session_id);
 				window.location.href = res.url;
 			} else {
 				toast.error("Impossible de créer la session de paiement");

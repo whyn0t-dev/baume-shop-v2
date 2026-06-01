@@ -1372,6 +1372,22 @@ async def _ensure_order_from_tx(session_id: str):
 
     order["items"] = line_items
 
+    # ← Ajouter ici
+    try:
+        stripe_session = await asyncio.to_thread(
+            stripe.checkout.Session.retrieve, session_id
+        )
+        payment_intent_id = stripe_session.payment_intent
+        if payment_intent_id:
+            await sb_update(
+                "orders",
+                {"stripe_payment_intent_id": payment_intent_id},
+                "id",
+                order["id"],
+            )
+    except Exception as e:
+        logger.error(f"Could not retrieve payment_intent: {e}")
+
     # ── Enregistrer les pré-commandes ─────────────────────────────────────
     for item in line_items:
         product_id = item.get("product_id")
@@ -1589,45 +1605,51 @@ async def stripe_webhook(request: Request):
         payment_intent_id = obj.get("payment_intent")
         amount_refunded = (obj.get("amount_refunded") or 0) / 100
 
-        if payment_intent_id:
-            order_result = await asyncio.to_thread(
-                lambda: supabase.table("orders")
-                .select("id, payments(*)")
-                .eq("stripe_payment_intent_id", payment_intent_id)
+    if payment_intent_id:
+        order_result = await asyncio.to_thread(
+            lambda: supabase.table("orders")
+            .select("id, payments(*)")
+            .eq("stripe_payment_intent_id", payment_intent_id)
+            .limit(1)
+            .execute()
+        )
+
+        if order_result.data:
+            o = order_result.data[0]
+            payments = o.get("payments") or []
+            payment_id = payments[0]["id"] if payments else None
+
+            # ← Ajouter la mise à jour du statut
+            await sb_update(
+                "orders",
+                {
+                    "status": "refunded",
+                    "updated_at": now_iso(),
+                },
+                "id",
+                o["id"],
+            )
+
+            existing_refund = await asyncio.to_thread(
+                lambda: supabase.table("refunds")
+                .select("id")
+                .eq("order_id", o["id"])
                 .limit(1)
                 .execute()
             )
 
-            if order_result.data:
-                o = order_result.data[0]
-                payments = o.get("payments") or []
-                payment_id = payments[0]["id"] if payments else None
-
-                # Vérifier que le remboursement n'existe pas déjà
-                existing_refund = await asyncio.to_thread(
-                    lambda: supabase.table("refunds")
-                    .select("id")
-                    .eq("order_id", o["id"])
-                    .limit(1)
-                    .execute()
+            if not existing_refund.data:
+                await sb_insert(
+                    "refunds",
+                    {
+                        "id": str(uuid.uuid4()),
+                        "order_id": o["id"],
+                        "payment_id": payment_id,
+                        "amount": amount_refunded,
+                        "reason": "Remboursement Stripe",
+                        "created_at": now_iso(),
+                    },
                 )
-
-                if not existing_refund.data:
-                    await sb_insert(
-                        "refunds",
-                        {
-                            "id": str(uuid.uuid4()),
-                            "order_id": o["id"],
-                            "payment_id": payment_id,
-                            "amount": amount_refunded,
-                            "reason": "Remboursement Stripe",
-                            "created_at": now_iso(),
-                        },
-                    )
-                    logger.info(
-                        f"Refund enregistré pour order={o['id']} "
-                        f"montant={amount_refunded} CHF"
-                    )
 
     # ── charge.dispute.created ────────────────────────────────────────────
     elif event_type == "charge.dispute.created":
