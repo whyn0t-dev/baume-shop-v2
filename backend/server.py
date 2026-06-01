@@ -1183,11 +1183,6 @@ async def create_checkout(
     session_params = dict(
         mode="payment",
         payment_method_types=["card", "klarna", "twint", "link"],
-        payment_method_options={
-            "klarna": {
-                "preferred_locale": "fr-CH",
-            }
-        },
         customer_email=email or None,
         success_url=success_url,
         cancel_url=cancel_url,
