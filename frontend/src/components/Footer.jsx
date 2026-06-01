@@ -1,8 +1,79 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Facebook, Mail, MapPin, ArrowRight } from "lucide-react";
+import {
+	Instagram,
+	Facebook,
+	Mail,
+	MapPin,
+	ArrowRight,
+	Loader2,
+} from "lucide-react";
 import { NEEDS, PRODUCT_CATS } from "../lib/constants";
 import { resetConsent } from "../lib/consent";
+import { api } from "../lib/api";
+import { toast } from "sonner";
+
+function NewsletterForm() {
+	const [email, setEmail] = useState("");
+	const [loading, setLoading] = useState(false);
+	const [done, setDone] = useState(false);
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+		if (!email.trim()) return;
+		setLoading(true);
+		try {
+			await api.post("/newsletter/subscribe", { email: email.trim() });
+			setDone(true);
+			setEmail("");
+		} catch (err) {
+			toast.error("Une erreur est survenue", {
+				description: "Veuillez réessayer dans quelques instants.",
+			});
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	if (done) {
+		return (
+			<div className="rounded-2xl bg-baume-white/10 border border-baume-white/15 px-6 py-5 text-center">
+				<p className="text-[15px] font-semibold text-baume-white mb-1">
+					✓ Inscription confirmée !
+				</p>
+				<p className="text-[13px] text-baume-white/65">
+					Vous recevrez bientôt nos conseils et nouveautés.
+				</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex flex-col sm:flex-row gap-3">
+			<input
+				type="email"
+				required
+				value={email}
+				onChange={(e) => setEmail(e.target.value)}
+				onKeyDown={(e) => e.key === "Enter" && handleSubmit(e)}
+				placeholder="Votre adresse email"
+				className="h-12 flex-1 rounded-full border border-baume-white/15 bg-baume-white px-5 text-[14px] text-baume-charcoal placeholder:text-baume-charcoal/45 outline-none focus:ring-2 focus:ring-baume-taupe"
+			/>
+			<button
+				onClick={handleSubmit}
+				disabled={loading || !email.trim()}
+				className="h-12 px-6 rounded-full bg-baume-taupe text-baume-burgundy font-semibold text-[14px] inline-flex items-center justify-center gap-2 hover:bg-baume-white transition-colors disabled:opacity-60"
+			>
+				{loading ? (
+					<Loader2 className="h-4 w-4 animate-spin" />
+				) : (
+					<ArrowRight className="h-4 w-4" />
+				)}
+				{loading ? "Inscription…" : "S'abonner"}
+			</button>
+		</div>
+	);
+}
 
 export default function Footer() {
 	return (
@@ -26,28 +97,10 @@ export default function Footer() {
 								et offres commerciales par email.
 							</p>
 						</div>
-
-						<form
-							className="lg:col-span-6 flex flex-col sm:flex-row gap-3"
-							onSubmit={(e) => e.preventDefault()}
-						>
-							<input
-								type="email"
-								required
-								placeholder="Votre adresse email"
-								className="h-12 flex-1 rounded-full border border-baume-white/15 bg-baume-white px-5 text-[14px] text-baume-charcoal placeholder:text-baume-charcoal/45 outline-none focus:ring-2 focus:ring-baume-taupe"
-							/>
-
-							<button
-								type="submit"
-								className="h-12 px-6 rounded-full bg-baume-taupe text-baume-burgundy font-semibold text-[14px] inline-flex items-center justify-center gap-2 hover:bg-baume-white transition-colors"
-							>
-								S’abonner
-								<ArrowRight className="h-4 w-4" />
-							</button>
-						</form>
+						<div className="lg:col-span-6">
+							<NewsletterForm />
+						</div>
 					</div>
-
 					<p className="mt-4 text-[12px] leading-[18px] text-baume-white/50">
 						En vous inscrivant, vous acceptez de recevoir des emails
 						publicitaires de Baume. Vous pourrez vous désinscrire à tout moment.
@@ -62,12 +115,10 @@ export default function Footer() {
 						>
 							Baume
 						</Link>
-
 						<p className="mt-5 text-[14px] leading-[23px] text-baume-white/72 max-w-[340px]">
 							Une boutique douce et guidée pour choisir des produits intimes,
 							comprendre son corps et avancer sans jugement.
 						</p>
-
 						<div className="mt-7 space-y-3">
 							<p className="text-[14px] text-baume-white/75 flex items-start gap-2">
 								<MapPin className="h-4 w-4 mt-0.5 shrink-0 text-baume-taupe" />
@@ -77,9 +128,9 @@ export default function Footer() {
 									1204 Genève
 								</span>
 							</p>
-
 							<p className="text-[14px] text-baume-white/75 flex items-center gap-2">
 								<Mail className="h-4 w-4 shrink-0 text-baume-taupe" />
+
 								<a
 									href="mailto:bonjour@baume-shop.com"
 									className="hover:text-baume-white"
@@ -88,7 +139,6 @@ export default function Footer() {
 								</a>
 							</p>
 						</div>
-
 						<div className="mt-7 flex items-center gap-3">
 							<a
 								href="https://instagram.com"

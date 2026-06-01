@@ -34,6 +34,7 @@ import AdminProductCreate from "./pages/AdminProductCreate";
 import AdminProductEdit from "./pages/AdminProductEdit";
 import AdminWorkshopForm from "./pages/AdminWorkshopForm";
 import NotFoundPage from "./pages/NotFoundPage";
+import NewsletterUnsubscribePage from "./pages/NewsletterUnsubscribePage";
 
 import QuizPage from "./pages/QuizPage";
 import QuizResultsPage from "./pages/QuizResultsPage";
@@ -181,6 +182,7 @@ function AppShell() {
               </AdminRoute>
             }
           />
+          <Route path="/newsletter/desabonnement" element={<NewsletterUnsubscribePage />} />
           <Route path="*" element={<NotFoundPage />} />x§
         </Routes>
       </main>

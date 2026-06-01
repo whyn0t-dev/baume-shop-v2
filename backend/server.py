@@ -1937,6 +1937,7 @@ ADMIN_TABLES = {
     "conversations",
     "messages",
     "return_requests",
+    "newsletter_subscribers",
 }
 
 
