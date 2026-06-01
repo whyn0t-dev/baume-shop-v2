@@ -3869,6 +3869,155 @@ async def upload_return_image(
     return {"path": file_path, "url": public_url}
 
 
+# ── Newsletter ─────────────────────────────────────────────────────────────────
+
+
+class NewsletterSubscribeRequest(BaseModel):
+    email: EmailStr
+    source: Optional[str] = "footer"
+
+
+@api_router.post("/newsletter/subscribe")
+@limiter.limit("5/minute")
+async def newsletter_subscribe(
+    request: Request,
+    payload: NewsletterSubscribeRequest,
+):
+    """Inscription à la newsletter."""
+
+    # Vérifier si déjà inscrit
+    existing = await sb_select_one("newsletter_subscribers", "email", payload.email)
+
+    if existing:
+        if existing.get("status") == "active":
+            # Déjà inscrit et actif — silencieux pour éviter l'énumération
+            return {"success": True, "already_subscribed": True}
+        else:
+            # Était désabonné — réactiver
+            await sb_update(
+                "newsletter_subscribers",
+                {
+                    "status": "active",
+                    "unsubscribed_at": None,
+                    "updated_at": now_iso(),
+                },
+                "email",
+                payload.email,
+            )
+            subscriber = await sb_select_one(
+                "newsletter_subscribers", "email", payload.email
+            )
+    else:
+        # Nouvel abonné
+        inserted = await sb_insert(
+            "newsletter_subscribers",
+            {
+                "email": payload.email,
+                "status": "active",
+                "source": payload.source or "footer",
+                "created_at": now_iso(),
+            },
+        )
+        subscriber = inserted.data[0]
+
+    # Envoyer l'email de bienvenue newsletter
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{SUPABASE_URL}/functions/v1/send-newsletter-welcome",
+                json={
+                    "email": payload.email,
+                    "unsubscribe_token": subscriber["unsubscribe_token"],
+                },
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                timeout=10,
+            )
+    except Exception as e:
+        logger.error(f"send-newsletter-welcome failed: {e}")
+
+    return {"success": True, "already_subscribed": False}
+
+
+@api_router.get("/newsletter/unsubscribe")
+async def newsletter_unsubscribe(token: str):
+    """Désabonnement via le lien dans l'email."""
+
+    # Chercher l'abonné par token
+    result = await asyncio.to_thread(
+        lambda: supabase.table("newsletter_subscribers")
+        .select("*")
+        .eq("unsubscribe_token", token)
+        .limit(1)
+        .execute()
+    )
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Lien invalide ou expiré")
+
+    subscriber = result.data[0]
+
+    if subscriber.get("status") == "unsubscribed":
+        return {
+            "success": True,
+            "already_unsubscribed": True,
+            "email": subscriber["email"],
+        }
+
+    await sb_update(
+        "newsletter_subscribers",
+        {
+            "status": "unsubscribed",
+            "unsubscribed_at": now_iso(),
+        },
+        "unsubscribe_token",
+        token,
+    )
+
+    return {
+        "success": True,
+        "already_unsubscribed": False,
+        "email": subscriber["email"],
+    }
+
+
+@api_router.get("/ecom/admin/newsletter/subscribers")
+async def list_newsletter_subscribers(
+    status: Optional[str] = None,
+    profile=Depends(require_admin),
+):
+    """Liste tous les abonnés newsletter — admin uniquement."""
+
+    def run():
+        q = (
+            supabase.table("newsletter_subscribers")
+            .select("*")
+            .order("created_at", desc=True)
+        )
+        if status:
+            q = q.eq("status", status)
+        return q.limit(1000).execute()
+
+    result = await asyncio.to_thread(run)
+    return result.data or []
+
+
+@api_router.get("/ecom/admin/newsletter/stats")
+async def newsletter_stats(profile=Depends(require_admin)):
+    """Statistiques newsletter — admin uniquement."""
+    total = await sb_count("newsletter_subscribers")
+    active = await sb_count("newsletter_subscribers", {"status": "active"})
+    unsubscribed = await sb_count("newsletter_subscribers", {"status": "unsubscribed"})
+
+    return {
+        "total": total,
+        "active": active,
+        "unsubscribed": unsubscribed,
+    }
+
+
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)

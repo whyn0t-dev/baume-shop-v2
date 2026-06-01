@@ -340,6 +340,18 @@ export default function AccountPage() {
 											>
 												Suivre ma commande →
 											</Link>
+
+											{/* ← Ajouter ici */}
+											{["paid", "processing", "shipped", "delivered"].includes(
+												o.status,
+											) && (
+												<Link
+													to={`/retour/${o.id}`}
+													className="mt-1 inline-flex items-center gap-1 text-[12px] text-baume-charcoal/50 hover:text-baume-burgundy hover:underline underline-offset-2 transition"
+												>
+													Faire une demande de retour →
+												</Link>
+											)}
 										</div>
 
 										<div className="md:text-right">

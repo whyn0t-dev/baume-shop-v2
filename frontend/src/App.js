@@ -33,6 +33,7 @@ import NosExperts from "./pages/NosExperts";
 import AdminProductCreate from "./pages/AdminProductCreate";
 import AdminProductEdit from "./pages/AdminProductEdit";
 import AdminWorkshopForm from "./pages/AdminWorkshopForm";
+import NotFoundPage from "./pages/NotFoundPage";
 
 import QuizPage from "./pages/QuizPage";
 import QuizResultsPage from "./pages/QuizResultsPage";
@@ -180,7 +181,7 @@ function AppShell() {
               </AdminRoute>
             }
           />
-          <Route path="*" element={<HomePage />} />
+          <Route path="*" element={<NotFoundPage />} />x§
         </Routes>
       </main>
       <Footer />

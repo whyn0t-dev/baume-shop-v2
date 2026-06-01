@@ -8,38 +8,58 @@ export default function EmailConfirmationPage() {
 	const [status, setStatus] = useState("loading");
 
 	useEffect(() => {
-		const hash = window.location.hash;
-		const hashParams = new URLSearchParams(hash.replace("#", ""));
+		// ← Créer une fonction async à l'intérieur
+		async function handleConfirmation() {
+			const hash = window.location.hash;
+			const hashParams = new URLSearchParams(hash.replace("#", ""));
+			const accessToken = hashParams.get("access_token");
+			const type = hashParams.get("type");
+			const error = hashParams.get("error");
+			const errorDescription = hashParams.get("error_description");
 
-		const accessToken = hashParams.get("access_token");
-		const type = hashParams.get("type");
-		const error = hashParams.get("error");
-		const errorDescription = hashParams.get("error_description");
+			if (error || errorDescription) {
+				setStatus("error");
+				toast.error("Lien expiré ou invalide", {
+					description:
+						"Ce lien de confirmation n'est plus valide. Veuillez créer un nouveau compte.",
+					duration: 8000,
+				});
+				setTimeout(() => navigate("/inscription"), 3000);
+				return;
+			}
 
-		if (error || errorDescription) {
-			setStatus("error");
-			toast.error("Lien expiré ou invalide", {
-				description:
-					"Ce lien de confirmation n'est plus valide. Veuillez créer un nouveau compte.",
-				duration: 8000,
-			});
-			setTimeout(() => navigate("/inscription"), 3000);
-			return;
+			if (accessToken && type === "signup") {
+				setStatus("success");
+				toast.success("Compte validé !", {
+					description:
+						"Votre email a bien été confirmé. Vous pouvez maintenant vous connecter.",
+					duration: 6000,
+				});
+
+				try {
+					await fetch(
+						`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-welcome-email`,
+						{
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+							},
+							body: JSON.stringify({ access_token: accessToken }),
+						},
+					);
+				} catch (e) {
+					console.error("Welcome email failed:", e);
+				}
+
+				setTimeout(() => navigate("/connexion"), 3000);
+				return;
+			}
+
+			setTimeout(() => navigate("/connexion"), 1500);
 		}
 
-		if (accessToken && type === "signup") {
-			setStatus("success");
-			toast.success("Compte validé !", {
-				description:
-					"Votre email a bien été confirmé. Vous pouvez maintenant vous connecter.",
-				duration: 6000,
-			});
-			setTimeout(() => navigate("/connexion"), 3000);
-			return;
-		}
-
-		// Aucun paramètre reconnu
-		setTimeout(() => navigate("/connexion"), 1500);
+		handleConfirmation(); // ← Appeler la fonction
 	}, [navigate]);
 
 	return (
