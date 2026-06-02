@@ -13,6 +13,7 @@ import {
 import { submitContact } from "../lib/api";
 import { MapPin, Mail, Phone, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { hasConsent, resetConsent } from "../lib/consent";
 
 const TOPICS = [
 	"Conseil produit",
@@ -24,6 +25,9 @@ const TOPICS = [
 ];
 
 export default function ContactPage() {
+	const [functionalConsent, setFunctionalConsent] = useState(
+		hasConsent("functional"),
+	);
 	const [form, setForm] = useState({
 		name: "",
 		email: "",
@@ -58,6 +62,14 @@ export default function ContactPage() {
 			setLoading(false);
 		}
 	};
+
+	useEffect(() => {
+		const handler = (e) => {
+			setFunctionalConsent(e.detail?.functional === true);
+		};
+		window.addEventListener("baume:consent", handler);
+		return () => window.removeEventListener("baume:consent", handler);
+	}, []);
 
 	return (
 		<div data-testid="contact-page" className="bg-baume-ivory">
@@ -125,14 +137,35 @@ export default function ContactPage() {
 							</li>
 						</ul>
 					</div>
-
 					<div className="rounded-2xl overflow-hidden border border-baume-border aspect-[4/3]">
-						<iframe
-							title="Carte Baume Genève"
-							src="https://www.openstreetmap.org/export/embed.html?bbox=6.142,46.200,6.162,46.210&layer=mapnik&marker=46.205,6.152"
-							className="w-full h-full"
-							loading="lazy"
-						/>
+						{functionalConsent ? (
+							<iframe
+								title="Carte Baume Genève"
+								src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2829.675550058614!2d6.155088776217653!3d46.20328038382383!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x478c65196573d253%3A0xe72e5048e03017b3!2sBaume%20Shop!5e1!3m2!1sfr!2sfr!4v1780391929312!5m2!1sfr!2sfr"
+								className="w-full h-full"
+								style={{ border: 0 }}
+								allowFullScreen
+								loading="lazy"
+								referrerPolicy="no-referrer-when-downgrade"
+							/>
+						) : (
+							<div className="w-full h-full flex flex-col items-center justify-center bg-baume-ivory gap-4 p-8 text-center">
+								<MapPin className="h-8 w-8 text-baume-charcoal/30" />
+								<p className="text-[14px] font-semibold text-baume-charcoal">
+									Carte non disponible
+								</p>
+								<p className="text-[13px] text-baume-charcoal/55 max-w-[240px]">
+									Acceptez les cookies fonctionnels pour afficher la carte
+									Google Maps.
+								</p>
+								<button
+									onClick={resetConsent}
+									className="h-9 px-5 rounded-full bg-baume-burgundy text-baume-white text-[13px] font-semibold hover:bg-baume-burgundyDark transition"
+								>
+									Gérer mes cookies
+								</button>
+							</div>
+						)}
 					</div>
 				</div>
 

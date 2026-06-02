@@ -44,7 +44,7 @@ export default function OrderItems() {
 			)
 				return;
 			try {
-				await refundOrder(order.id);
+				await api.patch(`/ecom/admin/returns/${order.id}/refund`);
 				setCurrentStatus("refunded");
 				setOrder((prev) => ({ ...prev, status: "refunded" }));
 			} catch (err) {
@@ -54,11 +54,14 @@ export default function OrderItems() {
 		}
 
 		try {
-			await updateOrderStatus(order.id, newStatus);
+			// ← Utiliser la route FastAPI qui déclenche l'email
+			await api.patch(`/ecom/admin/orders/${order.id}/status`, {
+				status: newStatus,
+			});
 			setCurrentStatus(newStatus);
 			setOrder((prev) => ({ ...prev, status: newStatus }));
 		} catch (err) {
-			alert(err.message);
+			alert(err?.response?.data?.detail || err.message);
 		}
 	}
 
@@ -211,15 +214,42 @@ export default function OrderItems() {
 										<button
 											type="button"
 											onClick={async () => {
-												await updateOrderItemStatus(item.id, "fulfilled");
-												setOrder((prev) => ({
-													...prev,
-													items: prev.items.map((i) =>
+												try {
+													await updateOrderItemStatus(item.id, "fulfilled");
+
+													const updatedItems = order.items.map((i) =>
 														i.id === item.id
 															? { ...i, fulfillment_status: "fulfilled" }
 															: i,
-													),
-												}));
+													);
+
+													setOrder((prev) => ({
+														...prev,
+														items: updatedItems,
+													}));
+
+													// ← Vérifier si tous les articles sont maintenant traités
+													const allFulfilled = updatedItems.every(
+														(i) => i.fulfillment_status === "fulfilled",
+													);
+
+													if (allFulfilled && order.status === "paid") {
+														// ← Passer la commande en "processing" et envoyer l'email
+														await api.patch(
+															`/ecom/admin/orders/${order.id}/status`,
+															{
+																status: "processing",
+															},
+														);
+														setCurrentStatus("processing");
+														setOrder((prev) => ({
+															...prev,
+															status: "processing",
+														}));
+													}
+												} catch (err) {
+													alert("Erreur lors du traitement de l'article");
+												}
 											}}
 											disabled={item.fulfillment_status === "fulfilled"}
 											className={`h-8 px-3 rounded-lg text-[12px] font-semibold ml-2 shrink-0 transition-colors ${
