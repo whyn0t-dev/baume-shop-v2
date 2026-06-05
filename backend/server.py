@@ -1966,6 +1966,8 @@ ADMIN_TABLES = {
     "messages",
     "return_requests",
     "newsletter_subscribers",
+    "loyalty_points",
+    "loyalty_transactions",
 }
 
 
