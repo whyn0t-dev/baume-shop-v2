@@ -242,6 +242,8 @@ class CheckoutRequest(BaseModel):
     shipping_country: Optional[str] = "CH"
     shipping_address: Optional[Dict[str, Any]] = None
     discount_code: Optional[str] = None  # ← ajouter
+    success_url: Optional[str] = None  # ← ajouter
+    cancel_url: Optional[str] = None   # ← ajouter
 
 
 class AddressRequest(BaseModel):
@@ -1120,8 +1122,9 @@ async def create_checkout(
     total = round(priced["subtotal"] - discount_amount + shipping, 2)
 
     origin = payload.origin_url.rstrip("/")
-    success_url = f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{origin}/commande/confirmation?cancelled=true"
+    # ← Remplacer les deux lignes success_url / cancel_url
+    success_url = payload.success_url or f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = payload.cancel_url or f"{origin}/commande/confirmation?cancelled=true"
 
     email = payload.email or user_email
 
