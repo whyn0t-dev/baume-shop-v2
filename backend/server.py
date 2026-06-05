@@ -243,7 +243,7 @@ class CheckoutRequest(BaseModel):
     shipping_address: Optional[Dict[str, Any]] = None
     discount_code: Optional[str] = None  # ← ajouter
     success_url: Optional[str] = None  # ← ajouter
-    cancel_url: Optional[str] = None   # ← ajouter
+    cancel_url: Optional[str] = None  # ← ajouter
 
 
 class AddressRequest(BaseModel):
@@ -1123,7 +1123,10 @@ async def create_checkout(
 
     origin = payload.origin_url.rstrip("/")
     # ← Remplacer les deux lignes success_url / cancel_url
-    success_url = payload.success_url or f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
+    success_url = (
+        payload.success_url
+        or f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
+    )
     cancel_url = payload.cancel_url or f"{origin}/commande/confirmation?cancelled=true"
 
     email = payload.email or user_email
@@ -3831,8 +3834,7 @@ async def process_return_refund(
 
             if res.status_code != 200:
                 raise HTTPException(
-                    status_code=500,
-                    detail=f"Erreur remboursement : {response_text}"
+                    status_code=500, detail=f"Erreur remboursement : {response_text}"
                 )
 
     except HTTPException:
@@ -4055,6 +4057,71 @@ async def newsletter_stats(profile=Depends(require_admin)):
         "total": total,
         "active": active,
         "unsubscribed": unsubscribed,
+    }
+
+
+@api_router.post("/ecom/admin/loyalty/credit")
+async def admin_credit_points(
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    profile_id = payload.get("profile_id")
+    points = int(payload.get("points", 0))
+    reason = payload.get("reason", "Achat en boutique")
+
+    if not profile_id or points <= 0:
+        raise HTTPException(status_code=400, detail="Données invalides")
+
+    await add_loyalty_points(
+        profile_id=profile_id,
+        points=points,
+        reason=reason,
+    )
+
+    loyalty = await get_or_create_loyalty(profile_id)
+    return {
+        "success": True,
+        "points_added": points,
+        "new_total": loyalty["points"],
+    }
+
+
+@api_router.post("/ecom/admin/loyalty/use-voucher")
+async def admin_use_voucher(
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    code = payload.get("code", "").upper()
+    profile_id = payload.get("profile_id")
+
+    if not code or not profile_id:
+        raise HTTPException(status_code=400, detail="Code et profile_id requis")
+
+    # ← Vérifier le code promo
+    discount = await sb_select_one("discounts", "code", code)
+    if not discount or not discount.get("active"):
+        raise HTTPException(status_code=404, detail="Bon invalide ou déjà utilisé")
+
+    # ← Désactiver le code promo
+    await sb_update("discounts", {"active": False, "used_count": 1}, "code", code)
+
+    # ← Marquer le bon comme utilisé dans loyalty_points
+    loyalty = await get_or_create_loyalty(profile_id)
+    existing_codes = loyalty.get("generated_codes") or []
+    updated_codes = [
+        {**c, "used": True} if c.get("code") == code else c for c in existing_codes
+    ]
+    await sb_update(
+        "loyalty_points",
+        {"generated_codes": updated_codes, "updated_at": now_iso()},
+        "profile_id",
+        profile_id,
+    )
+
+    return {
+        "success": True,
+        "code": code,
+        "message": f"Bon {code} validé en boutique",
     }
 
 

@@ -35,17 +35,15 @@ import AdminProductEdit from "./pages/AdminProductEdit";
 import AdminWorkshopForm from "./pages/AdminWorkshopForm";
 import NotFoundPage from "./pages/NotFoundPage";
 import NewsletterUnsubscribePage from "./pages/NewsletterUnsubscribePage";
-
 import QuizPage from "./pages/QuizPage";
 import QuizResultsPage from "./pages/QuizResultsPage";
 import OrderTrackingPage from "./pages/OrderTrackingPage";
-
 import AdminScannerPage from "./pages/AdminScannerPage";
 import EmailConfirmationPage from "./pages/EmailConfirmationPage";
-
 import AdminChatPage from "./pages/AdminChatPage";
-import ChatBubble from "./components/ChatBubble";
+import CarteFidelitePage from "./pages/CarteFidelitePage";
 
+import ChatBubble from "./components/ChatBubble";
 import CookieBanner from "./components/CookieBanner";
 import { getConsent, applyConsent } from "./lib/consent";
 
@@ -183,6 +181,7 @@ function AppShell() {
             }
           />
           <Route path="/newsletter/desabonnement" element={<NewsletterUnsubscribePage />} />
+          <Route path="/carte" element={<CarteFidelitePage />} />
           <Route path="*" element={<NotFoundPage />} />x§
         </Routes>
       </main>
