@@ -2417,6 +2417,8 @@ async def list_admin_table(
 
     def run():
         q = supabase.table(table).select("*")
+        if table == "orders":
+            q = q.order("created_at", desc=True)  # ← ajouter
         if date_from and table in ("orders", "profiles"):
             q = q.gte("created_at", date_from)
         if date_to and table in ("orders", "profiles"):
