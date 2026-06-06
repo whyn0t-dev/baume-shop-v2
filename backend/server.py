@@ -1350,6 +1350,17 @@ async def _ensure_order_from_tx(session_id: str):
     order = inserted_order.data[0]
     line_items = tx.get("items", [])
 
+    # ← Dans _ensure_order_from_tx, après inserted_order
+
+    try:
+        await send_push_notification(
+            title="🛍️ Nouvelle commande !",
+            body=f"{order.get('email', 'Client')} — {float(order.get('total', 0)):.2f} CHF",
+            data={"order_id": order["id"], "type": "new_order"},
+        )
+    except Exception as e:
+        logger.error(f"Push notification order failed: {e}")
+
     # ← ajouter ce bloc pour insérer les order_items
     if line_items:
         order_items = [
@@ -4125,6 +4136,96 @@ async def admin_use_voucher(
         "code": code,
         "message": f"Bon {code} validé en boutique",
     }
+
+
+import httpx
+
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+
+
+# ← Stocker les tokens dans store_settings
+@api_router.post("/ecom/admin/push-token")
+async def save_push_token(
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    token = payload.get("token")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token manquant")
+
+    # ← Récupérer les tokens existants
+    existing = await asyncio.to_thread(
+        lambda: supabase.table("store_settings")
+        .select("*")
+        .eq("key", "admin_push_tokens")
+        .limit(1)
+        .execute()
+    )
+
+    tokens = []
+    if existing.data:
+        tokens = existing.data[0].get("value", []) or []
+
+    # ← Ajouter le token si pas déjà présent
+    if token not in tokens:
+        tokens.append(token)
+        if existing.data:
+            await sb_update(
+                "store_settings",
+                {"value": tokens, "updated_at": now_iso()},
+                "key",
+                "admin_push_tokens",
+            )
+        else:
+            await sb_insert(
+                "store_settings", {"key": "admin_push_tokens", "value": tokens}
+            )
+
+    return {"success": True}
+
+
+async def send_push_notification(title: str, body: str, data: dict = {}):
+    """Envoie une notification push à tous les admins."""
+    try:
+        tokens_res = await asyncio.to_thread(
+            lambda: supabase.table("store_settings")
+            .select("value")
+            .eq("key", "admin_push_tokens")
+            .limit(1)
+            .execute()
+        )
+
+        if not tokens_res.data:
+            return
+
+        tokens = tokens_res.data[0].get("value", []) or []
+        if not tokens:
+            return
+
+        messages = [
+            {
+                "to": token,
+                "title": title,
+                "body": body,
+                "data": data,
+                "sound": "default",
+                "priority": "high",
+            }
+            for token in tokens
+        ]
+
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                EXPO_PUSH_URL,
+                json=messages,
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+
+        logger.info(f"Push notification envoyée: {title}")
+
+    except Exception as e:
+        logger.error(f"Push notification failed: {e}")
 
 
 api_router.include_router(auth_router)
