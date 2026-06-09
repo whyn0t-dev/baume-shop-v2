@@ -2601,19 +2601,49 @@ async def update_order_tracking(
 ):
     carrier = payload.get("carrier")
     tracking_number = payload.get("tracking_number")
+    tracking_url = payload.get("tracking_url")
 
-    await sb_update(
-        "orders",
-        {
-            "carrier": carrier,
-            "tracking_number": tracking_number,
-            "updated_at": now_iso(),
-        },
-        "id",
-        order_id,
-    )
+    update_data = {
+        "carrier": carrier,
+        "tracking_number": tracking_number,
+        "tracking_url": tracking_url,
+        "updated_at": now_iso(),
+    }
 
-    return {"success": True, "carrier": carrier, "tracking_number": tracking_number}
+    # ← Si tracking ajouté, passer automatiquement en "shipped"
+    if tracking_number:
+        update_data["status"] = "shipped"
+
+    await sb_update("orders", update_data, "id", order_id)
+
+    # ← Envoyer l'email de suivi si tracking ajouté
+    if tracking_number:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{SUPABASE_URL}/functions/v1/send-order-status-email",
+                    json={
+                        "order_id": order_id,
+                        "new_status": "shipped",
+                        "tracking_number": tracking_number,
+                        "carrier": carrier,
+                        "tracking_url": tracking_url,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10,
+                )
+        except Exception as e:
+            logger.error(f"send-order-status-email (shipped) failed: {e}")
+
+    return {
+        "success": True,
+        "carrier": carrier,
+        "tracking_number": tracking_number,
+        "tracking_url": tracking_url,
+    }
 
 
 # ── Route ────────────────────────────────────────────────────────────────────
