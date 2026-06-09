@@ -4230,6 +4230,26 @@ async def send_push_notification(title: str, body: str, data: dict = {}):
         logger.error(f"Push notification failed: {e}")
 
 
+@api_router.patch("/ecom/admin/orders/{order_id}/tracking")
+async def update_order_tracking(
+    order_id: str,
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    await sb_update(
+        "orders",
+        {
+            "carrier": payload.get("carrier"),
+            "tracking_number": payload.get("tracking_number"),
+            "tracking_url": payload.get("tracking_url"),  # ← ajouter
+            "updated_at": now_iso(),
+        },
+        "id",
+        order_id,
+    )
+    return {"success": True}
+
+
 api_router.include_router(auth_router)
 # ---------- CORS & Mount ----------
 app.include_router(api_router)
