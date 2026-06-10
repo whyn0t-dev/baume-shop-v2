@@ -67,11 +67,22 @@ export default function OrderItems() {
 
 	useEffect(() => {
 		if (status !== "authenticated" || !isAdmin) return;
+
+		// Chargement initial
 		setLoading(true);
 		getAdminOrder(orderId)
 			.then((data) => setOrder(data))
 			.catch(() => setOrder(null))
 			.finally(() => setLoading(false));
+
+		// ← Polling toutes les 30s pour détecter les mises à jour depuis l'app
+		const interval = setInterval(() => {
+			getAdminOrder(orderId)
+				.then((data) => setOrder(data))
+				.catch(() => {});
+		}, 10000);
+
+		return () => clearInterval(interval);
 	}, [orderId, status, isAdmin]);
 
 	if (status === "loading" || loading) {
@@ -590,6 +601,11 @@ const CARRIERS = [
 		url: (n) => `https://www.post.ch/fr/suivi?item=${n}`,
 	},
 	{
+		key: "colissimo",
+		label: "Colissimo",
+		url: (n) => `https://www.laposte.fr/outils/suivre-vos-envois?code=${n}`,
+	},
+	{
 		key: "chronopost",
 		label: "Chronopost",
 		url: (n) =>
@@ -621,6 +637,11 @@ function TrackingForm({ order, onSaved }) {
 	const carrierInfo = CARRIERS.find((c) => c.key === carrier);
 	const trackingUrl =
 		carrierInfo && tracking ? carrierInfo.url(tracking) : null;
+
+	useEffect(() => {
+		setCarrier(order.carrier || "");
+		setTracking(order.tracking_number || "");
+	}, [order.carrier, order.tracking_number]);
 
 	async function handleSave() {
 		setSaving(true);

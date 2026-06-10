@@ -2044,26 +2044,35 @@ async def create_admin_product(
         if clean_options:
             await sb_insert("product_options", clean_options)
 
-        clean_variants = [
-            {
-                "product_id": product_id,
-                "title": variant.get("title"),
-                "sku": variant.get("sku") or None,
-                "barcode": variant.get("barcode") or None,
-                "price": variant.get("price", 0),
-                "compare_at_price": variant.get("compare_at_price"),
-                "cost_price": variant.get("cost_price"),
-                "weight_grams": variant.get("weight_grams", 0),
-                "option1": variant.get("option1") or None,
-                "option2": variant.get("option2") or None,
-                "option3": variant.get("option3") or None,
-                "active": variant.get("active", True),
-                "stock": int(variant.get("stock", 0)),
-                "available": int(variant.get("stock", 0)) > 0,
-            }
-            for variant in variants
-            if variant.get("title")
-        ]
+        clean_variants = []
+        for variant in variants:
+            if not variant.get("title"):
+                continue
+
+            existing_stock = 0
+            if variant.get("id"):
+                existing = await sb_select_one("product_variants", "id", variant["id"])
+                if existing:
+                    existing_stock = existing.get("stock", 0)
+
+            clean_variants.append(
+                {
+                    "product_id": product_id,
+                    "title": variant.get("title"),
+                    "sku": variant.get("sku") or None,
+                    "barcode": variant.get("barcode") or None,
+                    "price": variant.get("price", 0),
+                    "compare_at_price": variant.get("compare_at_price"),
+                    "cost_price": variant.get("cost_price"),
+                    "weight_grams": variant.get("weight_grams", 0),
+                    "option1": variant.get("option1") or None,
+                    "option2": variant.get("option2") or None,
+                    "option3": variant.get("option3") or None,
+                    "active": variant.get("active", True),
+                    "stock": variant.get("stock", existing_stock),
+                    "available": variant.get("stock", existing_stock) > 0,
+                }
+            )
 
         if clean_variants:
             await sb_insert("product_variants", clean_variants)
@@ -2111,82 +2120,90 @@ async def update_admin_product(
     profile=Depends(require_admin),
 ):
     product_data = payload.get("product", {})
-    options = payload.get("options", [])
-    variants = payload.get("variants", [])
-    images = payload.get("images", [])
-    collections = payload.get("collections", [])
+    options = payload.get("options")  # ← None si absent (pas de [], None)
+    variants = payload.get("variants")  # ← None si absent
+    images = payload.get("images")  # ← None si absent
+    collections = payload.get("collections")  # ← None si absent
 
     product_data["updated_at"] = now_iso()
 
     try:
         await sb_update("products", product_data, "id", product_id)
 
-        await sb_delete("product_options", "product_id", product_id)
-        await sb_delete("product_variants", "product_id", product_id)
-        await sb_delete("product_images", "product_id", product_id)
-        await sb_delete("product_collections", "product_id", product_id)
+        # ← Ne supprimer/recréer QUE si explicitement fourni dans le payload
+        if options is not None:
+            await sb_delete("product_options", "product_id", product_id)
+            clean_options = [
+                {
+                    "product_id": product_id,
+                    "name": option.get("name"),
+                    "position": option.get("position", 1),
+                }
+                for option in options
+                if option.get("name")
+            ]
+            if clean_options:
+                await sb_insert("product_options", clean_options)
 
-        clean_options = [
-            {
-                "product_id": product_id,
-                "name": option.get("name"),
-                "position": option.get("position", 1),
-            }
-            for option in options
-            if option.get("name")
-        ]
+        if variants is not None:
+            await sb_delete("product_variants", "product_id", product_id)
+            clean_variants = []
+            for variant in variants:
+                if not variant.get("title"):
+                    continue
+                existing_stock = 0
+                if variant.get("id"):
+                    existing = await sb_select_one(
+                        "product_variants", "id", variant["id"]
+                    )
+                    if existing:
+                        existing_stock = existing.get("stock", 0)
+                clean_variants.append(
+                    {
+                        "product_id": product_id,
+                        "title": variant.get("title"),
+                        "sku": variant.get("sku") or None,
+                        "barcode": variant.get("barcode") or None,
+                        "price": variant.get("price", 0),
+                        "compare_at_price": variant.get("compare_at_price"),
+                        "cost_price": variant.get("cost_price"),
+                        "weight_grams": variant.get("weight_grams", 0),
+                        "option1": variant.get("option1") or None,
+                        "option2": variant.get("option2") or None,
+                        "option3": variant.get("option3") or None,
+                        "active": variant.get("active", True),
+                        "stock": variant.get("stock", existing_stock),
+                        "available": variant.get("stock", existing_stock) > 0,
+                    }
+                )
+            if clean_variants:
+                await sb_insert("product_variants", clean_variants)
 
-        if clean_options:
-            await sb_insert("product_options", clean_options)
+        if images is not None:
+            await sb_delete("product_images", "product_id", product_id)
+            clean_images = [
+                {
+                    "product_id": product_id,
+                    "storage_path": image.get("storage_path"),
+                    "public_url": image.get("public_url") or None,
+                    "alt_text": image.get("alt_text"),
+                    "position": image.get("position", 1),
+                }
+                for image in images
+                if image.get("storage_path")
+            ]
+            if clean_images:
+                await sb_insert("product_images", clean_images)
 
-        clean_variants = [
-            {
-                "product_id": product_id,
-                "title": variant.get("title"),
-                "sku": variant.get("sku") or None,
-                "barcode": variant.get("barcode") or None,
-                "price": variant.get("price", 0),
-                "compare_at_price": variant.get("compare_at_price"),
-                "cost_price": variant.get("cost_price"),
-                "weight_grams": variant.get("weight_grams", 0),
-                "option1": variant.get("option1") or None,
-                "option2": variant.get("option2") or None,
-                "option3": variant.get("option3") or None,
-                "active": variant.get("active", True),
-            }
-            for variant in variants
-            if variant.get("title")
-        ]
-
-        if clean_variants:
-            await sb_insert("product_variants", clean_variants)
-
-        clean_images = [
-            {
-                "product_id": product_id,
-                "storage_path": image.get("storage_path"),
-                "public_url": image.get("public_url") or None,
-                "alt_text": image.get("alt_text"),
-                "position": image.get("position", 1),
-            }
-            for image in images
-            if image.get("storage_path")
-        ]
-
-        if clean_images:
-            await sb_insert("product_images", clean_images)
-
-        clean_collections = [
-            {
-                "product_id": product_id,
-                "collection_id": collection_id,
-            }
-            for collection_id in collections
-            if collection_id
-        ]
-
-        if clean_collections:
-            await sb_insert("product_collections", clean_collections)
+        if collections is not None:
+            await sb_delete("product_collections", "product_id", product_id)
+            clean_collections = [
+                {"product_id": product_id, "collection_id": collection_id}
+                for collection_id in collections
+                if collection_id
+            ]
+            if clean_collections:
+                await sb_insert("product_collections", clean_collections)
 
         return {"success": True, "product_id": product_id}
 
@@ -4218,6 +4235,7 @@ async def send_push_notification(title: str, body: str, data: dict = {}):
     except Exception as e:
         logger.error(f"Push notification failed: {e}")
 
+
 # APRÈS
 @api_router.patch("/ecom/admin/orders/{order_id}/tracking")
 async def update_order_tracking(
@@ -4268,6 +4286,33 @@ async def update_order_tracking(
         "tracking_number": tracking_number,
         "tracking_url": tracking_url,
     }
+
+
+@api_router.patch("/ecom/admin/product-variants/{variant_id}")
+async def update_variant(
+    variant_id: str,
+    payload: dict,
+    profile=Depends(require_admin),
+):
+    payload.pop("id", None)
+    payload["updated_at"] = now_iso()
+    await sb_update("product_variants", payload, "id", variant_id)
+    return await sb_select_one("product_variants", "id", variant_id)
+
+
+@api_router.get("/ecom/admin/products-list")
+async def list_admin_products(
+    limit: int = 200,
+    profile=Depends(require_admin),
+):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("products")
+        .select("*")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
 
 
 api_router.include_router(auth_router)
