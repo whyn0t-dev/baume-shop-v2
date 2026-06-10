@@ -2415,13 +2415,25 @@ async def list_admin_table(
     if table not in allowed:
         raise HTTPException(status_code=400, detail="Table non autorisée")
 
+    if table == "orders":
+
+        def run_orders():
+            q = supabase.table("orders").select("*, order_items(*)")
+            q = q.order("created_at", desc=True)
+            if date_from:
+                q = q.gte("created_at", date_from)
+            if date_to:
+                q = q.lte("created_at", date_to + "T23:59:59")
+            return q.limit(limit).execute()
+
+        result = await asyncio.to_thread(run_orders)
+        return result.data or []
+
     def run():
         q = supabase.table(table).select("*")
-        if table == "orders":
-            q = q.order("created_at", desc=True)  # ← ajouter
-        if date_from and table in ("orders", "profiles"):
+        if date_from and table in ("profiles",):
             q = q.gte("created_at", date_from)
-        if date_to and table in ("orders", "profiles"):
+        if date_to and table in ("profiles",):
             q = q.lte("created_at", date_to + "T23:59:59")
         return q.limit(limit).execute()
 
@@ -2591,59 +2603,6 @@ async def get_analytics(period: str = "7d", profile=Depends(require_admin)):
     except Exception as e:
         logger.error(f"PostHog analytics error: {e}")
         return {"pageviews": 0, "active_users": 0, "unique_visitors": 0}
-
-
-@api_router.patch("/ecom/admin/orders/{order_id}/tracking")
-async def update_order_tracking(
-    order_id: str,
-    payload: dict,
-    profile=Depends(require_admin),
-):
-    carrier = payload.get("carrier")
-    tracking_number = payload.get("tracking_number")
-    tracking_url = payload.get("tracking_url")
-
-    update_data = {
-        "carrier": carrier,
-        "tracking_number": tracking_number,
-        "tracking_url": tracking_url,
-        "updated_at": now_iso(),
-    }
-
-    # ← Si tracking ajouté, passer automatiquement en "shipped"
-    if tracking_number:
-        update_data["status"] = "shipped"
-
-    await sb_update("orders", update_data, "id", order_id)
-
-    # ← Envoyer l'email de suivi si tracking ajouté
-    if tracking_number:
-        try:
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{SUPABASE_URL}/functions/v1/send-order-status-email",
-                    json={
-                        "order_id": order_id,
-                        "new_status": "shipped",
-                        "tracking_number": tracking_number,
-                        "carrier": carrier,
-                        "tracking_url": tracking_url,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=10,
-                )
-        except Exception as e:
-            logger.error(f"send-order-status-email (shipped) failed: {e}")
-
-    return {
-        "success": True,
-        "carrier": carrier,
-        "tracking_number": tracking_number,
-        "tracking_url": tracking_url,
-    }
 
 
 # ── Route ────────────────────────────────────────────────────────────────────
@@ -4259,25 +4218,56 @@ async def send_push_notification(title: str, body: str, data: dict = {}):
     except Exception as e:
         logger.error(f"Push notification failed: {e}")
 
-
+# APRÈS
 @api_router.patch("/ecom/admin/orders/{order_id}/tracking")
 async def update_order_tracking(
     order_id: str,
     payload: dict,
     profile=Depends(require_admin),
 ):
-    await sb_update(
-        "orders",
-        {
-            "carrier": payload.get("carrier"),
-            "tracking_number": payload.get("tracking_number"),
-            "tracking_url": payload.get("tracking_url"),  # ← ajouter
-            "updated_at": now_iso(),
-        },
-        "id",
-        order_id,
-    )
-    return {"success": True}
+    carrier = payload.get("carrier")
+    tracking_number = payload.get("tracking_number")
+    tracking_url = payload.get("tracking_url")
+
+    update_data = {
+        "carrier": carrier,
+        "tracking_number": tracking_number,
+        "tracking_url": tracking_url,
+        "updated_at": now_iso(),
+    }
+
+    if tracking_number:
+        update_data["status"] = "shipped"
+
+    await sb_update("orders", update_data, "id", order_id)
+
+    if tracking_number:
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{SUPABASE_URL}/functions/v1/send-order-status-email",
+                    json={
+                        "order_id": order_id,
+                        "new_status": "shipped",
+                        "tracking_number": tracking_number,
+                        "carrier": carrier,
+                        "tracking_url": tracking_url,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10,
+                )
+        except Exception as e:
+            logger.error(f"send-order-status-email (shipped) failed: {e}")
+
+    return {
+        "success": True,
+        "carrier": carrier,
+        "tracking_number": tracking_number,
+        "tracking_url": tracking_url,
+    }
 
 
 api_router.include_router(auth_router)
