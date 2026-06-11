@@ -1,80 +1,248 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+
+const SLIDES = [
+	{
+		tag: "Boutique · Genève · Depuis 2021",
+		title: "Prenez soin de vous,\nsans honte ni compromis.",
+		sub: "Des produits choisis avec exigence pour chaque phase de votre vie — cycle, intimité, maternité, ménopause.",
+		cta: { label: "Découvrir ma routine", to: "/shop/besoin" },
+		ctaSecondary: { label: "Voir les best-sellers", to: "/shop/produit" },
+		image:
+			"https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=1800&q=85",
+		overlay: "from-baume-burgundy/75 via-baume-burgundy/40 to-transparent",
+	},
+	{
+		tag: "Cycle & bien-être",
+		title: "Votre cycle,\nvotre rythme.",
+		sub: "Culottes menstruelles, cups, soins intimes — des solutions pensées pour que vos règles ne vous ralentissent plus.",
+		cta: { label: "Explorer les produits", to: "/shop/produit" },
+		ctaSecondary: { label: "Lire nos guides", to: "/guides" },
+		image:
+			"https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=1800&q=85",
+		overlay: "from-[#1a1a2e]/70 via-[#1a1a2e]/35 to-transparent",
+	},
+	{
+		tag: "Post-partum & maternité",
+		title: "Le post-partum\nmérite qu'on en parle.",
+		sub: "Des produits doux et adaptés pour les semaines qui suivent l'accouchement — conçus avec des sage-femmes.",
+		cta: { label: "Voir les soins", to: "/shop/besoin" },
+		ctaSecondary: { label: "Nos expertes", to: "/ateliers" },
+		image:
+			"https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=1800&q=85",
+		overlay: "from-[#2d1b1b]/75 via-[#2d1b1b]/40 to-transparent",
+	},
+	{
+		tag: "Ménopause & transitions",
+		title: "La ménopause\nn'est pas une fin.",
+		sub: "Accompagnement, produits adaptés et ateliers animés par des expertes — parce que chaque transition mérite du soutien.",
+		cta: { label: "Découvrir", to: "/shop/besoin" },
+		ctaSecondary: { label: "Nos ateliers", to: "/ateliers" },
+		image:
+			"https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=1800&q=85",
+		overlay: "from-[#1c2b1c]/70 via-[#1c2b1c]/35 to-transparent",
+	},
+	{
+		tag: "Intimité & désir",
+		title: "Le plaisir féminin\nn'a rien à prouver.",
+		sub: "Lubrifiants naturels, accessoires et conseils — une approche décomplexée de l'intimité, sans tabou.",
+		cta: { label: "Explorer", to: "/shop/produit" },
+		ctaSecondary: { label: "Faire le quiz", to: "/quiz" },
+		image:
+			"https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&w=1800&q=85",
+		overlay: "from-[#2b1a2b]/75 via-[#2b1a2b]/40 to-transparent",
+	},
+];
 
 export default function Hero() {
-  return (
-    <section data-testid="hero" className="relative overflow-hidden bg-baume-ivory">
-      <div className="baume-container pt-12 md:pt-20 pb-16 md:pb-24 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
-        <div className="lg:col-span-6 baume-reveal">
-          <p className="text-[12px] tracking-[0.25em] uppercase text-baume-burgundy/80 font-semibold mb-6">
-            Boutique · Genève · Depuis 2021
-          </p>
-          <h1 className="font-editorial text-[44px] md:text-[56px] leading-[1.05] md:leading-[64px] text-baume-charcoal max-w-[580px]">
-            Prenez soin de votre intimité
-            <span className="italic text-baume-burgundy"> à chaque étape</span> de votre vie.
-          </h1>
-          <p className="mt-6 text-[18px] md:text-[20px] leading-[28px] md:leading-[32px] text-baume-charcoal/75 max-w-[520px]">
-            Des produits choisis avec exigence, des conseils humains, et une boutique à Genève.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <Link
-              to="/shop/besoin"
-              data-testid="hero-primary-cta"
-              className="group inline-flex items-center justify-center gap-2 h-12 px-8 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark transition-colors"
-            >
-              Découvrir ma routine
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <Link
-              to="/shop/produit"
-              data-testid="hero-secondary-cta"
-              className="inline-flex items-center justify-center h-12 px-8 rounded-full border border-baume-burgundy text-baume-burgundy font-semibold text-[15px] hover:bg-baume-burgundy/5 transition-colors"
-            >
-              Voir les best-sellers
-            </Link>
-          </div>
-          <div className="mt-10 flex items-center gap-6 text-[13px] text-baume-charcoal/60">
-            <span className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy" />
-              Expédié depuis Genève
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy" />
-              Paiement sécurisé
-            </span>
-            <span className="hidden sm:flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy" />
-              Retours simplifiés
-            </span>
-          </div>
-        </div>
+	const [idx, setIdx] = useState(0);
+	const [prev, setPrev] = useState(null);
+	const [animating, setAnimating] = useState(false);
+	const timer = useRef(null);
 
-        <div className="lg:col-span-6 baume-reveal baume-reveal-delay-1">
-          <div className="relative">
-            <div className="relative aspect-[4/5] md:aspect-[5/6] rounded-[28px] overflow-hidden border border-baume-border bg-baume-taupe/20 baume-grain">
-              <img
-                src="https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=1400&q=85"
-                alt="Rituel bien-être intime — ambiance chaleureuse et éditoriale"
-                fetchPriority="high"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="hidden md:block absolute -bottom-6 -left-6 bg-baume-white border border-baume-border rounded-2xl p-5 max-w-[240px] shadow-sm">
-              <p className="font-editorial italic text-[20px] leading-[26px] text-baume-burgundy">
-                « Enfin une marque qui me parle vraiment. »
-              </p>
-              <p className="mt-2 text-[12px] text-baume-charcoal/60">Claire, 34 ans · Cliente depuis 2023</p>
-            </div>
-            <div className="hidden md:flex absolute -top-4 -right-4 h-24 w-24 rounded-full bg-baume-burgundy text-baume-white items-center justify-center text-center p-4">
-              <span className="text-[11px] leading-[14px] font-semibold uppercase tracking-wider">
-                Nouveau
-                <br />coffret
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+	function go(next) {
+		if (animating || next === idx) return;
+		setAnimating(true);
+		setPrev(idx);
+		setIdx(next);
+		setTimeout(() => {
+			setPrev(null);
+			setAnimating(false);
+		}, 700);
+	}
+
+	function startTimer() {
+		clearInterval(timer.current);
+		timer.current = setInterval(() => {
+			setIdx((i) => {
+				const next = (i + 1) % SLIDES.length;
+				setPrev(i);
+				setAnimating(true);
+				setTimeout(() => {
+					setPrev(null);
+					setAnimating(false);
+				}, 700);
+				return next;
+			});
+		}, 6000);
+	}
+
+	useEffect(() => {
+		startTimer();
+		return () => clearInterval(timer.current);
+	}, []);
+
+	function handleNav(next) {
+		clearInterval(timer.current);
+		go(next);
+		startTimer();
+	}
+
+	const slide = SLIDES[idx];
+	const prevSlide = prev !== null ? SLIDES[prev] : null;
+
+	return (
+		<section
+			data-testid="hero"
+			className="relative w-full overflow-hidden"
+			style={{ height: "calc(100vh - 64px)", minHeight: 560, maxHeight: 900 }}
+		>
+			{/* Image précédente (sort) */}
+			{prevSlide && (
+				<div
+					key={`prev-${prev}`}
+					className="absolute inset-0 z-10"
+					style={{ animation: "heroFadeOut 0.7s ease forwards" }}
+				>
+					<img
+						src={prevSlide.image}
+						alt=""
+						className="w-full h-full object-cover"
+					/>
+					<div
+						className={`absolute inset-0 bg-gradient-to-r ${prevSlide.overlay}`}
+					/>
+				</div>
+			)}
+
+			{/* Image courante (entre) */}
+			<div
+				key={`curr-${idx}`}
+				className="absolute inset-0 z-20"
+				style={{ animation: "heroFadeIn 0.7s ease forwards" }}
+			>
+				<img
+					src={slide.image}
+					alt={slide.title}
+					className="w-full h-full object-cover"
+					fetchPriority={idx === 0 ? "high" : "auto"}
+				/>
+				<div className={`absolute inset-0 bg-gradient-to-r ${slide.overlay}`} />
+			</div>
+
+			{/* Contenu */}
+			<div className="absolute inset-0 z-30 flex items-end md:items-center">
+				<div className="baume-container w-full pb-20 md:pb-0">
+					<div className="max-w-[640px]">
+						<p
+							key={`tag-${idx}`}
+							className="text-[11px] uppercase tracking-[0.3em] text-white/70 font-semibold mb-5"
+							style={{ animation: "slideUp 0.6s 0.15s ease both" }}
+						>
+							{slide.tag}
+						</p>
+						<h1
+							key={`title-${idx}`}
+							className="font-editorial text-[40px] md:text-[60px] lg:text-[72px] leading-[1.05] text-white whitespace-pre-line"
+							style={{ animation: "slideUp 0.6s 0.25s ease both" }}
+						>
+							{slide.title}
+						</h1>
+						<p
+							key={`sub-${idx}`}
+							className="mt-5 text-[16px] md:text-[18px] leading-[28px] text-white/80 max-w-[520px]"
+							style={{ animation: "slideUp 0.6s 0.35s ease both" }}
+						>
+							{slide.sub}
+						</p>
+						<div
+							key={`cta-${idx}`}
+							className="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-3"
+							style={{ animation: "slideUp 0.6s 0.45s ease both" }}
+						>
+							<Link
+								to={slide.cta.to}
+								className="group inline-flex items-center gap-2 h-13 px-8 rounded-full bg-white text-baume-burgundy font-semibold text-[15px] hover:bg-baume-ivory transition-colors shadow-lg"
+							>
+								{slide.cta.label}
+								<ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+							</Link>
+							<Link
+								to={slide.ctaSecondary.to}
+								className="inline-flex items-center gap-2 h-13 px-8 rounded-full border border-white/50 text-white font-semibold text-[15px] hover:bg-white/10 transition-colors"
+							>
+								{slide.ctaSecondary.label}
+							</Link>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			{/* Navigation flèches */}
+			<button
+				onClick={() => handleNav((idx - 1 + SLIDES.length) % SLIDES.length)}
+				className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-white/15 hover:bg-white/30 border border-white/30 inline-flex items-center justify-center transition-all backdrop-blur-sm"
+				aria-label="Slide précédente"
+			>
+				<ChevronLeft className="h-5 w-5 text-white" />
+			</button>
+			<button
+				onClick={() => handleNav((idx + 1) % SLIDES.length)}
+				className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 h-11 w-11 rounded-full bg-white/15 hover:bg-white/30 border border-white/30 inline-flex items-center justify-center transition-all backdrop-blur-sm"
+				aria-label="Slide suivante"
+			>
+				<ChevronRight className="h-5 w-5 text-white" />
+			</button>
+
+			{/* Points de navigation */}
+			<div className="absolute bottom-7 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
+				{SLIDES.map((_, i) => (
+					<button
+						key={i}
+						onClick={() => handleNav(i)}
+						className={`rounded-full transition-all duration-300 ${
+							i === idx
+								? "w-7 h-2 bg-white"
+								: "w-2 h-2 bg-white/40 hover:bg-white/70"
+						}`}
+						aria-label={`Slide ${i + 1}`}
+					/>
+				))}
+			</div>
+
+			{/* Compteur slide */}
+			<div className="absolute bottom-7 right-6 md:right-10 z-40 text-white/50 text-[12px] font-mono tracking-wider">
+				{String(idx + 1).padStart(2, "0")} /{" "}
+				{String(SLIDES.length).padStart(2, "0")}
+			</div>
+
+			{/* Keyframes injectés */}
+			<style>{`
+        @keyframes heroFadeIn {
+          from { opacity: 0; transform: scale(1.03); }
+          to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes heroFadeOut {
+          from { opacity: 1; }
+          to   { opacity: 0; }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(22px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .h-13 { height: 3.25rem; }
+      `}</style>
+		</section>
+	);
 }

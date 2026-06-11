@@ -56,6 +56,8 @@ export default function DashBoardAdmin() {
 
 	const isAdmin = user?.role === "admin";
 
+	const [productSearch, setProductSearch] = useState("");
+
 	const loadData = useCallback(async (table) => {
 		setLoading(true);
 		try {
@@ -191,13 +193,23 @@ export default function DashBoardAdmin() {
 								</span>
 
 								{active === "products" && (
-									<Link
-										to="/admin/produits/nouveau"
-										className="h-10 px-4 rounded-full bg-baume-burgundy text-baume-white text-[13px] font-semibold inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition"
-									>
-										<Plus className="h-4 w-4" />
-										Ajouter un produit
-									</Link>
+									<div className="relative">
+										<input
+											type="text"
+											value={productSearch}
+											onChange={(e) => setProductSearch(e.target.value)}
+											placeholder="Rechercher un produit…"
+											className="h-10 pl-4 pr-8 rounded-full border border-baume-border bg-baume-white text-[13px] text-baume-charcoal outline-none placeholder:text-baume-charcoal/40 w-52"
+										/>
+										{productSearch && (
+											<button
+												onClick={() => setProductSearch("")}
+												className="absolute right-3 top-1/2 -translate-y-1/2"
+											>
+												<X className="h-3.5 w-3.5 text-baume-charcoal/40" />
+											</button>
+										)}
+									</div>
 								)}
 
 								{active === "workshops" && (
@@ -233,6 +245,7 @@ export default function DashBoardAdmin() {
 								rows={rows}
 								onDelete={handleDelete}
 								onRefresh={() => loadData(active)}
+								productSearch={productSearch}
 							/>
 						)}
 					</div>
@@ -242,15 +255,24 @@ export default function DashBoardAdmin() {
 	);
 }
 
-function AdminTable({ table, rows, onDelete, onRefresh }) {
+function AdminTable({ table, rows, onDelete, onRefresh, productSearch = "" }) {
 	if (table === "accueil") {
 		return <HomeSection />;
 	}
 	if (table === "products") {
+		const filtered = productSearch.trim()
+			? rows.filter(
+					(p) =>
+						p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
+						p.product_category
+							?.toLowerCase()
+							.includes(productSearch.toLowerCase()),
+				)
+			: rows;
 		return (
 			<Table
 				columns={["Nom", "Catégorie", "Prix", "Stock", "Statut", "Actions"]}
-				rows={rows.map((p) => [
+				rows={filtered.map((p) => [
 					p.name || p.title,
 					p.product_category,
 					`${Number(p.price || 0).toFixed(2)} ${p.currency || "CHF"}`,

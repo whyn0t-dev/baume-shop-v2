@@ -551,10 +551,10 @@ async def get_category(kind: str, slug: str):
 @api_router.get("/reviews")
 async def list_reviews(product_id: Optional[str] = None, limit: int = 20):
     def run():
-        q = supabase.table("reviews").select("*")
+        q = supabase.table("reviews").select("*").eq("status", "published")
         if product_id:
             q = q.eq("product_id", product_id)
-        return q.limit(limit).execute()
+        return q.order("created_at", desc=True).limit(limit).execute()
 
     result = await asyncio.to_thread(run)
     return result.data or []
