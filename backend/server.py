@@ -2419,6 +2419,21 @@ async def delete_admin_product(
     return {"success": True, "status": "deleted"}
 
 
+@api_router.get("/ecom/admin/products-list")
+async def list_admin_products(
+    limit: int = 200,
+    profile=Depends(require_admin),
+):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("products")
+        .select("*")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    return result.data or []
+
+
 @api_router.get("/ecom/admin/{table}")
 async def list_admin_table(
     table: str,
@@ -4298,21 +4313,6 @@ async def update_variant(
     payload["updated_at"] = now_iso()
     await sb_update("product_variants", payload, "id", variant_id)
     return await sb_select_one("product_variants", "id", variant_id)
-
-
-@api_router.get("/ecom/admin/products-list")
-async def list_admin_products(
-    limit: int = 200,
-    profile=Depends(require_admin),
-):
-    result = await asyncio.to_thread(
-        lambda: supabase.table("products")
-        .select("*")
-        .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
-    return result.data or []
 
 
 api_router.include_router(auth_router)
