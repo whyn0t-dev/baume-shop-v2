@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { api } from "../lib/api";
 import {
 	LayoutDashboard,
 	BarChart3,
@@ -401,6 +402,59 @@ export default function StatisticsSection() {
 	const [activeTab, setActiveTab] = useState("overview");
 	const [period, setPeriod] = useState("month");
 
+	// ============================================================
+	// BAUME — CHARGEMENT DES STATISTIQUES DE VENTES
+	// ============================================================
+
+	const [salesData, setSalesData] = useState(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState(null);
+
+	// ============================================================
+	// BAUME — CHARGEMENT DES STATISTIQUES DE VENTES
+	// ============================================================
+
+	useEffect(() => {
+		let cancelled = false;
+
+		async function loadStatistics() {
+			setLoading(true);
+			setError(null);
+
+			try {
+				const response = await api.get("/ecom/admin/statistics/sales", {
+					params: { period },
+				});
+
+				if (!cancelled) {
+					setSalesData(response.data);
+				}
+			} catch (err) {
+				if (!cancelled) {
+					const status = err.response?.status;
+
+					setError(
+						status
+							? `Impossible de charger les statistiques (HTTP ${status})`
+							: err.message || "Erreur de chargement des statistiques",
+					);
+
+					setSalesData(null);
+				}
+			} finally {
+				if (!cancelled) {
+					setLoading(false);
+				}
+			}
+		}
+
+		loadStatistics();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [period]);
+
 	return (
 		<div className="p-5 lg:p-8 space-y-7">
 			<div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -438,6 +492,19 @@ export default function StatisticsSection() {
 			</div>
 
 			<div className="flex flex-wrap gap-2 border-b border-baume-border pb-4">
+				{loading && (
+					<p className="text-sm text-baume-charcoal/60">
+						Chargement des statistiques...
+					</p>
+				)}
+
+				{error && <p className="text-sm text-red-600">{error}</p>}
+
+				{salesData && (
+					<p className="text-sm text-green-700">
+						Statistiques chargées pour la période sélectionnée.
+					</p>
+				)}
 				{TABS.map((tab) => {
 					const Icon = tab.icon;
 					const selected = activeTab === tab.key;

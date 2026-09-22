@@ -296,3 +296,14 @@ export function formatApiError(err) {
 
   return err?.message ?? "Une erreur est survenue.";
 }
+
+// ============================================================
+// BAUME — STATISTIQUES ADMINISTRATEUR
+// ============================================================
+
+export const getAdminSalesStatistics = (period = "month") =>
+  api
+    .get("/ecom/admin/statistics/sales", {
+      params: { period },
+    })
+    .then((response) => response.data);
