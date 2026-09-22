@@ -42,6 +42,8 @@ import AdminScannerPage from "./pages/AdminScannerPage";
 import EmailConfirmationPage from "./pages/EmailConfirmationPage";
 import AdminChatPage from "./pages/AdminChatPage";
 import CarteFidelitePage from "./pages/CarteFidelitePage";
+import IntimitePage from "./pages/IntimitePage";
+import SexualitePage from "./pages/SexualitePage";
 
 import ChatBubble from "./components/ChatBubble";
 import CookieBanner from "./components/CookieBanner";
@@ -91,8 +93,25 @@ function AppShell() {
       <main>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/shop/besoin" element={<ShopIndexPage kind="besoin" />} />
-          <Route path="/shop/besoin/:slug" element={<CategoryPage kind="besoin" />} />
+          <Route
+            path="/shop/besoin"
+            element={<ShopIndexPage kind="besoin" />}
+          />
+
+          <Route
+            path="/shop/besoin/intimite"
+            element={<IntimitePage />}
+          />
+
+          <Route
+            path="/shop/besoin/sexualite"
+            element={<SexualitePage />}
+          />
+
+          <Route
+            path="/shop/besoin/:slug"
+            element={<CategoryPage kind="besoin" />}
+          />
           <Route path="/shop/produit" element={<ShopIndexPage kind="produit" />} />
           <Route path="/shop/produit/:slug" element={<CategoryPage kind="produit" />} />
           <Route path="/produit/:slug" element={<ProductPage />} />

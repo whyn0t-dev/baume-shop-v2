@@ -15,6 +15,7 @@ import {
 	CalendarDays,
 	Star,
 	X,
+	BarChart3,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ import {
 } from "../lib/api";
 
 import { LayoutDashboard } from "lucide-react";
+import StatisticsSection from "../components/StatisticsSection";
 import HomeSection from "../components/HomeSection";
 import { MessageCircle } from "lucide-react";
 import { ScanLine } from "lucide-react";
@@ -35,6 +37,7 @@ import { RotateCcw } from "lucide-react";
 
 const SECTIONS = [
 	{ key: "accueil", label: "Accueil", icon: LayoutDashboard },
+	{ key: "statistics", label: "Statistiques", icon: BarChart3 },
 	{ key: "products", label: "Produits", icon: Package },
 	{ key: "workshops", label: "Ateliers", icon: CalendarDays },
 	{ key: "workshop_bookings", label: "Réservations", icon: CalendarDays },
@@ -78,6 +81,7 @@ export default function DashBoardAdmin() {
 			active !== "accueil" &&
 			active !== "scanner" &&
 			active !== "chat" &&
+			active !== "statistics" &&
 			active !== "returns" // ← ajouter aux exceptions
 		) {
 			loadData(active);
@@ -143,15 +147,19 @@ export default function DashBoardAdmin() {
 						</p>
 					</div>
 
-					{active !== "accueil" && (
-						<button
-							onClick={() => loadData(active)}
-							className="h-11 px-5 rounded-full border border-baume-border bg-baume-white text-baume-charcoal font-semibold text-[14px] inline-flex items-center gap-2 hover:border-baume-burgundy"
-						>
-							<RefreshCw className="h-4 w-4" />
-							Rafraîchir
-						</button>
-					)}
+					{active !== "accueil" &&
+						active !== "statistics" &&
+						active !== "scanner" &&
+						active !== "chat" &&
+						active !== "returns" && (
+							<button
+								onClick={() => loadData(active)}
+								className="h-11 px-5 rounded-full border border-baume-border bg-baume-white text-baume-charcoal font-semibold text-[14px] inline-flex items-center gap-2 hover:border-baume-burgundy"
+							>
+								<RefreshCw className="h-4 w-4" />
+								Rafraîchir
+							</button>
+						)}
 				</div>
 			</div>
 
@@ -188,9 +196,15 @@ export default function DashBoardAdmin() {
 							</h2>
 
 							<div className="flex items-center gap-3">
-								<span className="text-[13px] text-baume-charcoal/60">
-									{rows.length} élément{rows.length > 1 ? "s" : ""}
-								</span>
+								{active !== "statistics" &&
+									active !== "accueil" &&
+									active !== "scanner" &&
+									active !== "chat" &&
+									active !== "returns" && (
+										<span className="text-[13px] text-baume-charcoal/60">
+											{rows.length} élément{rows.length > 1 ? "s" : ""}
+										</span>
+									)}
 
 								{active === "products" && (
 									<div className="relative">
@@ -226,6 +240,7 @@ export default function DashBoardAdmin() {
 
 						{loading &&
 						active !== "accueil" &&
+						active !== "statistics" &&
 						active !== "scanner" &&
 						active !== "chat" ? (
 							<div className="py-24 flex justify-center">
@@ -234,8 +249,10 @@ export default function DashBoardAdmin() {
 						) : rows.length === 0 &&
 						  active !== "discounts" &&
 						  active !== "accueil" &&
+						  active !== "statistics" &&
 						  active !== "scanner" &&
-						  active !== "chat" ? ( // ← ajouter
+						  active !== "chat" &&
+						  active !== "returns" ? (
 							<div className="p-10 text-center text-baume-charcoal/65">
 								Aucun élément trouvé.
 							</div>
@@ -258,6 +275,9 @@ export default function DashBoardAdmin() {
 function AdminTable({ table, rows, onDelete, onRefresh, productSearch = "" }) {
 	if (table === "accueil") {
 		return <HomeSection />;
+	}
+	if (table === "statistics") {
+		return <StatisticsSection />;
 	}
 	if (table === "products") {
 		const filtered = productSearch.trim()

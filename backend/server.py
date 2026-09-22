@@ -27,7 +27,10 @@ from decimal import Decimal
 from models import WorkshopBookingRequest, AdminWorkshopRequest
 
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from collections import defaultdict
+from calendar import monthrange
+from zoneinfo import ZoneInfo
 from typing import List, Optional, Dict, Any
 from fastapi import UploadFile, File
 
@@ -1505,6 +1508,148 @@ async def checkout_status(session_id: str):
     }
 
 
+# ============================================================
+# BAUME — STRIPE
+# SYNCHRONISATION DES REMBOURSEMENTS
+#
+# Un remboursement partiel ne signifie pas que
+# la commande entière est remboursée.
+#
+# Le montant Stripe est exprimé en centimes.
+# ============================================================
+
+
+async def sync_stripe_refund(refund):
+    refund_id = refund.get("id")
+    payment_intent_id = refund.get("payment_intent")
+    charge_id = refund.get("charge")
+
+    if not refund_id:
+        logger.warning("Remboursement Stripe reçu sans identifiant.")
+        return
+
+    # Certains objets Refund contiennent uniquement
+    # le charge_id. On récupère alors le PaymentIntent.
+    if not payment_intent_id and charge_id:
+        charge = await asyncio.to_thread(
+            stripe.Charge.retrieve,
+            charge_id,
+        )
+        payment_intent_id = charge.get("payment_intent")
+
+    if not payment_intent_id:
+        logger.warning(f"PaymentIntent introuvable pour refund={refund_id}")
+        return
+
+    order_result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("id,total,currency,payments(id)")
+        .eq(
+            "stripe_payment_intent_id",
+            payment_intent_id,
+        )
+        .limit(1)
+        .execute()
+    )
+
+    if not order_result.data:
+        logger.warning(f"Commande introuvable pour refund={refund_id}")
+        return
+
+    order = order_result.data[0]
+
+    payments = order.get("payments") or []
+    payment_id = payments[0]["id"] if payments else None
+
+    refund_amount = Decimal(str(refund.get("amount") or 0)) / Decimal("100")
+
+    refund_status = refund.get("status") or "pending"
+
+    refund_data = {
+        "order_id": order["id"],
+        "payment_id": payment_id,
+        "stripe_refund_id": refund_id,
+        "amount": float(refund_amount),
+        "currency": (refund.get("currency") or order.get("currency") or "CHF").upper(),
+        "status": refund_status,
+        "reason": (refund.get("reason") or "Remboursement Stripe"),
+    }
+
+    # --------------------------------------------------------
+    # 1. CRÉER OU ACTUALISER LE REMBOURSEMENT
+    # --------------------------------------------------------
+
+    existing = await sb_select_one(
+        "refunds",
+        "stripe_refund_id",
+        refund_id,
+    )
+
+    if existing:
+        await sb_update(
+            "refunds",
+            refund_data,
+            "stripe_refund_id",
+            refund_id,
+        )
+    else:
+        await sb_insert(
+            "refunds",
+            {
+                "id": str(uuid.uuid4()),
+                **refund_data,
+                "created_at": now_iso(),
+            },
+        )
+
+    # --------------------------------------------------------
+    # 2. RECALCULER LE TOTAL DES REMBOURSEMENTS RÉUSSIS
+    #
+    # Les remboursements échoués ou en attente
+    # ne doivent pas diminuer le CA réalisé.
+    # --------------------------------------------------------
+
+    refund_rows = await stats_fetch_all(
+        lambda: supabase.table("refunds")
+        .select("amount,status")
+        .eq("order_id", order["id"])
+        .order("id")
+    )
+
+    total_refunded = sum(
+        (
+            Decimal(str(row.get("amount") or 0))
+            for row in refund_rows
+            if row.get("status") == "succeeded"
+        ),
+        Decimal("0"),
+    )
+
+    order_total = Decimal(str(order.get("total") or 0))
+
+    # --------------------------------------------------------
+    # 3. MODIFIER LE STATUT UNIQUEMENT SI LE
+    # REMBOURSEMENT EST INTÉGRAL
+    # --------------------------------------------------------
+
+    if order_total > 0 and total_refunded >= order_total:
+        await sb_update(
+            "orders",
+            {
+                "status": "refunded",
+                "updated_at": now_iso(),
+            },
+            "id",
+            order["id"],
+        )
+
+    logger.info(
+        f"Remboursement synchronisé : {refund_id}, "
+        f"statut={refund_status}, "
+        f"total remboursé={total_refunded}"
+    )
+
+
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     if not STRIPE_API_KEY:
@@ -1617,56 +1762,31 @@ async def stripe_webhook(request: Request):
                 result.data[0]["session_id"],
             )
 
-    # ── charge.refunded ───────────────────────────────────────────────────
+    # ========================================================
+    # BAUME — WEBHOOK : REMBOURSEMENTS STRIPE
+    #
+    # Les événements refund.* constituent la source
+    # principale de synchronisation.
+    #
+    # charge.refunded n'insère pas de remboursement
+    # supplémentaire, afin d'éviter les doublons.
+    # ========================================================
+
+    elif event_type in (
+        "refund.created",
+        "refund.updated",
+        "refund.failed",
+    ):
+        await sync_stripe_refund(obj)
+
     elif event_type == "charge.refunded":
-        payment_intent_id = obj.get("payment_intent")
-        amount_refunded = (obj.get("amount_refunded") or 0) / 100
-
-        if payment_intent_id:
-            order_result = await asyncio.to_thread(
-                lambda: supabase.table("orders")
-                .select("id, payments(*)")
-                .eq("stripe_payment_intent_id", payment_intent_id)
-                .limit(1)
-                .execute()
-            )
-
-            if order_result.data:
-                o = order_result.data[0]
-                payments = o.get("payments") or []
-                payment_id = payments[0]["id"] if payments else None
-
-                # ← Ajouter la mise à jour du statut
-                await sb_update(
-                    "orders",
-                    {
-                        "status": "refunded",
-                        "updated_at": now_iso(),
-                    },
-                    "id",
-                    o["id"],
-                )
-
-                existing_refund = await asyncio.to_thread(
-                    lambda: supabase.table("refunds")
-                    .select("id")
-                    .eq("order_id", o["id"])
-                    .limit(1)
-                    .execute()
-                )
-
-                if not existing_refund.data:
-                    await sb_insert(
-                        "refunds",
-                        {
-                            "id": str(uuid.uuid4()),
-                            "order_id": o["id"],
-                            "payment_id": payment_id,
-                            "amount": amount_refunded,
-                            "reason": "Remboursement Stripe",
-                            "created_at": now_iso(),
-                        },
-                    )
+        # Événement complémentaire.
+        # Les remboursements individuels sont enregistrés
+        # par les événements refund.*.
+        logger.info(
+            "charge.refunded reçu : synchronisation "
+            "assurée par les événements refund.*"
+        )
 
     # ── charge.dispute.created ────────────────────────────────────────────
     elif event_type == "charge.dispute.created":
@@ -2432,6 +2552,533 @@ async def list_admin_products(
         .execute()
     )
     return result.data or []
+
+
+# ============================================================
+# BAUME — STATISTIQUES ADMINISTRATEUR
+# SECTION 1 : PÉRIODES COMMERCIALES SUISSES
+#
+# Les journées et les mois suivent Europe/Zurich.
+# Les bornes sont converties en UTC pour interroger Supabase.
+# La borne de début est incluse ; celle de fin est exclue.
+# ============================================================
+
+
+def stats_period_bounds(period: str):
+    swiss_tz = ZoneInfo("Europe/Zurich")
+
+    now_local = datetime.now(swiss_tz)
+    today = now_local.replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+
+    if period == "month":
+        start = today.replace(day=1)
+
+        if start.month == 12:
+            end = start.replace(
+                year=start.year + 1,
+                month=1,
+            )
+        else:
+            end = start.replace(month=start.month + 1)
+
+        end = min(end, now_local)
+
+    elif period == "previous_month":
+        end = today.replace(day=1)
+
+        if end.month == 1:
+            start = end.replace(
+                year=end.year - 1,
+                month=12,
+            )
+        else:
+            start = end.replace(month=end.month - 1)
+
+    elif period == "last_30_days":
+        # 30 journées calendaires suisses,
+        # aujourd'hui compris.
+        start = today - timedelta(days=29)
+        end = now_local
+
+    elif period == "year":
+        start = today.replace(month=1, day=1)
+        end = min(
+            start.replace(year=start.year + 1),
+            now_local,
+        )
+
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Période statistique non autorisée.",
+        )
+
+    return (
+        start.astimezone(timezone.utc),
+        end.astimezone(timezone.utc),
+    )
+
+
+async def stats_fetch_all(query_factory, page_size=500):
+    """
+    Lit toutes les pages d'une requête Supabase.
+
+    Ne pas utiliser une limite de 300 lignes pour les
+    statistiques : cela fausserait les totaux.
+    """
+    all_rows = []
+    offset = 0
+
+    while True:
+        result = await asyncio.to_thread(
+            lambda: query_factory().range(offset, offset + page_size - 1).execute()
+        )
+
+        batch = result.data or []
+        all_rows.extend(batch)
+
+        if len(batch) < page_size:
+            break
+
+        offset += page_size
+
+    return all_rows
+
+
+# ============================================================
+# BAUME — STATISTIQUES ADMINISTRATEUR
+# SECTION 1 BIS : REMBOURSEMENTS ET RETOURS PHYSIQUES
+#
+# Un remboursement est un événement financier.
+# Un retour est un mouvement physique de marchandise.
+# Ils ne doivent jamais être confondus.
+# ============================================================
+
+
+async def stats_get_refunds_and_returns(order_ids):
+    """
+    Retourne :
+    - les montants remboursés par commande ;
+    - les quantités retournées par ligne de commande.
+
+    Les retours physiques nécessitent la table
+    order_item_returns décrite ci-dessous.
+    """
+
+    refunds_by_order = {}
+    returns_by_item = {}
+
+    if not order_ids:
+        return refunds_by_order, returns_by_item
+
+    # --------------------------------------------------------
+    # 1. Remboursements financiers
+    #
+    # Formule :
+    # Remboursement total d'une commande =
+    # somme de ses remboursements enregistrés.
+    # --------------------------------------------------------
+
+    for offset in range(0, len(order_ids), 100):
+        batch_ids = order_ids[offset : offset + 100]
+
+        # Ne comptabiliser que les remboursements réussis.
+        # Les remboursements en attente ou échoués
+        # ne diminuent pas le chiffre d'affaires.
+
+        refunds = await stats_fetch_all(
+            lambda ids=batch_ids: supabase.table("refunds")
+            .select("id,order_id,amount,created_at,status")
+            .in_("order_id", ids)
+            .eq("status", "succeeded")
+            .order("id")
+        )
+
+        for refund in refunds:
+            order_id = refund["order_id"]
+
+            amount = Decimal(str(refund.get("amount") or 0))
+
+            refunds_by_order[order_id] = (
+                refunds_by_order.get(
+                    order_id,
+                    Decimal("0"),
+                )
+                + amount
+            )
+
+    # --------------------------------------------------------
+    # 2. Retours physiques
+    #
+    # Formule :
+    # Quantité retournée d'une ligne =
+    # somme des unités effectivement retournées.
+    #
+    # La quantité retournée ne signifie pas que le produit
+    # a été remis en stock : il peut être endommagé.
+    # --------------------------------------------------------
+
+    for offset in range(0, len(order_ids), 100):
+        batch_ids = order_ids[offset : offset + 100]
+
+        returns = await stats_fetch_all(
+            lambda ids=batch_ids: supabase.table("order_item_returns")
+            .select("id,order_id,order_item_id," "quantity,restocked,created_at")
+            .in_("order_id", ids)
+            .order("id")
+        )
+
+        for returned in returns:
+            item_id = returned["order_item_id"]
+
+            quantity = int(returned.get("quantity") or 0)
+
+            returns_by_item[item_id] = returns_by_item.get(item_id, 0) + quantity
+
+    return refunds_by_order, returns_by_item
+
+
+# ============================================================
+# BAUME — STATISTIQUES ADMINISTRATEUR
+# SECTION 2 : VENTES ET PERFORMANCE DES PRODUITS
+#
+# Indicateurs calculés :
+# - Quantités vendues brutes
+# - Chiffre d'affaires brut des produits
+# - Remises réparties proportionnellement entre les produits
+# - Chiffre d'affaires produits après remises
+# - Remboursements financiers, suivis séparément
+# - Produits les plus vendus et les moins vendus
+#
+# IMPORTANT :
+# Les remboursements ne sont pas automatiquement considérés
+# comme des retours physiques.
+# Le CA HT et les ventes nettes après retours nécessitent
+# des données supplémentaires.
+#
+# Cette route ne modifie aucune donnée.
+# ============================================================
+
+
+@api_router.get("/ecom/admin/statistics/sales")
+async def get_admin_statistics_sales(
+    period: str = "month",
+    profile=Depends(require_admin),
+):
+    start, end = stats_period_bounds(period)
+
+    ZERO = Decimal("0")
+    CENT = Decimal("0.01")
+
+    def money(value):
+        """Convertit un montant en Decimal sans passer par float."""
+        return Decimal(str(value if value is not None else 0))
+
+    def amount(value):
+        """Arrondit un montant à deux décimales pour la réponse JSON."""
+        return float(value.quantize(CENT))
+
+    # --------------------------------------------------------
+    # 1. CHARGER LES COMMANDES
+    #
+    # On conserve les commandes remboursées pour connaître
+    # les ventes historiques. Le remboursement est traité
+    # séparément.
+    #
+    # Les commandes annulées ne sont pas comptabilisées.
+    # --------------------------------------------------------
+
+    orders = await stats_fetch_all(
+        lambda: supabase.table("orders")
+        .select("id,created_at,status,currency," "subtotal,discount_total,total")
+        .gte("created_at", start.isoformat())
+        .lt("created_at", end.isoformat())
+        .in_(
+            "status",
+            [
+                "paid",
+                "processing",
+                "shipped",
+                "delivered",
+                "refunded",
+            ],
+        )
+        .order("created_at")
+        .order("id")
+    )
+
+    order_map = {order["id"]: order for order in orders}
+    order_ids = list(order_map.keys())
+
+    # --------------------------------------------------------
+    # 2. CHARGER UNIQUEMENT LES LIGNES CONCERNÉES
+    #
+    # On interroge Supabase par lots pour éviter de charger
+    # toutes les commandes historiques du site.
+    # --------------------------------------------------------
+
+    items = []
+
+    for offset in range(0, len(order_ids), 100):
+        batch_ids = order_ids[offset : offset + 100]
+
+        batch_items = await stats_fetch_all(
+            lambda ids=batch_ids: supabase.table("order_items")
+            .select(
+                "id,order_id,product_id,variant_id,"
+                "product_title,quantity,total_price"
+            )
+            .in_("order_id", ids)
+            .order("id")
+        )
+
+        items.extend(batch_items)
+
+    # --------------------------------------------------------
+    # 3. CHARGER LE CATALOGUE
+    #
+    # Tous les produits sont chargés, même ceux qui n'ont
+    # enregistré aucune vente.
+    # --------------------------------------------------------
+
+    products = await stats_fetch_all(
+        lambda: supabase.table("products").select("id,name,vendor,status").order("id")
+    )
+
+    product_map = {product["id"]: product for product in products}
+
+    # --------------------------------------------------------
+    # 4. REGROUPER LES LIGNES PAR COMMANDE
+    #
+    # Cette étape permet de répartir correctement les
+    # remises globales entre les différents produits.
+    # --------------------------------------------------------
+
+    items_by_order = {}
+
+    for item in items:
+        order_id = item["order_id"]
+        items_by_order.setdefault(order_id, []).append(item)
+
+    # --------------------------------------------------------
+    # 5. INITIALISER LES DEVISES
+    #
+    # Le CHF doit exister même lorsqu'aucune commande
+    # n'a été passée pendant la période.
+    # Cela permet d'afficher les produits à zéro vente.
+    # --------------------------------------------------------
+
+    results_by_currency = {
+        "CHF": {
+            "orders_count": 0,
+            "units_sold_gross": 0,
+            "product_revenue_gross": Decimal("0"),
+            "discounts_allocated": Decimal("0"),
+            "product_revenue_after_discounts": Decimal("0"),
+            "products": {},
+        }
+    }
+
+    for order in orders:
+        currency = (order.get("currency") or "CHF").upper()
+
+        if currency not in results_by_currency:
+            results_by_currency[currency] = {
+                "orders_count": 0,
+                "units_sold_gross": 0,
+                "product_revenue_gross": ZERO,
+                "discounts_allocated": ZERO,
+                "product_revenue_after_discounts": ZERO,
+                "products": {},
+            }
+
+        group = results_by_currency[currency]
+        group["orders_count"] += 1
+
+        order_items = items_by_order.get(order["id"], [])
+
+        # Sous-total des lignes de commande.
+        lines_subtotal = sum(
+            (money(item.get("total_price")) for item in order_items),
+            ZERO,
+        )
+
+        # Remise globale enregistrée sur la commande.
+        order_discount = money(order.get("discount_total"))
+
+        # La remise ne peut pas dépasser le montant des
+        # produits pour les besoins de cette répartition.
+        allocated_discount = min(
+            max(order_discount, ZERO),
+            lines_subtotal,
+        )
+
+        # ----------------------------------------------------
+        # 6. CALCULER LES VENTES DE CHAQUE LIGNE
+        #
+        # Remise de la ligne =
+        # Remise globale × (montant ligne / sous-total)
+        #
+        # CA après remise =
+        # Montant ligne − remise attribuée
+        # ----------------------------------------------------
+
+        for item in order_items:
+            product_id = item.get("product_id")
+
+            if not product_id:
+                continue
+
+            product = product_map.get(product_id, {})
+
+            quantity = int(item.get("quantity") or 0)
+            gross = money(item.get("total_price"))
+
+            if lines_subtotal > ZERO:
+                line_discount = allocated_discount * gross / lines_subtotal
+            else:
+                line_discount = ZERO
+
+            revenue_after_discount = gross - line_discount
+
+            if product_id not in group["products"]:
+                group["products"][product_id] = {
+                    "product_id": product_id,
+                    "name": (
+                        product.get("name")
+                        or item.get("product_title")
+                        or "Produit inconnu"
+                    ),
+                    "vendor": (product.get("vendor") or "Sans marque"),
+                    "status": product.get("status"),
+                    "quantity_sold_gross": 0,
+                    "gross_revenue": ZERO,
+                    "allocated_discount": ZERO,
+                    "revenue_after_discounts": ZERO,
+                }
+
+            stat = group["products"][product_id]
+
+            stat["quantity_sold_gross"] += quantity
+            stat["gross_revenue"] += gross
+            stat["allocated_discount"] += line_discount
+            stat["revenue_after_discounts"] += revenue_after_discount
+
+            group["units_sold_gross"] += quantity
+            group["product_revenue_gross"] += gross
+            group["discounts_allocated"] += line_discount
+            group["product_revenue_after_discounts"] += revenue_after_discount
+
+    # --------------------------------------------------------
+    # 7. AJOUTER LES PRODUITS SANS VENTES
+    #
+    # Seuls les produits actifs sans ventes sont ajoutés.
+    # Les produits archivés ayant réellement été vendus
+    # restent présents dans les résultats historiques.
+    # --------------------------------------------------------
+
+    for currency, group in results_by_currency.items():
+        for product in products:
+            if product.get("status") != "active":
+                continue
+
+            product_id = product["id"]
+
+            if product_id in group["products"]:
+                continue
+
+            group["products"][product_id] = {
+                "product_id": product_id,
+                "name": product.get("name") or "Produit inconnu",
+                "vendor": product.get("vendor") or "Sans marque",
+                "status": "active",
+                "quantity_sold_gross": 0,
+                "gross_revenue": ZERO,
+                "allocated_discount": ZERO,
+                "revenue_after_discounts": ZERO,
+            }
+
+    # --------------------------------------------------------
+    # 8. PRÉPARER LES CLASSEMENTS
+    #
+    # Classement principal : quantités vendues brutes.
+    # Le taux d'écoulement sera ajouté lorsque les stocks
+    # historiques auront été fiabilisés.
+    # --------------------------------------------------------
+
+    response_currencies = {}
+
+    for currency, group in results_by_currency.items():
+        product_results = []
+
+        for stat in group["products"].values():
+            product_results.append(
+                {
+                    **stat,
+                    "gross_revenue": amount(stat["gross_revenue"]),
+                    "allocated_discount": amount(stat["allocated_discount"]),
+                    "revenue_after_discounts": amount(stat["revenue_after_discounts"]),
+                }
+            )
+
+        best_sellers = sorted(
+            product_results,
+            key=lambda p: (
+                -p["quantity_sold_gross"],
+                p["name"].lower(),
+            ),
+        )[:10]
+
+        least_sellers = sorted(
+            (p for p in product_results if p["status"] == "active"),
+            key=lambda p: (
+                p["quantity_sold_gross"],
+                p["name"].lower(),
+            ),
+        )[:10]
+
+        response_currencies[currency] = {
+            "metrics": {
+                "orders_count": group["orders_count"],
+                "units_sold_gross": group["units_sold_gross"],
+                "product_revenue_gross": amount(group["product_revenue_gross"]),
+                "discounts_allocated": amount(group["discounts_allocated"]),
+                "product_revenue_after_discounts": amount(
+                    group["product_revenue_after_discounts"]
+                ),
+            },
+            "products": product_results,
+            "best_sellers": best_sellers,
+            "least_sellers": least_sellers,
+        }
+
+    # --------------------------------------------------------
+    # 9. RÉPONSE
+    #
+    # Les remboursements et les retours physiques ne sont
+    # pas encore attribués aux produits.
+    # Aucun CA net HT fictif n'est retourné.
+    # --------------------------------------------------------
+
+    return {
+        "period": period,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "currencies": response_currencies,
+        "calculation_status": "sales_after_discounts",
+        "limitations": [
+            "Les remboursements ne sont pas encore déduits.",
+            "Les retours physiques ne sont pas encore déduits.",
+            "Les montants ne sont pas encore convertis en HT.",
+            "Les marques correspondent au catalogue actuel.",
+            "Les produits sans ventes sont issus du catalogue actif actuel.",
+        ],
+    }
 
 
 @api_router.get("/ecom/admin/{table}")
