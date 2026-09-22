@@ -2852,6 +2852,57 @@ async def get_admin_statistics_sales(
 
     product_map = {product["id"]: product for product in products}
 
+    # Coûts courants par variante. Ces coûts ne sont PAS des instantanés
+    # historiques : les marges sur commandes passées restent indicatives.
+    variants = await stats_fetch_all(
+        lambda: supabase.table("product_variants")
+        .select(
+            "id,product_id,active,stock,cost_price,cost_price_source,"
+            "supplier_price,supplier_currency,acquisition_fees"
+        )
+        .order("id")
+    )
+    variant_map = {variant["id"]: variant for variant in variants}
+
+    # Valorisation du stock actuel, indépendante de la période des ventes.
+    # Ne jamais convertir implicitement une devise fournisseur en CHF.
+    inventory = {
+        "currency": "CHF",
+        "active_variants": 0,
+        "stock_units": 0,
+        "variants_with_complete_cost": 0,
+        "variants_missing_cost": 0,
+        "variants_with_estimated_cost": 0,
+        "stock_units_missing_cost": 0,
+        "supplier_stock_value": ZERO,
+        "acquisition_fees_stock_value": ZERO,
+        "stock_cost_value": ZERO,
+    }
+    for variant in variants:
+        if not variant.get("active"):
+            continue
+        inventory["active_variants"] += 1
+        stock = max(int(variant.get("stock") or 0), 0)
+        inventory["stock_units"] += stock
+        if variant.get("cost_price_source") == "estimated":
+            inventory["variants_with_estimated_cost"] += 1
+        complete = (
+            variant.get("supplier_currency") == "CHF"
+            and variant.get("supplier_price") is not None
+            and variant.get("acquisition_fees") is not None
+            and variant.get("cost_price") is not None
+        )
+        if not complete:
+            inventory["variants_missing_cost"] += 1
+            inventory["stock_units_missing_cost"] += stock
+            continue
+        inventory["variants_with_complete_cost"] += 1
+        inventory["supplier_stock_value"] += money(variant["supplier_price"]) * stock
+        inventory["acquisition_fees_stock_value"] += (
+            money(variant["acquisition_fees"]) * stock
+        )
+        inventory["stock_cost_value"] += money(variant["cost_price"]) * stock
+
     # --------------------------------------------------------
     # 4. REGROUPER LES LIGNES PAR COMMANDE
     #
@@ -2881,6 +2932,11 @@ async def get_admin_statistics_sales(
             "discounts_allocated": Decimal("0"),
             "product_revenue_after_discounts": Decimal("0"),
             "products": {},
+            "supplier_cost_estimated": ZERO,
+            "acquisition_fees_estimated": ZERO,
+            "cogs_estimated": ZERO,
+            "units_missing_cost": 0,
+            "units_with_estimated_cost": 0,
         }
     }
 
@@ -2895,6 +2951,11 @@ async def get_admin_statistics_sales(
                 "discounts_allocated": ZERO,
                 "product_revenue_after_discounts": ZERO,
                 "products": {},
+                "supplier_cost_estimated": ZERO,
+                "acquisition_fees_estimated": ZERO,
+                "cogs_estimated": ZERO,
+                "units_missing_cost": 0,
+                "units_with_estimated_cost": 0,
             }
 
         group = results_by_currency[currency]
@@ -2945,6 +3006,29 @@ async def get_admin_statistics_sales(
                 line_discount = ZERO
 
             revenue_after_discount = gross - line_discount
+
+            # Coûts en CHF uniquement : aucune conversion FX implicite.
+            # Les quantités vendues sont brutes (retours non déduits).
+            variant = variant_map.get(item.get("variant_id"))
+            has_cost = bool(
+                currency == "CHF"
+                and variant
+                and variant.get("supplier_currency") == "CHF"
+                and variant.get("supplier_price") is not None
+                and variant.get("acquisition_fees") is not None
+                and variant.get("cost_price") is not None
+            )
+            if has_cost:
+                supplier_cost = money(variant["supplier_price"]) * quantity
+                acquisition_cost = money(variant["acquisition_fees"]) * quantity
+                line_cogs = money(variant["cost_price"]) * quantity
+                group["supplier_cost_estimated"] += supplier_cost
+                group["acquisition_fees_estimated"] += acquisition_cost
+                group["cogs_estimated"] += line_cogs
+                if variant.get("cost_price_source") == "estimated":
+                    group["units_with_estimated_cost"] += quantity
+            else:
+                group["units_missing_cost"] += quantity
 
             if product_id not in group["products"]:
                 group["products"][product_id] = {
@@ -3051,6 +3135,31 @@ async def get_admin_statistics_sales(
                 "product_revenue_after_discounts": amount(
                     group["product_revenue_after_discounts"]
                 ),
+                "supplier_cost_estimated": (
+                    amount(group["supplier_cost_estimated"])
+                    if currency == "CHF" and not group["units_missing_cost"]
+                    else None
+                ),
+                "acquisition_fees_estimated": (
+                    amount(group["acquisition_fees_estimated"])
+                    if currency == "CHF" and not group["units_missing_cost"]
+                    else None
+                ),
+                "cogs_estimated": (
+                    amount(group["cogs_estimated"])
+                    if currency == "CHF" and not group["units_missing_cost"]
+                    else None
+                ),
+                "gross_margin_estimated": (
+                    amount(
+                        group["product_revenue_after_discounts"]
+                        - group["cogs_estimated"]
+                    )
+                    if currency == "CHF" and not group["units_missing_cost"]
+                    else None
+                ),
+                "units_missing_cost": group["units_missing_cost"],
+                "units_with_estimated_cost": group["units_with_estimated_cost"],
             },
             "products": product_results,
             "best_sellers": best_sellers,
@@ -3070,8 +3179,30 @@ async def get_admin_statistics_sales(
         "start": start.isoformat(),
         "end": end.isoformat(),
         "currencies": response_currencies,
-        "calculation_status": "sales_after_discounts",
+        "calculation_status": "sales_after_discounts_with_estimated_current_costs",
+        "inventory": {
+            **{k: v for k, v in inventory.items() if not isinstance(v, Decimal)},
+            "supplier_stock_value": (
+                amount(inventory["supplier_stock_value"])
+                if inventory["stock_units_missing_cost"] == 0
+                else None
+            ),
+            "acquisition_fees_stock_value": (
+                amount(inventory["acquisition_fees_stock_value"])
+                if inventory["stock_units_missing_cost"] == 0
+                else None
+            ),
+            "stock_cost_value": (
+                amount(inventory["stock_cost_value"])
+                if inventory["stock_units_missing_cost"] == 0
+                else None
+            ),
+        },
         "limitations": [
+            "Les coûts fournisseurs, frais et coûts d'achat sont simulés tant que la source est estimated.",
+            "Les coûts courants sont appliqués aux ventes historiques : marges indicatives uniquement.",
+            "Le stock est valorisé à partir de product_variants.stock actuel, non d'un historique de mouvements.",
+            "Les coûts et la valorisation sont calculés uniquement en CHF, sans conversion implicite.",
             "Les remboursements ne sont pas encore déduits.",
             "Les retours physiques ne sont pas encore déduits.",
             "Les montants ne sont pas encore convertis en HT.",

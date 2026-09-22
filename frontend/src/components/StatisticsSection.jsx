@@ -35,7 +35,7 @@ const PERIODS = [
 	{ value: "year", label: "Cette année" },
 ];
 
-function StatCard({ title, description, icon: Icon, unit }) {
+function StatCard({ title, description, icon: Icon, unit, value }) {
 	return (
 		<div className="rounded-2xl border border-baume-border bg-baume-ivory/40 p-5">
 			<div className="flex items-start justify-between gap-3">
@@ -47,7 +47,7 @@ function StatCard({ title, description, icon: Icon, unit }) {
 
 			<div className="mt-4 flex items-baseline gap-2">
 				<span className="font-editorial text-[32px] text-baume-charcoal">
-					—
+					{value ?? "—"}
 				</span>
 				{unit && (
 					<span className="text-[12px] text-baume-charcoal/50">{unit}</span>
@@ -114,15 +114,104 @@ function EmptyTable({ columns, message }) {
 	);
 }
 
-function OverviewView() {
+// ============================================================
+// BAUME — TABLEAU DES VENTES RÉELLES
+// ============================================================
+
+function SalesTable({ products, currency = "CHF", loading, type }) {
+	const isBest = type === "best";
+
+	const columns = isBest
+		? ["Produit", "Marque", "Vendus", "CA après remises"]
+		: ["Produit", "Marque", "Vendus"];
+
+	const formatMoney = (value) =>
+		new Intl.NumberFormat("fr-CH", {
+			style: "currency",
+			currency,
+		}).format(value);
+
+	return (
+		<div className="overflow-x-auto rounded-xl border border-baume-border">
+			<table className="w-full text-left text-[13px]">
+				<thead className="bg-baume-ivory/70">
+					<tr>
+						{columns.map((column) => (
+							<th
+								key={column}
+								className="px-4 py-3 whitespace-nowrap font-semibold text-baume-charcoal/70"
+							>
+								{column}
+							</th>
+						))}
+					</tr>
+				</thead>
+
+				<tbody>
+					{products.map((product) => (
+						<tr
+							key={product.product_id}
+							className="border-t border-baume-border"
+						>
+							<td className="px-4 py-3">{product.name || "Produit inconnu"}</td>
+
+							<td className="px-4 py-3">{product.vendor || "Sans marque"}</td>
+
+							<td className="px-4 py-3">
+								{product.quantity_sold_gross ?? "—"}
+							</td>
+
+							{isBest && (
+								<td className="px-4 py-3">
+									{product.revenue_after_discounts != null
+										? formatMoney(product.revenue_after_discounts)
+										: "—"}
+								</td>
+							)}
+						</tr>
+					))}
+				</tbody>
+			</table>
+
+			{products.length === 0 && (
+				<div className="px-5 py-10 text-center text-[13px] text-baume-charcoal/50">
+					{loading ? "Chargement..." : "Aucune donnée pour cette période."}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function OverviewView({ salesData, loading }) {
+	const currencies = salesData?.currencies || {};
+	const chf = currencies.CHF || null;
+
+	const bestSellers = chf?.best_sellers || [];
+	const leastSellers = chf?.least_sellers || [];
+
+	const metrics = chf?.metrics || {};
 	return (
 		<div className="space-y-6">
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 				<StatCard
-					title="Chiffre d'affaires net HT"
-					description="Ventes après remises et remboursements"
+					title="CA produits après remises"
+					description="Avant remboursements et déduction de la TVA"
 					icon={Wallet}
 					unit="CHF"
+					value={
+						chf && metrics.product_revenue_after_discounts != null
+							? new Intl.NumberFormat("fr-CH", {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2,
+								}).format(metrics.product_revenue_after_discounts)
+							: null
+					}
+				/>
+				<StatCard
+					title="Unités vendues brutes"
+					description="Quantités vendues avant déduction des retours"
+					icon={ShoppingCart}
+					value={chf ? metrics.units_sold_gross : null}
 				/>
 				<StatCard
 					title="Marge brute"
@@ -147,12 +236,14 @@ function OverviewView() {
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
 				<SectionCard
 					title="Produits les plus vendus"
-					description="Classement par quantité vendue nette."
+					description="Classement par quantité vendue avant déduction des retours."
 					icon={TrendingUp}
 				>
-					<EmptyTable
-						columns={["Produit", "Marque", "Vendus", "CA", "Écoulement"]}
-						message="Les meilleures ventes apparaîtront ici."
+					<SalesTable
+						products={bestSellers}
+						currency="CHF"
+						loading={loading}
+						type="best"
 					/>
 				</SectionCard>
 
@@ -161,9 +252,11 @@ function OverviewView() {
 					description="Produits actifs, y compris ceux sans ventes."
 					icon={TrendingDown}
 				>
-					<EmptyTable
-						columns={["Produit", "Stock", "Vendus", "Écoulement"]}
-						message="Les produits à faible rotation apparaîtront ici."
+					<SalesTable
+						products={leastSellers}
+						currency="CHF"
+						loading={loading}
+						type="least"
 					/>
 				</SectionCard>
 			</div>
@@ -413,13 +506,22 @@ export default function StatisticsSection() {
 	// ============================================================
 	// BAUME — CHARGEMENT DES STATISTIQUES DE VENTES
 	// ============================================================
+	// ============================================================
+	// BAUME — ACTUALISATION AUTOMATIQUE DES STATISTIQUES
+	// ============================================================
 
 	useEffect(() => {
 		let cancelled = false;
+		let requestInProgress = false;
 
-		async function loadStatistics() {
-			setLoading(true);
-			setError(null);
+		async function loadStatistics(showLoading = false) {
+			if (requestInProgress) return;
+
+			requestInProgress = true;
+
+			if (showLoading) {
+				setLoading(true);
+			}
 
 			try {
 				const response = await api.get("/ecom/admin/statistics/sales", {
@@ -428,6 +530,7 @@ export default function StatisticsSection() {
 
 				if (!cancelled) {
 					setSalesData(response.data);
+					setError(null);
 				}
 			} catch (err) {
 				if (!cancelled) {
@@ -436,22 +539,27 @@ export default function StatisticsSection() {
 					setError(
 						status
 							? `Impossible de charger les statistiques (HTTP ${status})`
-							: err.message || "Erreur de chargement des statistiques",
+							: err.message || "Erreur de chargement",
 					);
-
-					setSalesData(null);
 				}
 			} finally {
+				requestInProgress = false;
+
 				if (!cancelled) {
 					setLoading(false);
 				}
 			}
 		}
 
-		loadStatistics();
+		loadStatistics(true);
+
+		const interval = setInterval(() => {
+			loadStatistics(false);
+		}, 30000);
 
 		return () => {
 			cancelled = true;
+			clearInterval(interval);
 		};
 	}, [period]);
 
@@ -500,7 +608,7 @@ export default function StatisticsSection() {
 
 				{error && <p className="text-sm text-red-600">{error}</p>}
 
-				{salesData && (
+				{salesData && !error && (
 					<p className="text-sm text-green-700">
 						Statistiques chargées pour la période sélectionnée.
 					</p>
@@ -527,7 +635,9 @@ export default function StatisticsSection() {
 				})}
 			</div>
 
-			{activeTab === "overview" && <OverviewView />}
+			{activeTab === "overview" && (
+				<OverviewView salesData={salesData} loading={loading} />
+			)}
 			{activeTab === "sales" && <SalesView />}
 			{activeTab === "inventory" && <InventoryView />}
 			{activeTab === "reports" && <ReportsView />}

@@ -201,7 +201,7 @@ function AppShell() {
           />
           <Route path="/newsletter/desabonnement" element={<NewsletterUnsubscribePage />} />
           <Route path="/carte" element={<CarteFidelitePage />} />
-          <Route path="*" element={<NotFoundPage />} />x§
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
       <Footer />
