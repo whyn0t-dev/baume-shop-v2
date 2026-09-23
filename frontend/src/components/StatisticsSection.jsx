@@ -20,20 +20,25 @@ import {
 	Download,
 	Info,
 } from "lucide-react";
-
 const TABS = [
 	{ key: "overview", label: "Vue d'ensemble", icon: LayoutDashboard },
 	{ key: "sales", label: "Ventes & rentabilité", icon: BarChart3 },
 	{ key: "inventory", label: "Stocks & réapprovisionnement", icon: Package },
 	{ key: "reports", label: "Rapports", icon: FileText },
 ];
-
 const PERIODS = [
 	{ value: "month", label: "Ce mois" },
 	{ value: "previous_month", label: "Mois précédent" },
 	{ value: "last_30_days", label: "30 derniers jours" },
 	{ value: "year", label: "Cette année" },
 ];
+const formatAmount = (value, digits = 2) =>
+	value == null || !Number.isFinite(Number(value))
+		? null
+		: new Intl.NumberFormat("fr-CH", {
+				minimumFractionDigits: digits,
+				maximumFractionDigits: digits,
+			}).format(Number(value));
 
 function StatCard({ title, description, icon: Icon, unit, value }) {
 	return (
@@ -44,7 +49,6 @@ function StatCard({ title, description, icon: Icon, unit, value }) {
 				</p>
 				<Icon className="h-5 w-5 shrink-0 text-baume-burgundy" />
 			</div>
-
 			<div className="mt-4 flex items-baseline gap-2">
 				<span className="font-editorial text-[32px] text-baume-charcoal">
 					{value ?? "—"}
@@ -53,14 +57,12 @@ function StatCard({ title, description, icon: Icon, unit, value }) {
 					<span className="text-[12px] text-baume-charcoal/50">{unit}</span>
 				)}
 			</div>
-
 			<p className="mt-2 text-[12px] leading-5 text-baume-charcoal/55">
 				{description}
 			</p>
 		</div>
 	);
 }
-
 function SectionCard({ title, description, icon: Icon, children }) {
 	return (
 		<section className="rounded-2xl border border-baume-border bg-baume-white p-5 lg:p-6">
@@ -81,7 +83,6 @@ function SectionCard({ title, description, icon: Icon, children }) {
 		</section>
 	);
 }
-
 function EmptyState({ message }) {
 	return (
 		<div className="rounded-xl border border-dashed border-baume-border bg-baume-ivory/40 px-5 py-12 text-center">
@@ -89,7 +90,6 @@ function EmptyState({ message }) {
 		</div>
 	);
 }
-
 function EmptyTable({ columns, message }) {
 	return (
 		<div className="overflow-x-auto rounded-xl border border-baume-border">
@@ -113,24 +113,19 @@ function EmptyTable({ columns, message }) {
 		</div>
 	);
 }
-
 // ============================================================
 // BAUME — TABLEAU DES VENTES RÉELLES
 // ============================================================
-
 function SalesTable({ products, currency = "CHF", loading, type }) {
 	const isBest = type === "best";
-
 	const columns = isBest
 		? ["Produit", "Marque", "Vendus", "CA après remises"]
 		: ["Produit", "Marque", "Vendus"];
-
 	const formatMoney = (value) =>
 		new Intl.NumberFormat("fr-CH", {
 			style: "currency",
 			currency,
 		}).format(value);
-
 	return (
 		<div className="overflow-x-auto rounded-xl border border-baume-border">
 			<table className="w-full text-left text-[13px]">
@@ -146,7 +141,6 @@ function SalesTable({ products, currency = "CHF", loading, type }) {
 						))}
 					</tr>
 				</thead>
-
 				<tbody>
 					{products.map((product) => (
 						<tr
@@ -154,13 +148,10 @@ function SalesTable({ products, currency = "CHF", loading, type }) {
 							className="border-t border-baume-border"
 						>
 							<td className="px-4 py-3">{product.name || "Produit inconnu"}</td>
-
 							<td className="px-4 py-3">{product.vendor || "Sans marque"}</td>
-
 							<td className="px-4 py-3">
 								{product.quantity_sold_gross ?? "—"}
 							</td>
-
 							{isBest && (
 								<td className="px-4 py-3">
 									{product.revenue_after_discounts != null
@@ -172,7 +163,6 @@ function SalesTable({ products, currency = "CHF", loading, type }) {
 					))}
 				</tbody>
 			</table>
-
 			{products.length === 0 && (
 				<div className="px-5 py-10 text-center text-[13px] text-baume-charcoal/50">
 					{loading ? "Chargement..." : "Aucune donnée pour cette période."}
@@ -181,15 +171,14 @@ function SalesTable({ products, currency = "CHF", loading, type }) {
 		</div>
 	);
 }
-
 function OverviewView({ salesData, loading }) {
 	const currencies = salesData?.currencies || {};
 	const chf = currencies.CHF || null;
-
 	const bestSellers = chf?.best_sellers || [];
 	const leastSellers = chf?.least_sellers || [];
-
 	const metrics = chf?.metrics || {};
+	const inventory = salesData?.inventory || {};
+
 	return (
 		<div className="space-y-6">
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -214,16 +203,18 @@ function OverviewView({ salesData, loading }) {
 					value={chf ? metrics.units_sold_gross : null}
 				/>
 				<StatCard
-					title="Marge brute"
-					description="CA net HT moins coût des produits vendus"
+					title="Marge estimée avant TVA et remboursements"
+					description="CA produits après remises − coût d'achat simulé des unités vendues."
 					icon={TrendingUp}
 					unit="CHF"
+					value={formatAmount(metrics.gross_margin_estimated)}
 				/>
 				<StatCard
-					title="Valeur du stock"
-					description="Stock disponible valorisé au prix d'achat"
+					title="Valeur du stock estimée"
+					description="Stock actuel × coût d'achat simulé, toutes variantes actives."
 					icon={Boxes}
 					unit="CHF"
+					value={formatAmount(inventory.stock_cost_value)}
 				/>
 				<StatCard
 					title="Taux d'écoulement"
@@ -232,7 +223,6 @@ function OverviewView({ salesData, loading }) {
 					unit="%"
 				/>
 			</div>
-
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
 				<SectionCard
 					title="Produits les plus vendus"
@@ -246,7 +236,6 @@ function OverviewView({ salesData, loading }) {
 						type="best"
 					/>
 				</SectionCard>
-
 				<SectionCard
 					title="Produits les moins vendus"
 					description="Produits actifs, y compris ceux sans ventes."
@@ -260,7 +249,6 @@ function OverviewView({ salesData, loading }) {
 					/>
 				</SectionCard>
 			</div>
-
 			<SectionCard
 				title="Évolution des ventes"
 				description="Chiffre d'affaires et quantités vendues au fil du temps."
@@ -268,7 +256,6 @@ function OverviewView({ salesData, loading }) {
 			>
 				<EmptyState message="Le graphique des ventes apparaîtra ici." />
 			</SectionCard>
-
 			<SectionCard
 				title="Alertes de gestion"
 				description="Ruptures, stocks faibles, surstocks et produits sans ventes."
@@ -279,8 +266,20 @@ function OverviewView({ salesData, loading }) {
 		</div>
 	);
 }
-
-function SalesView() {
+function SalesView({ salesData }) {
+	const metrics = salesData?.currencies?.CHF?.metrics || {};
+	const inventory = salesData?.inventory || {};
+	const revenue = metrics.product_revenue_after_discounts;
+	const cogs = metrics.cogs_estimated;
+	const margin = metrics.gross_margin_estimated;
+	const markup =
+		cogs != null && Number(cogs) > 0 && revenue != null
+			? Number(revenue) / Number(cogs)
+			: null;
+	const marginRate =
+		margin != null && revenue != null && Number(revenue) > 0
+			? (Number(margin) / Number(revenue)) * 100
+			: null;
 	return (
 		<div className="space-y-6">
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -290,24 +289,61 @@ function SalesView() {
 					icon={ShoppingCart}
 				/>
 				<StatCard
-					title="Coût des produits vendus"
-					description="Coût d'achat des unités vendues"
+					title="Coût des produits vendus estimé"
+					description="Coût d'achat actuel simulé × unités vendues brutes."
 					icon={Wallet}
 					unit="CHF"
+					value={formatAmount(cogs)}
 				/>
 				<StatCard
-					title="Coefficient multiplicateur"
-					description="Prix de vente HT / prix d'achat HT"
+					title="Coefficient indicatif"
+					description="CA après remises / coût simulé des unités vendues, hors ajustements de TVA."
 					icon={BarChart3}
+					value={formatAmount(markup)}
 				/>
 				<StatCard
-					title="Taux de marque"
-					description="Marge brute / CA net HT"
+					title="Taux de marque indicatif"
+					description="Marge estimée / CA produits après remises, avant TVA et remboursements."
 					icon={Percent}
 					unit="%"
+					value={formatAmount(marginRate, 1)}
 				/>
 			</div>
-
+			<SectionCard
+				title="Coûts fournisseurs et frais simulés"
+				description="Données des variantes actuellement enregistrées dans Supabase. Les montants des ventes sont calculés sur les unités vendues brutes."
+				icon={Wallet}
+			>
+				<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+					<StatCard
+						title="Achats fournisseurs des ventes"
+						description="Quantités vendues × prix fournisseur simulé."
+						icon={Wallet}
+						unit="CHF"
+						value={formatAmount(metrics.supplier_cost_estimated)}
+					/>
+					<StatCard
+						title="Frais d'acquisition des ventes"
+						description="Quantités vendues × frais unitaires simulés."
+						icon={Truck}
+						unit="CHF"
+						value={formatAmount(metrics.acquisition_fees_estimated)}
+					/>
+					<StatCard
+						title="Valeur fournisseur du stock"
+						description="Stock actuel × prix fournisseur simulé."
+						icon={Boxes}
+						unit="CHF"
+						value={formatAmount(inventory.supplier_stock_value)}
+					/>
+				</div>
+				{metrics.units_missing_cost > 0 && (
+					<p className="mt-3 text-sm text-red-600">
+						{metrics.units_missing_cost} unité(s) vendue(s) sans coût complet :
+						les montants correspondants restent indisponibles.
+					</p>
+				)}
+			</SectionCard>
 			<SectionCard
 				title="Rentabilité par produit"
 				description="Comparer les ventes, les coûts et les marges."
@@ -327,7 +363,6 @@ function SalesView() {
 					message="Les résultats par produit apparaîtront ici."
 				/>
 			</SectionCard>
-
 			<SectionCard
 				title="Ventes par marque"
 				description="Quantités, chiffre d'affaires et marge par marque."
@@ -335,7 +370,6 @@ function SalesView() {
 			>
 				<EmptyState message="Le graphique des marques apparaîtra ici." />
 			</SectionCard>
-
 			<SectionCard
 				title="Remises et remboursements"
 				description="Suivre leur incidence sur le chiffre d'affaires."
@@ -349,8 +383,8 @@ function SalesView() {
 		</div>
 	);
 }
-
-function InventoryView() {
+function InventoryView({ salesData }) {
+	const inventory = salesData?.inventory || {};
 	return (
 		<div className="space-y-6">
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -360,9 +394,14 @@ function InventoryView() {
 					icon={Package}
 				/>
 				<StatCard
-					title="Stock final"
-					description="Unités à la fin de la période"
+					title="Stock actuel"
+					description="Unités actuelles des variantes actives, non reconstituées à la fin de la période."
 					icon={Boxes}
+					value={
+						inventory.stock_units == null
+							? null
+							: formatAmount(inventory.stock_units, 0)
+					}
 				/>
 				<StatCard
 					title="Rotation du stock"
@@ -376,7 +415,41 @@ function InventoryView() {
 					unit="jours"
 				/>
 			</div>
-
+			<SectionCard
+				title="Valorisation actuelle du stock"
+				description="Valorisation à partir de product_variants.stock, indépendamment de la période sélectionnée."
+				icon={Boxes}
+			>
+				<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+					<StatCard
+						title="Coût total simulé du stock"
+						description="Prix fournisseur et frais d'acquisition unitaires inclus."
+						icon={Wallet}
+						unit="CHF"
+						value={formatAmount(inventory.stock_cost_value)}
+					/>
+					<StatCard
+						title="Valeur fournisseur simulée"
+						description="Stock actuel × prix fournisseur unitaire."
+						icon={Package}
+						unit="CHF"
+						value={formatAmount(inventory.supplier_stock_value)}
+					/>
+					<StatCard
+						title="Frais d'acquisition simulés"
+						description="Stock actuel × frais d'acquisition unitaires."
+						icon={Truck}
+						unit="CHF"
+						value={formatAmount(inventory.acquisition_fees_stock_value)}
+					/>
+				</div>
+				{inventory.variants_missing_cost > 0 && (
+					<p className="mt-3 text-sm text-red-600">
+						{inventory.variants_missing_cost} variante(s) sans coût complet ;
+						valorisation totale indisponible.
+					</p>
+				)}
+			</SectionCard>
 			<SectionCard
 				title="Mouvements de stock"
 				description="Reconstituer le stock initial, les entrées, les sorties et le stock final."
@@ -395,7 +468,6 @@ function InventoryView() {
 					message="Les mouvements de stock apparaîtront ici."
 				/>
 			</SectionCard>
-
 			<SectionCard
 				title="Taux d'écoulement et couverture"
 				description="Identifier les produits qui se vendent rapidement ou restent immobilisés."
@@ -413,7 +485,6 @@ function InventoryView() {
 					message="L'analyse des stocks apparaîtra ici."
 				/>
 			</SectionCard>
-
 			<SectionCard
 				title="Réapprovisionnement"
 				description="Quantités à examiner selon les ventes, les délais fournisseurs et le stock de sécurité."
@@ -431,7 +502,6 @@ function InventoryView() {
 					message="Les suggestions de réapprovisionnement apparaîtront ici."
 				/>
 			</SectionCard>
-
 			<SectionCard
 				title="Produits dormants et surstocks"
 				description="Repérer les produits dont le stock reste élevé par rapport aux ventes."
@@ -442,7 +512,6 @@ function InventoryView() {
 		</div>
 	);
 }
-
 function ReportsView() {
 	return (
 		<div className="space-y-6">
@@ -463,7 +532,6 @@ function ReportsView() {
 					message="Le rapport mensuel apparaîtra ici."
 				/>
 			</SectionCard>
-
 			<SectionCard
 				title="Envoi automatique par email"
 				description="Rapport du mois précédent, envoyé aux destinataires autorisés."
@@ -479,7 +547,6 @@ function ReportsView() {
 					</span>
 				</div>
 			</SectionCard>
-
 			<SectionCard
 				title="Export des statistiques"
 				description="Téléchargement des rapports de ventes et de stocks."
@@ -490,44 +557,34 @@ function ReportsView() {
 		</div>
 	);
 }
-
 export default function StatisticsSection() {
 	const [activeTab, setActiveTab] = useState("overview");
 	const [period, setPeriod] = useState("month");
-
 	// ============================================================
 	// BAUME — CHARGEMENT DES STATISTIQUES DE VENTES
 	// ============================================================
-
 	const [salesData, setSalesData] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(null);
-
 	// ============================================================
 	// BAUME — CHARGEMENT DES STATISTIQUES DE VENTES
 	// ============================================================
 	// ============================================================
 	// BAUME — ACTUALISATION AUTOMATIQUE DES STATISTIQUES
 	// ============================================================
-
 	useEffect(() => {
 		let cancelled = false;
 		let requestInProgress = false;
-
 		async function loadStatistics(showLoading = false) {
 			if (requestInProgress) return;
-
 			requestInProgress = true;
-
 			if (showLoading) {
 				setLoading(true);
 			}
-
 			try {
 				const response = await api.get("/ecom/admin/statistics/sales", {
 					params: { period },
 				});
-
 				if (!cancelled) {
 					setSalesData(response.data);
 					setError(null);
@@ -535,7 +592,6 @@ export default function StatisticsSection() {
 			} catch (err) {
 				if (!cancelled) {
 					const status = err.response?.status;
-
 					setError(
 						status
 							? `Impossible de charger les statistiques (HTTP ${status})`
@@ -544,25 +600,20 @@ export default function StatisticsSection() {
 				}
 			} finally {
 				requestInProgress = false;
-
 				if (!cancelled) {
 					setLoading(false);
 				}
 			}
 		}
-
 		loadStatistics(true);
-
 		const interval = setInterval(() => {
 			loadStatistics(false);
 		}, 30000);
-
 		return () => {
 			cancelled = true;
 			clearInterval(interval);
 		};
 	}, [period]);
-
 	return (
 		<div className="p-5 lg:p-8 space-y-7">
 			<div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -574,7 +625,6 @@ export default function StatisticsSection() {
 						Analyse des ventes, de la rentabilité et du réapprovisionnement.
 					</p>
 				</div>
-
 				<div className="flex items-center gap-2">
 					<CalendarDays className="h-4 w-4 text-baume-burgundy" />
 					<select
@@ -590,24 +640,22 @@ export default function StatisticsSection() {
 					</select>
 				</div>
 			</div>
-
 			<div className="flex items-start gap-3 rounded-xl border border-baume-border bg-baume-ivory/50 p-4">
 				<Info className="h-5 w-5 shrink-0 text-baume-burgundy" />
 				<p className="text-[12px] leading-5 text-baume-charcoal/65">
-					Structure du dashboard prête. Les données seront connectées
-					progressivement à Supabase. Aucun chiffre fictif n'est affiché.
+					Ventes issues de Supabase. Les prix fournisseurs, frais et coûts
+					d'achat sont actuellement simulés : marges indicatives avant TVA,
+					remboursements et retours. La valeur du stock reflète le stock actuel,
+					pas le stock historique.
 				</p>
 			</div>
-
 			<div className="flex flex-wrap gap-2 border-b border-baume-border pb-4">
 				{loading && (
 					<p className="text-sm text-baume-charcoal/60">
 						Chargement des statistiques...
 					</p>
 				)}
-
 				{error && <p className="text-sm text-red-600">{error}</p>}
-
 				{salesData && !error && (
 					<p className="text-sm text-green-700">
 						Statistiques chargées pour la période sélectionnée.
@@ -616,7 +664,6 @@ export default function StatisticsSection() {
 				{TABS.map((tab) => {
 					const Icon = tab.icon;
 					const selected = activeTab === tab.key;
-
 					return (
 						<button
 							key={tab.key}
@@ -634,12 +681,11 @@ export default function StatisticsSection() {
 					);
 				})}
 			</div>
-
 			{activeTab === "overview" && (
 				<OverviewView salesData={salesData} loading={loading} />
 			)}
-			{activeTab === "sales" && <SalesView />}
-			{activeTab === "inventory" && <InventoryView />}
+			{activeTab === "sales" && <SalesView salesData={salesData} />}
+			{activeTab === "inventory" && <InventoryView salesData={salesData} />}
 			{activeTab === "reports" && <ReportsView />}
 		</div>
 	);

@@ -2936,6 +2936,7 @@ async def get_admin_statistics_sales(
             "acquisition_fees_estimated": ZERO,
             "cogs_estimated": ZERO,
             "units_missing_cost": 0,
+            "missing_cost_items": [],  # AJOUT
             "units_with_estimated_cost": 0,
         }
     }
@@ -2955,6 +2956,7 @@ async def get_admin_statistics_sales(
                 "acquisition_fees_estimated": ZERO,
                 "cogs_estimated": ZERO,
                 "units_missing_cost": 0,
+                "missing_cost_items": [],  # AJOUT
                 "units_with_estimated_cost": 0,
             }
 
@@ -3027,8 +3029,42 @@ async def get_admin_statistics_sales(
                 group["cogs_estimated"] += line_cogs
                 if variant.get("cost_price_source") == "estimated":
                     group["units_with_estimated_cost"] += quantity
+
             else:
                 group["units_missing_cost"] += quantity
+
+                # Diagnostic des lignes vendues sans coût complet.
+                missing_fields = []
+
+                if not variant:
+                    missing_fields.append("variant_not_found_or_variant_id_missing")
+                else:
+                    if variant.get("supplier_currency") != "CHF":
+                        missing_fields.append("supplier_currency_not_chf")
+
+                    for field in (
+                        "supplier_price",
+                        "acquisition_fees",
+                        "cost_price",
+                    ):
+                        if variant.get(field) is None:
+                            missing_fields.append(field)
+
+                if currency != "CHF":
+                    missing_fields.append("order_currency_not_chf")
+
+                group["missing_cost_items"].append(
+                    {
+                        "order_item_id": item.get("id"),
+                        "product_id": product_id,
+                        "product_title": (
+                            product.get("name") or item.get("product_title")
+                        ),
+                        "variant_id": item.get("variant_id"),
+                        "quantity": quantity,
+                        "missing_fields": missing_fields,
+                    }
+                )
 
             if product_id not in group["products"]:
                 group["products"][product_id] = {
@@ -3159,6 +3195,7 @@ async def get_admin_statistics_sales(
                     else None
                 ),
                 "units_missing_cost": group["units_missing_cost"],
+                "missing_cost_items": group["missing_cost_items"],  # AJOUT
                 "units_with_estimated_cost": group["units_with_estimated_cost"],
             },
             "products": product_results,
