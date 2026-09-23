@@ -2698,12 +2698,17 @@ def stats_sell_through_by_variant(
     )
 
     return {
-        "rate_percent": global_rate,
+        "rate_percent": (
+            global_rate
+            if results and all(row["status"] == "complete" for row in results)
+            else None
+        ),
+        "eligible_rate_percent": global_rate,
         "net_units_sold": (total_sold if total_available > 0 else None),
         "variants": results,
         "status": (
             "complete"
-            if all(row["status"] == "complete" for row in results) and results
+            if results and all(row["status"] == "complete" for row in results)
             else "partial" if total_available > 0 else "incomplete_inventory_history"
         ),
     }
@@ -2904,29 +2909,53 @@ async def get_admin_statistics_sales(
     closing_snapshot_date = period_end_date
 
     async def load_stock_snapshot(snapshot_date):
+        date_iso = snapshot_date.isoformat()
+
         rows = await stats_fetch_all(
             lambda: supabase.table("inventory_daily_snapshots")
             .select("variant_id,stock_quantity,unit_cost_chf")
-            .eq("snapshot_date", snapshot_date.isoformat())
+            .eq("snapshot_date", date_iso)
             .order("variant_id")
+        )
+
+        run = await sb_select_one(
+            "inventory_snapshot_runs",
+            "snapshot_date",
+            date_iso,
+        )
+
+        expected_count = run.get("expected_variant_count") if run is not None else None
+
+        complete = (
+            (
+                bool(run.get("is_complete"))
+                and expected_count is not None
+                and len(rows) == expected_count
+                and len({row["variant_id"] for row in rows}) == len(rows)
+            )
+            if run is not None
+            else False
         )
 
         if not rows:
             return None
 
         return {
-            "date": snapshot_date.isoformat(),
+            "date": date_iso,
             "units": sum(int(row["stock_quantity"]) for row in rows),
             "variant_count": len(rows),
+            "expected_variant_count": expected_count,
+            "complete": complete,
             "variant_ids": {row["variant_id"] for row in rows},
             "rows": rows,
-            "stock_value_chf": stats_stock_value(rows),
+            "stock_value_chf": (stats_stock_value(rows) if complete else None),
         }
+
+    # IMPORTANT : on est sorti de load_stock_snapshot().
+    # On est toujours dans get_admin_statistics_sales().
 
     opening_snapshot = await load_stock_snapshot(opening_snapshot_date)
 
-    # Ne pas afficher de stock final historique avant la clôture
-    # du dernier jour de la période.
     today_zurich = datetime.now(zurich).date()
 
     closing_snapshot = (
