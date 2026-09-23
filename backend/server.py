@@ -2650,6 +2650,65 @@ async def stats_fetch_all(query_factory, page_size=500):
     return all_rows
 
 
+def stats_sell_through_by_variant(
+    opening_by_variant,
+    received_by_variant,
+    net_sold_by_variant,
+    eligible_variant_ids,
+):
+    results = []
+    total_sold = 0
+    total_available = 0
+
+    all_variant_ids = (
+        set(opening_by_variant) | set(received_by_variant) | set(net_sold_by_variant)
+    )
+
+    for variant_id in sorted(all_variant_ids):
+        opening = opening_by_variant.get(variant_id)
+        received = received_by_variant.get(variant_id)
+        net_sold = net_sold_by_variant.get(variant_id)
+
+        complete = (
+            variant_id in eligible_variant_ids
+            and opening is not None
+            and received is not None
+            and net_sold is not None
+        )
+
+        rate = stats_sell_through(net_sold, opening, received) if complete else None
+
+        results.append(
+            {
+                "variant_id": variant_id,
+                "opening_stock_units": opening,
+                "received_units": received,
+                "net_units_sold": net_sold,
+                "rate_percent": rate,
+                "status": "complete" if rate is not None else "incomplete",
+            }
+        )
+
+        if rate is not None:
+            total_sold += net_sold
+            total_available += opening + received
+
+    global_rate = (
+        round(total_sold * 100 / total_available, 1) if total_available > 0 else None
+    )
+
+    return {
+        "rate_percent": global_rate,
+        "net_units_sold": (total_sold if total_available > 0 else None),
+        "variants": results,
+        "status": (
+            "complete"
+            if all(row["status"] == "complete" for row in results) and results
+            else "partial" if total_available > 0 else "incomplete_inventory_history"
+        ),
+    }
+
+
 # ============================================================
 # BAUME — STATISTIQUES ADMINISTRATEUR
 # SECTION 1 BIS : REMBOURSEMENTS ET RETOURS PHYSIQUES
@@ -2765,6 +2824,65 @@ async def stats_get_refunds_and_returns(order_ids):
 # ============================================================
 
 
+def stats_stock_value(snapshot_rows):
+    """Valorisation historique d'un relevé, en CHF."""
+    if not snapshot_rows:
+        return None
+
+    if any(row.get("unit_cost_chf") is None for row in snapshot_rows):
+        return None
+
+    return sum(
+        (
+            Decimal(str(row["unit_cost_chf"])) * Decimal(str(row["stock_quantity"]))
+            for row in snapshot_rows
+        ),
+        Decimal("0"),
+    )
+
+
+def stats_stock_rotation(cogs, opening_value, closing_value):
+    """Rotation sur une période, sans fabriquer les données manquantes."""
+    if cogs is None or opening_value is None or closing_value is None:
+        return None
+
+    average_value = (
+        Decimal(str(opening_value)) + Decimal(str(closing_value))
+    ) / Decimal("2")
+
+    if average_value <= 0:
+        return None
+
+    return float(round(Decimal(str(cogs)) / average_value, 3))
+
+
+def stats_stock_coverage(stock_units, sold_units, days=30):
+    """Couverture en jours sur une fenêtre de ventes donnée."""
+    if stock_units is None or sold_units is None:
+        return None
+
+    if days <= 0 or sold_units <= 0:
+        return None
+
+    return round(stock_units * days / sold_units, 1)
+
+
+def stats_sell_through(net_sold, opening_stock, received):
+    """Taux d'écoulement sur une période."""
+    if any(value is None for value in (net_sold, opening_stock, received)):
+        return None
+
+    available = opening_stock + received
+
+    if available <= 0:
+        return None
+
+    if net_sold < 0 or net_sold > available:
+        return None
+
+    return round(net_sold * 100 / available, 1)
+
+
 @api_router.get("/ecom/admin/statistics/sales")
 async def get_admin_statistics_sales(
     period: str = "month",
@@ -2788,7 +2906,7 @@ async def get_admin_statistics_sales(
     async def load_stock_snapshot(snapshot_date):
         rows = await stats_fetch_all(
             lambda: supabase.table("inventory_daily_snapshots")
-            .select("variant_id,stock_quantity")
+            .select("variant_id,stock_quantity,unit_cost_chf")
             .eq("snapshot_date", snapshot_date.isoformat())
             .order("variant_id")
         )
@@ -2800,6 +2918,9 @@ async def get_admin_statistics_sales(
             "date": snapshot_date.isoformat(),
             "units": sum(int(row["stock_quantity"]) for row in rows),
             "variant_count": len(rows),
+            "variant_ids": {row["variant_id"] for row in rows},
+            "rows": rows,
+            "stock_value_chf": stats_stock_value(rows),
         }
 
     opening_snapshot = await load_stock_snapshot(opening_snapshot_date)
@@ -2811,6 +2932,29 @@ async def get_admin_statistics_sales(
     closing_snapshot = (
         await load_stock_snapshot(closing_snapshot_date)
         if closing_snapshot_date < today_zurich
+        else None
+    )
+
+    # --------------------------------------------------------
+    # VALEUR HISTORIQUE DU STOCK — ROTATION
+    # --------------------------------------------------------
+    opening_stock_value = (
+        {
+            "value": opening_snapshot["stock_value_chf"],
+            "variant_ids": opening_snapshot["variant_ids"],
+        }
+        if opening_snapshot is not None
+        and opening_snapshot["stock_value_chf"] is not None
+        else None
+    )
+
+    closing_stock_value = (
+        {
+            "value": closing_snapshot["stock_value_chf"],
+            "variant_ids": closing_snapshot["variant_ids"],
+        }
+        if closing_snapshot is not None
+        and closing_snapshot["stock_value_chf"] is not None
         else None
     )
 
@@ -3005,7 +3149,11 @@ async def get_admin_statistics_sales(
 
         daily_sales = sold_30d / 30
 
-        coverage_days = round(stock / daily_sales, 1) if daily_sales > 0 else None
+        coverage_days = stats_stock_coverage(
+            stock_units=stock,
+            sold_units=sold_30d,
+            days=30,
+        )
 
         if sold_30d > 0:
             stock_with_recent_sales += stock
@@ -3035,10 +3183,10 @@ async def get_admin_statistics_sales(
 
     # Indicateur global limité aux variantes ayant des ventes récentes.
     # Les variantes sans ventes restent visibles dans le tableau.
-    global_coverage_days = (
-        round(stock_with_recent_sales * 30 / units_sold_recently, 1)
-        if units_sold_recently > 0
-        else None
+    global_coverage_days = stats_stock_coverage(
+        stock_units=stock_with_recent_sales,
+        sold_units=units_sold_recently,
+        days=30,
     )
 
     coverage_variants.sort(
@@ -3360,6 +3508,90 @@ async def get_admin_statistics_sales(
         }
 
     # --------------------------------------------------------
+    # ROTATION ESTIMÉE DU STOCK
+    # --------------------------------------------------------
+
+    chf_metrics = response_currencies.get("CHF", {}).get("metrics", {})
+
+    estimated_cogs = chf_metrics.get("cogs_estimated")
+
+    rotation = {
+        "estimated": None,
+        "average_stock_value_chf": None,
+        "opening_stock_value_chf": None,
+        "closing_stock_value_chf": None,
+        "status": "insufficient_history",
+    }
+
+    if opening_stock_value and closing_stock_value:
+        # Vérifier que les deux relevés portent sur
+        # le même ensemble de variantes.
+        same_variants = (
+            opening_stock_value["variant_ids"] == closing_stock_value["variant_ids"]
+        )
+
+        if same_variants:
+            opening_value = opening_stock_value["value"]
+            closing_value = closing_stock_value["value"]
+
+            average_value = (opening_value + closing_value) / Decimal("2")
+
+            rotation["opening_stock_value_chf"] = amount(opening_value)
+            rotation["closing_stock_value_chf"] = amount(closing_value)
+            rotation["average_stock_value_chf"] = amount(average_value)
+
+            rotation["estimated"] = stats_stock_rotation(
+                cogs=estimated_cogs,
+                opening_value=opening_value,
+                closing_value=closing_value,
+            )
+
+            rotation["status"] = (
+                "estimated"
+                if rotation["estimated"] is not None
+                else "missing_cost_or_zero_stock"
+            )
+        else:
+            rotation["status"] = "different_variant_sets"
+
+    # --------------------------------------------------------
+    # TAUX D'ÉCOULEMENT — PÉRIODE SÉLECTIONNÉE
+    #
+    # Ne pas supposer qu'une absence de mouvements enregistrés
+    # signifie qu'aucun réapprovisionnement n'a eu lieu.
+    # --------------------------------------------------------
+
+    sold_units_by_variant = {}
+
+    for item in items:
+        variant_id = item.get("variant_id")
+
+        if not variant_id:
+            continue
+
+        quantity = max(int(item.get("quantity") or 0), 0)
+
+        sold_units_by_variant[variant_id] = (
+            sold_units_by_variant.get(variant_id, 0) + quantity
+        )
+
+    # Les commandes remboursées figurent encore dans "items".
+    # Ces quantités sont donc BRUTES et non des ventes nettes.
+    gross_units_sold = sum(sold_units_by_variant.values())
+
+    sell_through = {
+        "rate_percent": None,
+        "gross_units_sold": gross_units_sold,
+        "net_units_sold": None,
+        "opening_stock_units": (
+            opening_snapshot["units"] if opening_snapshot is not None else None
+        ),
+        "received_units": None,
+        "status": "incomplete_inventory_history",
+        "variants": [],
+    }
+
+    # --------------------------------------------------------
     # 9. RÉPONSE
     #
     # Les remboursements et les retours physiques ne sont
@@ -3384,6 +3616,8 @@ async def get_admin_statistics_sales(
             ),
         },
         "currencies": response_currencies,
+        "stock_rotation": rotation,
+        "sell_through": sell_through,
         "stock_coverage": stock_coverage,
         "calculation_status": "sales_after_discounts_with_estimated_current_costs",
         "inventory": {

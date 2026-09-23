@@ -178,6 +178,8 @@ function OverviewView({ salesData, loading }) {
 	const leastSellers = chf?.least_sellers || [];
 	const metrics = chf?.metrics || {};
 	const inventory = salesData?.inventory || {};
+	const stockRotation = salesData?.stock_rotation || {};
+	const sellThrough = salesData?.sell_through || {};
 
 	return (
 		<div className="space-y-6">
@@ -216,11 +218,21 @@ function OverviewView({ salesData, loading }) {
 					unit="CHF"
 					value={formatAmount(inventory.stock_cost_value)}
 				/>
+
 				<StatCard
 					title="Taux d'écoulement"
-					description="Part du stock disponible vendue sur la période"
+					description={
+						sellThrough.rate_percent == null
+							? "En attente d'un historique complet des stocks, des réceptions et des retours."
+							: "Part des unités disponibles vendues sur la période sélectionnée."
+					}
 					icon={Percent}
 					unit="%"
+					value={
+						sellThrough.rate_percent == null
+							? null
+							: formatAmount(sellThrough.rate_percent, 1)
+					}
 				/>
 			</div>
 			<div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -452,6 +464,8 @@ function InventoryView({ salesData }) {
 	const stockHistory = salesData?.stock_history || {};
 	const stockCoverage = salesData?.stock_coverage || {};
 	const coverageVariants = stockCoverage.variants || [];
+	const stockRotation = salesData?.stock_rotation || {};
+
 	return (
 		<div className="space-y-6">
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -499,10 +513,21 @@ function InventoryView({ salesData }) {
 							: formatAmount(stockHistory.final, 0)
 					}
 				/>
+
 				<StatCard
 					title="Rotation du stock"
-					description="Coût des ventes / stock moyen valorisé"
+					description={
+						stockRotation.status === "estimated"
+							? "Coût estimé des ventes / valeur moyenne du stock sur la période sélectionnée."
+							: "Historique ou valorisation insuffisants pour calculer la rotation."
+					}
 					icon={RefreshCw}
+					unit="fois"
+					value={
+						stockRotation.estimated == null
+							? null
+							: formatAmount(stockRotation.estimated, 3)
+					}
 				/>
 
 				<StatCard
