@@ -188,33 +188,41 @@ class Product(BaseModel):
 
     id: str
     slug: str
-    name: str
-    tagline: str
-    price: float
+    name: Optional[str] = None
+    title: Optional[str] = None
+    tagline: Optional[str] = None
+
+    price: Optional[float] = None
     compare_price: Optional[float] = None
-    currency: str = "CHF"
-    image: str
-    gallery: List[str] = []
-    product_category: str
+    currency: Optional[str] = "CHF"
+
+    image: Optional[str] = None
+    gallery: List[str] = Field(default_factory=list)
+
+    product_category: Optional[str] = None
     product_type: Optional[str] = None
-    needs: List[str] = []
+
+    needs: List[str] = Field(default_factory=list)
     flux: Optional[str] = None
     usage: Optional[str] = None
-    sizes: List[str] = []
-    colors: List[str] = []
-    benefits: List[str] = []
-    description: str
-    composition: str
-    how_to_use: str
-    fabrication: str
-    rating: float = 4.8
-    reviews_count: int = 0
-    stock: int = 50
-    available: bool = True
-    bestseller: bool = False
-    featured: bool = False
-    # ← Ajouter ces 3 lignes
-    preorder: bool = False
+    sizes: List[str] = Field(default_factory=list)
+    colors: List[str] = Field(default_factory=list)
+    benefits: List[str] = Field(default_factory=list)
+
+    description: Optional[str] = None
+    composition: Optional[str] = None
+    how_to_use: Optional[str] = None
+    fabrication: Optional[str] = None
+
+    rating: Optional[float] = 0
+    reviews_count: Optional[int] = 0
+    stock: Optional[int] = 0
+    available: Optional[bool] = False
+
+    bestseller: Optional[bool] = False
+    featured: Optional[bool] = False
+
+    preorder: Optional[bool] = False
     preorder_shipping_date: Optional[str] = None
     preorder_message: Optional[str] = None
 
@@ -2233,6 +2241,113 @@ async def create_admin_product(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def update_product_variants_safely(
+    product_id: str,
+    variants: list,
+):
+    """
+    Met à jour les variantes sans supprimer leurs UUID.
+
+    Une variante absente du formulaire n'est pas supprimée.
+    Pour l'archiver, transmettre son UUID et active=False.
+
+    Le stock n'est volontairement pas modifiable ici :
+    il sera géré par les opérations d'inventaire.
+    """
+
+    if not isinstance(variants, list):
+        raise HTTPException(
+            status_code=400, detail="Le champ variants doit être une liste."
+        )
+
+    # Charger les variantes actuelles du produit.
+    result = await asyncio.to_thread(
+        lambda: supabase.table("product_variants")
+        .select("id,product_id,stock")
+        .eq("product_id", product_id)
+        .execute()
+    )
+
+    existing = {row["id"]: row for row in (result.data or [])}
+
+    allowed_fields = {
+        "title",
+        "sku",
+        "barcode",
+        "price",
+        "compare_at_price",
+        "cost_price",
+        "weight_grams",
+        "option1",
+        "option2",
+        "option3",
+        "option1_value_id",
+        "option2_value_id",
+        "option3_value_id",
+        "active",
+        "supplier_price",
+        "supplier_currency",
+        "acquisition_fees",
+        "cost_price_source",
+    }
+
+    seen_ids = set()
+
+    # Valider l'ensemble avant toute écriture.
+    for variant in variants:
+        if not isinstance(variant, dict):
+            raise HTTPException(status_code=400, detail="Format de variante invalide.")
+
+        variant_id = variant.get("id")
+
+        if variant_id:
+            if variant_id not in existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=("Une variante transmise n'appartient " "pas à ce produit."),
+                )
+
+            if variant_id in seen_ids:
+                raise HTTPException(
+                    status_code=400, detail="Variante présente plusieurs fois."
+                )
+
+            seen_ids.add(variant_id)
+
+        elif not variant.get("title"):
+            raise HTTPException(
+                status_code=400, detail="Une nouvelle variante doit avoir un titre."
+            )
+
+    # Appliquer les modifications.
+    for variant in variants:
+        variant_id = variant.get("id")
+
+        values = {key: value for key, value in variant.items() if key in allowed_fields}
+
+        values["updated_at"] = now_iso()
+
+        if variant_id:
+            await sb_update(
+                "product_variants",
+                values,
+                "id",
+                variant_id,
+            )
+
+        else:
+            values["product_id"] = product_id
+            values.setdefault("active", True)
+            values.setdefault("price", 0)
+            values.setdefault("stock", 0)
+            values.setdefault("available", False)
+
+            await sb_insert(
+                "product_variants",
+                values,
+            )
+
+
 @api_router.patch("/ecom/admin/products/{product_id}")
 async def update_admin_product(
     product_id: str,
@@ -2266,38 +2381,10 @@ async def update_admin_product(
                 await sb_insert("product_options", clean_options)
 
         if variants is not None:
-            await sb_delete("product_variants", "product_id", product_id)
-            clean_variants = []
-            for variant in variants:
-                if not variant.get("title"):
-                    continue
-                existing_stock = 0
-                if variant.get("id"):
-                    existing = await sb_select_one(
-                        "product_variants", "id", variant["id"]
-                    )
-                    if existing:
-                        existing_stock = existing.get("stock", 0)
-                clean_variants.append(
-                    {
-                        "product_id": product_id,
-                        "title": variant.get("title"),
-                        "sku": variant.get("sku") or None,
-                        "barcode": variant.get("barcode") or None,
-                        "price": variant.get("price", 0),
-                        "compare_at_price": variant.get("compare_at_price"),
-                        "cost_price": variant.get("cost_price"),
-                        "weight_grams": variant.get("weight_grams", 0),
-                        "option1": variant.get("option1") or None,
-                        "option2": variant.get("option2") or None,
-                        "option3": variant.get("option3") or None,
-                        "active": variant.get("active", True),
-                        "stock": variant.get("stock", existing_stock),
-                        "available": variant.get("stock", existing_stock) > 0,
-                    }
-                )
-            if clean_variants:
-                await sb_insert("product_variants", clean_variants)
+            await update_product_variants_safely(
+                product_id,
+                variants,
+            )
 
         if images is not None:
             await sb_delete("product_images", "product_id", product_id)
