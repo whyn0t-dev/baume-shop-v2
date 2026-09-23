@@ -268,6 +268,9 @@ function OverviewView({ salesData, loading }) {
 }
 function SalesView({ salesData }) {
 	const metrics = salesData?.currencies?.CHF?.metrics || {};
+	const missingCostItems = Array.isArray(metrics.missing_cost_items)
+		? metrics.missing_cost_items
+		: [];
 	const inventory = salesData?.inventory || {};
 	const revenue = metrics.product_revenue_after_discounts;
 	const cogs = metrics.cogs_estimated;
@@ -343,6 +346,67 @@ function SalesView({ salesData }) {
 						les montants correspondants restent indisponibles.
 					</p>
 				)}
+				{missingCostItems.length > 0 && (
+					<div className="mt-5 overflow-x-auto rounded-xl border border-red-200">
+						<div className="bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+							Détail des lignes vendues sans coût complet
+						</div>
+
+						<table className="w-full text-left text-[12px]">
+							<thead className="bg-baume-ivory/70">
+								<tr>
+									<th className="px-4 py-3">Produit</th>
+									<th className="px-4 py-3">Variante</th>
+									<th className="px-4 py-3">Quantité</th>
+									<th className="px-4 py-3">Problème détecté</th>
+								</tr>
+							</thead>
+
+							<tbody>
+								{missingCostItems.map((item, index) => (
+									<tr
+										key={
+											item.order_item_id ||
+											`${item.variant_id || "sans-variante"}-${index}`
+										}
+										className="border-t border-baume-border"
+									>
+										<td className="px-4 py-3">
+											{item.product_title ||
+												item.product_id ||
+												"Produit inconnu"}
+										</td>
+
+										<td className="px-4 py-3 font-mono">
+											{item.variant_id || "Non renseignée"}
+										</td>
+
+										<td className="px-4 py-3">{item.quantity ?? "—"}</td>
+
+										<td className="px-4 py-3 text-red-700">
+											{(item.missing_fields || [])
+												.map(
+													(field) =>
+														({
+															variant_not_found_or_variant_id_missing:
+																"Variante introuvable ou identifiant absent",
+															supplier_currency_not_chf:
+																"Devise fournisseur différente du CHF",
+															supplier_price: "Prix fournisseur absent",
+															acquisition_fees: "Frais d'acquisition absents",
+															cost_price: "Coût d'achat absent",
+															order_currency_not_chf:
+																"Commande dans une autre devise",
+														})[field] || field,
+												)
+												.join(", ") || "Coût incomplet"}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
 			</SectionCard>
 			<SectionCard
 				title="Rentabilité par produit"
@@ -385,13 +449,28 @@ function SalesView({ salesData }) {
 }
 function InventoryView({ salesData }) {
 	const inventory = salesData?.inventory || {};
+	const stockHistory = salesData?.stock_history || {};
+	const stockCoverage = salesData?.stock_coverage || {};
+	const coverageVariants = stockCoverage.variants || [];
 	return (
 		<div className="space-y-6">
 			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
 				<StatCard
 					title="Stock initial"
-					description="Unités au début de la période"
+					description={
+						stockHistory.initial_date
+							? `Stock relevé le ${new Date(
+									`${stockHistory.initial_date}T12:00:00`,
+								).toLocaleDateString("fr-CH")}`
+							: "Aucun relevé disponible pour le début de cette période."
+					}
 					icon={Package}
+					unit="unités"
+					value={
+						stockHistory.initial == null
+							? null
+							: formatAmount(stockHistory.initial, 0)
+					}
 				/>
 				<StatCard
 					title="Stock actuel"
@@ -404,15 +483,38 @@ function InventoryView({ salesData }) {
 					}
 				/>
 				<StatCard
+					title="Stock final"
+					description={
+						stockHistory.final_date
+							? `Stock relevé le ${new Date(
+									`${stockHistory.final_date}T12:00:00`,
+								).toLocaleDateString("fr-CH")}`
+							: "Aucun relevé de clôture disponible pour cette période."
+					}
+					icon={Boxes}
+					unit="unités"
+					value={
+						stockHistory.final == null
+							? null
+							: formatAmount(stockHistory.final, 0)
+					}
+				/>
+				<StatCard
 					title="Rotation du stock"
 					description="Coût des ventes / stock moyen valorisé"
 					icon={RefreshCw}
 				/>
+
 				<StatCard
 					title="Couverture du stock"
-					description="Nombre estimé de jours avant épuisement"
+					description="Estimation sur les 30 derniers jours, uniquement pour les variantes ayant enregistré des ventes récentes."
 					icon={Clock3}
 					unit="jours"
+					value={
+						stockCoverage.global_coverage_days == null
+							? null
+							: formatAmount(stockCoverage.global_coverage_days, 1)
+					}
 				/>
 			</div>
 			<SectionCard
@@ -473,17 +575,66 @@ function InventoryView({ salesData }) {
 				description="Identifier les produits qui se vendent rapidement ou restent immobilisés."
 				icon={BarChart3}
 			>
-				<EmptyTable
-					columns={[
-						"Produit",
-						"Stock disponible",
-						"Vendus",
-						"Écoulement",
-						"Ventes / jour",
-						"Couverture",
-					]}
-					message="L'analyse des stocks apparaîtra ici."
-				/>
+				{coverageVariants.length === 0 ? (
+					<EmptyState message="Aucune donnée de couverture disponible." />
+				) : (
+					<div className="overflow-x-auto rounded-xl border border-baume-border">
+						<table className="w-full text-left text-[13px]">
+							<thead className="bg-baume-ivory/70">
+								<tr>
+									<th className="px-4 py-3">Produit / variante</th>
+									<th className="px-4 py-3">Stock actuel</th>
+									<th className="px-4 py-3">Vendus / 30 j</th>
+									<th className="px-4 py-3">Ventes / jour</th>
+									<th className="px-4 py-3">Couverture</th>
+									<th className="px-4 py-3">Situation</th>
+								</tr>
+							</thead>
+
+							<tbody>
+								{coverageVariants.map((variant) => (
+									<tr
+										key={variant.variant_id}
+										className="border-t border-baume-border"
+									>
+										<td className="px-4 py-3">
+											<div className="font-semibold">
+												{variant.product_name}
+											</div>
+											<div className="mt-1 font-mono text-[10px] text-baume-charcoal/50">
+												{variant.variant_id}
+											</div>
+										</td>
+
+										<td className="px-4 py-3">{variant.stock_units}</td>
+
+										<td className="px-4 py-3">{variant.units_sold_30d}</td>
+
+										<td className="px-4 py-3">
+											{formatAmount(variant.daily_sales, 3)}
+										</td>
+
+										<td className="px-4 py-3">
+											{variant.coverage_days == null
+												? "—"
+												: `${formatAmount(variant.coverage_days, 1)} jours`}
+										</td>
+
+										<td className="px-4 py-3">
+											{variant.status === "no_recent_sales"
+												? "Aucune vente récente"
+												: variant.status === "out_of_stock"
+													? "Rupture"
+													: variant.status === "under_30_days"
+														? "Moins de 30 jours"
+														: "Plus de 30 jours"}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
 			</SectionCard>
 			<SectionCard
 				title="Réapprovisionnement"

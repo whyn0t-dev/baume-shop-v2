@@ -2772,6 +2772,48 @@ async def get_admin_statistics_sales(
 ):
     start, end = stats_period_bounds(period)
 
+    # --------------------------------------------------------
+    # STOCK INITIAL ET FINAL — RELEVÉS QUOTIDIENS
+    # --------------------------------------------------------
+
+    zurich = ZoneInfo("Europe/Zurich")
+
+    # Les bornes de la période sont converties en dates suisses.
+    period_start_date = start.astimezone(zurich).date()
+    period_end_date = (end.astimezone(zurich) - timedelta(microseconds=1)).date()
+
+    opening_snapshot_date = period_start_date - timedelta(days=1)
+    closing_snapshot_date = period_end_date
+
+    async def load_stock_snapshot(snapshot_date):
+        rows = await stats_fetch_all(
+            lambda: supabase.table("inventory_daily_snapshots")
+            .select("variant_id,stock_quantity")
+            .eq("snapshot_date", snapshot_date.isoformat())
+            .order("variant_id")
+        )
+
+        if not rows:
+            return None
+
+        return {
+            "date": snapshot_date.isoformat(),
+            "units": sum(int(row["stock_quantity"]) for row in rows),
+            "variant_count": len(rows),
+        }
+
+    opening_snapshot = await load_stock_snapshot(opening_snapshot_date)
+
+    # Ne pas afficher de stock final historique avant la clôture
+    # du dernier jour de la période.
+    today_zurich = datetime.now(zurich).date()
+
+    closing_snapshot = (
+        await load_stock_snapshot(closing_snapshot_date)
+        if closing_snapshot_date < today_zurich
+        else None
+    )
+
     ZERO = Decimal("0")
     CENT = Decimal("0.01")
 
@@ -2902,6 +2944,120 @@ async def get_admin_statistics_sales(
             money(variant["acquisition_fees"]) * stock
         )
         inventory["stock_cost_value"] += money(variant["cost_price"]) * stock
+
+    # --------------------------------------------------------
+    # COUVERTURE DU STOCK — 30 DERNIERS JOURS
+    #
+    # Indépendante de la période sélectionnée dans le dashboard.
+    # Ventes brutes des commandes admissibles, hors commandes
+    # entièrement remboursées. Les retours physiques ne sont
+    # pas encore déduits : couverture indicative.
+    # --------------------------------------------------------
+
+    coverage_end = datetime.now(timezone.utc)
+    coverage_start = coverage_end - timedelta(days=30)
+
+    coverage_orders = await stats_fetch_all(
+        lambda: supabase.table("orders")
+        .select("id")
+        .gte("created_at", coverage_start.isoformat())
+        .lt("created_at", coverage_end.isoformat())
+        .in_(
+            "status",
+            ["paid", "processing", "shipped", "delivered"],
+        )
+        .order("id")
+    )
+
+    coverage_order_ids = [row["id"] for row in coverage_orders]
+    sold_by_variant = defaultdict(int)
+
+    for offset in range(0, len(coverage_order_ids), 100):
+        batch_ids = coverage_order_ids[offset : offset + 100]
+
+        coverage_items = await stats_fetch_all(
+            lambda ids=batch_ids: supabase.table("order_items")
+            .select("id,variant_id,quantity")
+            .in_("order_id", ids)
+            .order("id")
+        )
+
+        for item in coverage_items:
+            variant_id = item.get("variant_id")
+            quantity = max(int(item.get("quantity") or 0), 0)
+
+            if variant_id:
+                sold_by_variant[variant_id] += quantity
+
+    coverage_variants = []
+    stock_with_recent_sales = 0
+    units_sold_recently = 0
+
+    for variant in variants:
+        if not variant.get("active"):
+            continue
+
+        variant_id = variant["id"]
+        product = product_map.get(variant.get("product_id"), {})
+
+        stock = max(int(variant.get("stock") or 0), 0)
+        sold_30d = sold_by_variant.get(variant_id, 0)
+
+        daily_sales = sold_30d / 30
+
+        coverage_days = round(stock / daily_sales, 1) if daily_sales > 0 else None
+
+        if sold_30d > 0:
+            stock_with_recent_sales += stock
+            units_sold_recently += sold_30d
+
+        if sold_30d == 0:
+            coverage_status = "no_recent_sales"
+        elif stock == 0:
+            coverage_status = "out_of_stock"
+        elif coverage_days <= 30:
+            coverage_status = "under_30_days"
+        else:
+            coverage_status = "over_30_days"
+
+        coverage_variants.append(
+            {
+                "variant_id": variant_id,
+                "product_id": variant.get("product_id"),
+                "product_name": product.get("name") or "Produit inconnu",
+                "stock_units": stock,
+                "units_sold_30d": sold_30d,
+                "daily_sales": round(daily_sales, 3),
+                "coverage_days": coverage_days,
+                "status": coverage_status,
+            }
+        )
+
+    # Indicateur global limité aux variantes ayant des ventes récentes.
+    # Les variantes sans ventes restent visibles dans le tableau.
+    global_coverage_days = (
+        round(stock_with_recent_sales * 30 / units_sold_recently, 1)
+        if units_sold_recently > 0
+        else None
+    )
+
+    coverage_variants.sort(
+        key=lambda row: (
+            row["coverage_days"] is None,
+            row["coverage_days"] if row["coverage_days"] is not None else float("inf"),
+            row["product_name"].lower(),
+        )
+    )
+
+    stock_coverage = {
+        "window_days": 30,
+        "start": coverage_start.isoformat(),
+        "end": coverage_end.isoformat(),
+        "global_coverage_days": global_coverage_days,
+        "stock_units_with_recent_sales": stock_with_recent_sales,
+        "units_sold_30d": units_sold_recently,
+        "variants": coverage_variants,
+    }
 
     # --------------------------------------------------------
     # 4. REGROUPER LES LIGNES PAR COMMANDE
@@ -3215,7 +3371,20 @@ async def get_admin_statistics_sales(
         "period": period,
         "start": start.isoformat(),
         "end": end.isoformat(),
+        "stock_history": {
+            "initial": opening_snapshot["units"] if opening_snapshot else None,
+            "initial_date": (opening_snapshot["date"] if opening_snapshot else None),
+            "initial_variant_count": (
+                opening_snapshot["variant_count"] if opening_snapshot else None
+            ),
+            "final": closing_snapshot["units"] if closing_snapshot else None,
+            "final_date": (closing_snapshot["date"] if closing_snapshot else None),
+            "final_variant_count": (
+                closing_snapshot["variant_count"] if closing_snapshot else None
+            ),
+        },
         "currencies": response_currencies,
+        "stock_coverage": stock_coverage,
         "calculation_status": "sales_after_discounts_with_estimated_current_costs",
         "inventory": {
             **{k: v for k, v in inventory.items() if not isinstance(v, Decimal)},
