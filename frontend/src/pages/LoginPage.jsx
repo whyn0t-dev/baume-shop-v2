@@ -24,7 +24,9 @@ export default function LoginPage() {
 		if (!email || !password) return;
 		setLoading(true);
 		try {
-			await login(email, password, { expiresInHours: keepSession ? 3 : null });
+			await login(email, password, {
+				rememberMe: keepSession,
+			});
 			toast.success("Bon retour chez Baume");
 			navigate(redirect);
 		} catch (err) {

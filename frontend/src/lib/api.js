@@ -81,8 +81,18 @@ export const createCheckout = (payload) =>
 export const getCheckoutStatus = (sessionId) =>
   api.get(`/checkout/status/${sessionId}`).then((r) => r.data);
 
-export const fetchMe = () =>
-  api.get("/me").then((r) => r.data).catch(() => null); // ← ajouter le catch
+
+export const fetchMe = async () => {
+  const response = await api.get("/me");
+
+  if (!response.data) {
+    throw new Error(
+      "Impossible de récupérer le profil utilisateur."
+    );
+  }
+
+  return response.data;
+};
 
 // Auth
 export const authApi = axios.create({
