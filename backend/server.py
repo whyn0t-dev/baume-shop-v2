@@ -2011,6 +2011,10 @@ async def stripe_webhook(request: Request):
                             json={"order_id": order["id"]},
                             headers={
                                 "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                                "X-Baume-Internal-Token": os.environ[
+                                    "BAUME_INTERNAL_TOKEN"
+                                ],
                                 "Content-Type": "application/json",
                             },
                         )
