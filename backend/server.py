@@ -4421,6 +4421,7 @@ async def convert_loyalty_points(
                     headers={
                         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
                         "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                        "X-Baume-Internal-Token": os.environ["BAUME_INTERNAL_TOKEN"],
                         "Content-Type": "application/json",
                     },
                 )
