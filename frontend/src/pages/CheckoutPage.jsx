@@ -265,8 +265,7 @@ export default function CheckoutPage() {
 				email: form.email,
 				shipping_country: form.country,
 				shipping_total: shipping,
-				discount_code: discountCode, // ← ajouter
-				discount_amount: discountAmount, // ← ajouter
+				discount_code: discountCode || null,
 				shipping_address: {
 					name: `${form.first_name} ${form.last_name}`.trim(),
 					first_name: form.first_name,
@@ -635,10 +634,10 @@ export default function CheckoutPage() {
 							</div>
 							{/* ← ajouter */}
 							{discountAmount > 0 && (
-								<div className="flex justify-between text-emerald-700">
-									<span>Réduction ({discountCode})</span>
-									<span>−{discountAmount.toFixed(2)} CHF</span>
-								</div>
+								<p className="text-[12px] text-baume-charcoal/60">
+									Réduction sous réserve de validation du coupon. Le montant
+									définitif sera confirmé avant le paiement Stripe.
+								</p>
 							)}
 							<div className="flex justify-between">
 								<span className="text-baume-charcoal/70">

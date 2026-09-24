@@ -1170,22 +1170,77 @@ async def create_checkout(
     )
 
     # ── Calcul réduction ──────────────────────────────────────────────────
-    discount_amount = 0.0
-    discount_code = None
-    if payload.discount_code:
-        discount = await sb_select_one(
-            "discounts", "code", payload.discount_code.upper()
-        )
-        if discount and discount.get("active"):
-            if discount["type"] == "percentage":
-                discount_amount = round(
-                    priced["subtotal"] * float(discount["value"]) / 100, 2
-                )
-            else:
-                discount_amount = float(discount["value"])
-            discount_code = payload.discount_code.upper()
 
-    total = round(priced["subtotal"] - discount_amount + shipping, 2)
+    # ── Réservation atomique de la réduction ─────────────────────────
+    subtotal = Decimal(str(priced["subtotal"]))
+    shipping_amount = Decimal(str(shipping))
+
+    discount_amount = Decimal("0.00")
+    discount_code = None
+    reservation_id = None
+
+    if payload.discount_code:
+        code = payload.discount_code.strip().upper()
+
+        if not code or len(code) > 80:
+            raise HTTPException(
+                status_code=400,
+                detail="Code promo invalide",
+            )
+
+        try:
+            result = await asyncio.to_thread(
+                lambda: supabase.rpc(
+                    "reserve_checkout_discount",
+                    {
+                        "p_code": code,
+                        "p_profile_id": user_id,
+                        "p_subtotal": str(subtotal),
+                    },
+                ).execute()
+            )
+        except Exception:
+            logger.exception("Réservation du coupon refusée")
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Coupon invalide, expiré, déjà réservé "
+                    "ou non autorisé pour votre compte."
+                ),
+            )
+
+        reserved = result.data
+
+        if not isinstance(reserved, dict):
+            raise HTTPException(
+                status_code=503,
+                detail="Réservation du coupon indisponible",
+            )
+
+        reservation_id = reserved["reservation_id"]
+        discount_code = reserved["discount_code"]
+        discount_amount = Decimal(str(reserved["discount_amount"]))
+
+    total_decimal = (subtotal - discount_amount + shipping_amount).quantize(
+        Decimal("0.01")
+    )
+
+    if total_decimal <= 0:
+        if reservation_id:
+            await asyncio.to_thread(
+                lambda: supabase.rpc(
+                    "release_unattached_discount",
+                    {"p_reservation_id": reservation_id},
+                ).execute()
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail="Montant à payer invalide",
+        )
+
+    discount_amount = float(discount_amount)
+    total = float(total_decimal)
 
     success_url = (
         f"{FRONTEND_URL}/commande/confirmation" "?session_id={CHECKOUT_SESSION_ID}"
@@ -1221,6 +1276,17 @@ async def create_checkout(
 
         except Exception:
             logger.exception("Impossible de créer le coupon Stripe")
+
+            if reservation_id:
+                await asyncio.to_thread(
+                    lambda: supabase.rpc(
+                        "release_unattached_discount",
+                        {
+                            "p_reservation_id": reservation_id,
+                        },
+                    ).execute()
+                )
+
             raise HTTPException(
                 status_code=503,
                 detail=(
@@ -1272,10 +1338,29 @@ async def create_checkout(
     if stripe_coupon_id:
         session_params["discounts"] = [{"coupon": stripe_coupon_id}]
 
-    session = await asyncio.to_thread(
-        stripe.checkout.Session.create,
-        **session_params,
-    )
+    try:
+        session = await asyncio.to_thread(
+            stripe.checkout.Session.create,
+            **session_params,
+            idempotency_key=(
+                f"baume-checkout-{reservation_id}"
+                if reservation_id
+                else str(uuid.uuid4())
+            ),
+        )
+
+    except Exception:
+        logger.exception("Impossible de créer la session Stripe")
+
+        # En cas de problème réseau, Stripe a peut-être
+        # créé la session malgré l'absence de réponse.
+        # Ne pas libérer automatiquement le coupon :
+        # cette situation nécessite une réconciliation.
+
+        raise HTTPException(
+            status_code=503,
+            detail="Création du paiement indisponible",
+        )
 
     # ── Sauvegarder la transaction ────────────────────────────────────────
     tx = {
@@ -1299,7 +1384,96 @@ async def create_checkout(
         "updated_at": now_iso(),
     }
 
-    await sb_insert("payment_transactions", tx)
+    try:
+        await sb_insert("payment_transactions", tx)
+
+    except Exception:
+        logger.exception(
+            "Impossible d'enregistrer la transaction %s",
+            session.id,
+        )
+
+        # La session ne doit pas être remise au client.
+        # Confirmer son expiration avant de libérer
+        # la réservation.
+        try:
+            await asyncio.to_thread(
+                stripe.checkout.Session.expire,
+                session.id,
+            )
+
+            if reservation_id:
+                await asyncio.to_thread(
+                    lambda: supabase.rpc(
+                        "release_unattached_discount",
+                        {"p_reservation_id": reservation_id},
+                    ).execute()
+                )
+
+        except Exception:
+            logger.exception(
+                "Expiration ou libération à vérifier : %s",
+                session.id,
+            )
+
+        raise HTTPException(
+            status_code=503,
+            detail="Impossible de préparer le paiement",
+        )
+
+    # Associer le coupon à la session Stripe
+    # uniquement après l'enregistrement de la transaction.
+    if reservation_id:
+        try:
+            await asyncio.to_thread(
+                lambda: supabase.rpc(
+                    "attach_discount_session",
+                    {
+                        "p_reservation_id": reservation_id,
+                        "p_session_id": session.id,
+                        "p_expires_at": datetime.fromtimestamp(
+                            session.expires_at,
+                            tz=timezone.utc,
+                        ).isoformat(),
+                    },
+                ).execute()
+            )
+
+        except Exception:
+            logger.exception(
+                "Impossible de rattacher le coupon : %s",
+                session.id,
+            )
+
+            try:
+                await asyncio.to_thread(
+                    stripe.checkout.Session.expire,
+                    session.id,
+                )
+
+                await asyncio.to_thread(
+                    lambda: supabase.rpc(
+                        "release_unattached_discount",
+                        {"p_reservation_id": reservation_id},
+                    ).execute()
+                )
+
+            except Exception:
+                logger.exception(
+                    "Réservation à vérifier manuellement : %s",
+                    reservation_id,
+                )
+
+            raise HTTPException(
+                status_code=503,
+                detail="Impossible de rattacher le coupon au paiement",
+            )
+
+    return {
+        "url": session.url,
+        "session_id": session.id,
+        "total": total,
+    }
 
     return {
         "url": session.url,
