@@ -4353,106 +4353,82 @@ async def get_my_loyalty(profile=Depends(get_current_profile)):
 
 
 @api_router.post("/loyalty/convert")
-async def convert_loyalty_points(payload: dict, profile=Depends(get_current_profile)):
-    points_to_spend = int(payload.get("points") or 0)
+async def convert_loyalty_points(
+    payload: dict,
+    profile=Depends(get_current_profile),
+):
+    try:
+        points_to_spend = int(payload.get("points") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail="Nombre de points invalide",
+        )
 
-    threshold = next(
-        (t for t in LOYALTY_THRESHOLDS if t["points"] == points_to_spend), None
-    )
-    if not threshold:
-        raise HTTPException(status_code=400, detail="Seuil de points invalide")
+    if points_to_spend not in (200, 400, 800):
+        raise HTTPException(
+            status_code=400,
+            detail="Seuil de points invalide",
+        )
 
-    loyalty = await get_or_create_loyalty(profile["id"])
-    if (loyalty["points"] or 0) < (points_to_spend or 0):
-        raise HTTPException(status_code=400, detail="Points insuffisants")
+    try:
+        result = await asyncio.to_thread(
+            lambda: supabase.rpc(
+                "convert_loyalty_to_coupon",
+                {
+                    "p_profile_id": profile["id"],
+                    "p_points": points_to_spend,
+                },
+            ).execute()
+        )
+    except Exception as exc:
+        if "Points insuffisants" in str(exc):
+            raise HTTPException(
+                status_code=400,
+                detail="Points insuffisants",
+            )
 
-    # Créer un code promo unique
-    code = f"FIDELITE{str(uuid.uuid4())[:6].upper()}"
+        logger.exception("Échec de la conversion fidélité")
+        raise HTTPException(
+            status_code=503,
+            detail="Conversion temporairement indisponible",
+        )
 
-    discount_data = {
-        "id": str(uuid.uuid4()),
-        "code": code,
-        "type": "fixed",
-        "value": threshold["reward"],
-        "active": True,
-        "usage_limit": 1,
-        "used_count": 0,
-        "description": f"Code fidélité — {points_to_spend} points convertis",
-        "created_at": now_iso(),
-    }
-    await sb_insert("discounts", discount_data)
+    coupon = result.data
 
-    # Récupérer les codes existants
-    existing_codes = loyalty.get("generated_codes") or []
+    if not isinstance(coupon, dict) or not coupon.get("code"):
+        raise HTTPException(
+            status_code=503,
+            detail="Réponse de conversion invalide",
+        )
 
-    # Ajouter le nouveau code
-    new_code_entry = {
-        "code": code,
-        "reward": threshold["reward"],
-        "points_spent": points_to_spend,
-        "created_at": now_iso(),
-        "used": False,
-    }
-    updated_codes = existing_codes + [new_code_entry]
-
-    # Déduire les points + sauvegarder le code
-    new_points = (loyalty["points"] or 0) - points_to_spend
-    new_total_spent = (loyalty["total_spent"] or 0) + points_to_spend
-
-    await sb_update(
-        "loyalty_points",
-        {
-            "points": new_points,
-            "total_spent": new_total_spent,
-            "generated_codes": updated_codes,
-            "updated_at": now_iso(),
-        },
-        "profile_id",
-        profile["id"],
-    )
-
-    await sb_insert(
-        "loyalty_transactions",
-        {
-            "id": str(uuid.uuid4()),
-            "profile_id": profile["id"],
-            "order_id": None,
-            "type": "spend",
-            "points": -points_to_spend,
-            "reason": f"Conversion en code promo {code}",
-            "created_at": now_iso(),
-        },
-    )
-
-    # Envoyer l'email
+    # L'e-mail est une notification : son échec
+    # ne doit pas annuler le coupon déjà créé.
     email = profile.get("email")
+
     if email:
         try:
-            async with httpx.AsyncClient() as client:
-                await client.post(
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
                     f"{SUPABASE_URL}/functions/v1/send-loyalty-code",
                     json={
                         "email": email,
-                        "first_name": profile.get("first_name", ""),
-                        "code": code,
-                        "reward": threshold["reward"],
+                        "first_name": profile.get("first_name") or "",
+                        "code": coupon["code"],
+                        "reward": coupon["reward"],
                         "points_spent": points_to_spend,
                     },
                     headers={
                         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
                         "Content-Type": "application/json",
                     },
-                    timeout=10,
                 )
-        except Exception as e:
-            logger.error(f"send-loyalty-code failed: {e}")
+                response.raise_for_status()
 
-    return {
-        "success": True,
-        "code": code,
-        "reward": threshold["reward"],
-        "points_remaining": new_points,
-    }
+        except Exception:
+            logger.exception("Échec de l'envoi du coupon de fidélité")
+
+    return coupon
 
 
 @api_router.get("/orders/{order_id}/tracking")
