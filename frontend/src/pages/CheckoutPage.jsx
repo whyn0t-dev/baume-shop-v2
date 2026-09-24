@@ -65,17 +65,28 @@ function useGooglePlaces(onSelect, country, step) {
 			});
 		};
 
-		if (window.google) {
+		if (window.google?.maps?.places) {
 			init();
-		} else {
-			const interval = setInterval(() => {
-				if (window.google) {
-					clearInterval(interval);
-					init();
-				}
-			}, 100);
-			return () => clearInterval(interval);
+			return;
 		}
+
+		let attempts = 0;
+
+		const interval = setInterval(() => {
+			attempts += 1;
+
+			if (window.google?.maps?.places) {
+				clearInterval(interval);
+				init();
+			} else if (attempts >= 100) {
+				// Après 10 secondes, on cesse d'attendre.
+				// Le formulaire manuel reste opérationnel.
+				clearInterval(interval);
+				console.info("Google Places indisponible : saisie manuelle.");
+			}
+		}, 100);
+
+		return () => clearInterval(interval);
 	}, [country, step]);
 
 	return inputRef;
@@ -405,13 +416,28 @@ export default function CheckoutPage() {
 								</div>
 								<div>
 									<Label className="text-[13px]">Adresse</Label>
+
 									<input
 										ref={addressInputRef}
+										id="shipping-address"
 										type="text"
-										placeholder="Commencez à taper votre adresse..."
-										autoComplete="off"
+										value={form.address}
+										onChange={(e) => {
+											setForm((f) => ({
+												...f,
+												address: e.target.value,
+											}));
+											setAddressLocked(false);
+										}}
+										placeholder="Rue et numéro"
+										autoComplete="street-address"
 										className="mt-1.5 h-12 w-full rounded-lg border border-baume-border bg-white px-3 text-[14px] text-baume-charcoal focus:outline-none focus:ring-2 focus:ring-baume-burgundy"
 									/>
+
+									<p className="mt-2 text-[12px] text-baume-charcoal/60">
+										Sélectionnez une suggestion Google si elle apparaît, ou
+										saisissez directement votre adresse.
+									</p>
 									{addressLocked && (
 										<button
 											type="button"
@@ -441,7 +467,6 @@ export default function CheckoutPage() {
 											onChange={(e) =>
 												setForm({ ...form, postal_code: e.target.value })
 											}
-											disabled={addressLocked} // ← verrouiller
 											className="mt-1.5 h-12 rounded-lg border-baume-border disabled:bg-baume-ivory disabled:text-baume-charcoal/50"
 										/>
 									</div>
