@@ -237,12 +237,12 @@ class ContactRequest(BaseModel):
 
 class CheckoutItem(BaseModel):
     product_id: str
-    name: str
-    quantity: int
-    variant_id: Optional[str] = None  # ← ajouter
+    name: str = ""
+    quantity: int = Field(..., gt=0, le=100, strict=True)
+    variant_id: Optional[str] = None
     size: Optional[str] = None
     color: Optional[str] = None
-    price: Optional[float] = None  # ← ajouter pour prix variante
+    price: Optional[float] = None
     sku: Optional[str] = None
 
 
@@ -1004,44 +1004,42 @@ EU_COUNTRIES = {"FR", "BE", "DE", "IT", "ES", "AT", "NL", "LU"}
 
 
 async def _price_cart(items: list[dict]) -> dict:
-    subtotal = Decimal("0")
+    if not items:
+        raise HTTPException(status_code=400, detail="Le panier est vide.")
+
+    subtotal = Decimal("0.00")
     priced_items = []
 
+    # Cumuler les quantités par variante pour empêcher
+    # de contourner le contrôle de stock.
+    quantities_by_variant = {}
+    prepared = []
+
     for item in items:
-        product_id = item.get("product_id") or item.get("id")
+        product_id = item.get("product_id")
         variant_id = item.get("variant_id")
-        qty = int(item.get("quantity", 1))
+        qty = int(item["quantity"])
 
-        # Récupérer le produit
+        if qty < 1 or qty > 100:
+            raise HTTPException(status_code=400, detail="Quantité invalide.")
+
         product = await sb_select_one("products", "id", product_id)
-        if not product:
-            raise HTTPException(
-                status_code=404, detail=f"Produit {product_id} introuvable"
-            )
-        if product.get("status") != "active":
-            raise HTTPException(
-                status_code=400, detail=f"{product.get('name')} n'est plus disponible"
-            )
 
-        # Vérifier le stock par variante si variant_id fourni
+        if not product or product.get("status") != "active":
+            raise HTTPException(status_code=400, detail="Produit indisponible.")
+
         if variant_id:
             variant = await sb_select_one("product_variants", "id", variant_id)
+
             if not variant:
-                raise HTTPException(status_code=404, detail=f"Variante introuvable")
-            if not variant.get("available", True):
+                raise HTTPException(status_code=404, detail="Variante introuvable.")
+
+            if variant["product_id"] != product_id:
                 raise HTTPException(
-                    status_code=400,
-                    detail=f"{product.get('name')} — variante en rupture de stock",
+                    status_code=400, detail="La variante ne correspond pas au produit."
                 )
-            if (variant.get("stock") or 0) < qty:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"{product.get('name')} — stock insuffisant ({variant.get('stock', 0)} disponible(s))",
-                )
-            unit_price = Decimal(str(variant.get("price") or product.get("price") or 0))
         else:
-            # Fallback sur variante par défaut
-            variant_result = await asyncio.to_thread(
+            result = await asyncio.to_thread(
                 lambda: supabase.table("product_variants")
                 .select("*")
                 .eq("product_id", product_id)
@@ -1050,40 +1048,88 @@ async def _price_cart(items: list[dict]) -> dict:
                 .limit(1)
                 .execute()
             )
-            if variant_result.data:
-                variant = variant_result.data[0]
-                variant_id = variant["id"]
-                if (variant.get("stock") or 0) < qty:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"{product.get('name')} — stock insuffisant",
-                    )
-                unit_price = Decimal(
-                    str(variant.get("price") or product.get("price") or 0)
+
+            if not result.data:
+                raise HTTPException(
+                    status_code=400, detail="Aucune variante disponible."
                 )
-            else:
-                # Aucune variante — vérifier stock produit directement
-                if not product.get("available"):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"{product.get('name')} est en rupture de stock",
-                    )
-                unit_price = Decimal(str(product.get("price") or 0))
+
+            variant = result.data[0]
+            variant_id = variant["id"]
+
+        if not variant.get("active") or not variant.get("available"):
+            raise HTTPException(status_code=400, detail="Variante indisponible.")
+
+        quantities_by_variant[variant_id] = (
+            quantities_by_variant.get(variant_id, 0) + qty
+        )
+
+        unit_price = Decimal(
+            str(
+                variant.get("price")
+                if variant.get("price") is not None
+                else product.get("price") or 0
+            )
+        )
+
+        if not unit_price.is_finite() or unit_price <= 0:
+            raise HTTPException(status_code=400, detail="Prix du produit invalide.")
+
+        prepared.append(
+            {
+                "product": product,
+                "variant": variant,
+                "variant_id": variant_id,
+                "quantity": qty,
+                "unit_price": unit_price,
+                "size": item.get("size"),
+                "color": item.get("color"),
+            }
+        )
+
+    # Contrôler le total demandé pour chaque variante.
+    for row in prepared:
+        variant = row["variant"]
+        variant_id = row["variant_id"]
+        total_requested = quantities_by_variant[variant_id]
+
+        if total_requested > int(variant.get("stock") or 0):
+            raise HTTPException(
+                status_code=400, detail="Stock insuffisant pour une variante."
+            )
+
+    # Construire le panier exclusivement depuis les
+    # informations vérifiées dans Supabase.
+    for row in prepared:
+        product = row["product"]
+        variant = row["variant"]
+        qty = row["quantity"]
+        unit_price = row["unit_price"]
 
         total_price = unit_price * qty
         subtotal += total_price
 
+        product_name = product.get("name") or product.get("title") or "Produit"
+
         priced_items.append(
             {
-                **item,
-                "variant_id": variant_id,
-                "product_title": product.get("name") or product.get("title"),
+                "product_id": product["id"],
+                "variant_id": variant["id"],
+                "name": product_name,
+                "product_title": product_name,
+                "quantity": qty,
+                "size": row["size"],
+                "color": row["color"],
+                "sku": variant.get("sku"),
                 "unit_price": float(unit_price),
                 "total_price": float(total_price),
             }
         )
 
-    return {"items": priced_items, "subtotal": float(subtotal)}
+    return {
+        "items": priced_items,
+        "subtotal": float(subtotal),
+    }
 
 
 @api_router.post("/checkout/session")
@@ -1091,6 +1137,15 @@ async def _price_cart(items: list[dict]) -> dict:
 async def create_checkout(
     request: Request, payload: CheckoutRequest
 ):  # ← http_request → request
+    if os.environ.get("CHECKOUT_ENABLED", "false").lower() != "true":
+        raise HTTPException(
+            status_code=503, detail="Paiement temporairement indisponible."
+        )
+
+    if not STRIPE_API_KEY.startswith("sk_test_"):
+        raise HTTPException(
+            status_code=503, detail="Seul Stripe en mode test est autorisé."
+        )
     if not STRIPE_API_KEY:
         raise HTTPException(status_code=500, detail="Stripe non configuré")
 
@@ -1132,13 +1187,11 @@ async def create_checkout(
 
     total = round(priced["subtotal"] - discount_amount + shipping, 2)
 
-    origin = payload.origin_url.rstrip("/")
-    # ← Remplacer les deux lignes success_url / cancel_url
     success_url = (
-        payload.success_url
-        or f"{origin}/commande/confirmation?session_id={{CHECKOUT_SESSION_ID}}"
+        f"{FRONTEND_URL}/commande/confirmation" "?session_id={CHECKOUT_SESSION_ID}"
     )
-    cancel_url = payload.cancel_url or f"{origin}/commande/confirmation?cancelled=true"
+
+    cancel_url = f"{FRONTEND_URL}/commande/confirmation" "?cancelled=true"
 
     email = payload.email or user_email
 
@@ -1165,8 +1218,16 @@ async def create_checkout(
                 max_redemptions=1,
             )
             stripe_coupon_id = coupon.id
-        except Exception as e:
-            logger.warning(f"Coupon Stripe création échouée: {e}")
+
+        except Exception:
+            logger.exception("Impossible de créer le coupon Stripe")
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Impossible d'appliquer la réduction "
+                    "pour le moment. Veuillez réessayer."
+                ),
+            )
 
     # ── Line items Stripe ─────────────────────────────────────────────────
     stripe_line_items = [
@@ -1319,200 +1380,104 @@ async def _decrease_stock_for_order(order: dict):
 
 async def _ensure_order_from_tx(session_id: str):
     tx = await sb_select_one("payment_transactions", "session_id", session_id)
-    if not tx or tx.get("payment_status") != "paid":
+
+    if not tx:
+        raise RuntimeError(f"Transaction introuvable : {session_id}")
+
+    # Vérification indépendante auprès de Stripe.
+    session = await asyncio.to_thread(stripe.checkout.Session.retrieve, session_id)
+
+    if session.payment_status != "paid":
         return None
 
-    existing = await sb_select_one("orders", "stripe_checkout_session_id", session_id)
-    if existing:
-        return existing
+    expected_amount = int((Decimal(str(tx["amount"])) * 100).quantize(Decimal("1")))
+
+    if session.amount_total != expected_amount:
+        raise RuntimeError("Montant Stripe différent du montant enregistré")
+
+    if session.currency.lower() != tx["currency"].lower():
+        raise RuntimeError("Devise Stripe différente de la transaction")
 
     customer_id = None
-    user_id = tx.get("user_id")
-    if user_id:
-        profile = await sb_select_one("profiles", "id", user_id)
+
+    # Retrouver ou créer uniquement le client
+    # correspondant au compte authentifié à l'achat.
+    if tx.get("user_id"):
+        profile = await sb_select_one("profiles", "id", tx["user_id"])
+
         if profile:
             customer = await get_or_create_customer(profile)
             customer_id = customer["id"]
 
-    order_data = {
-        "customer_id": customer_id,
-        "email": tx.get("email", ""),
-        "subtotal": tx.get("subtotal", tx["amount"]),
-        "shipping_total": tx.get("shipping", 0.0),
-        "tax_total": 0,
-        "discount_total": tx.get("discount_amount", 0.0),  # ← corriger
-        "discount_code": tx.get("discount_code"),  # ← ajouter
-        "total": tx["amount"],
-        "currency": tx.get("currency", "chf").upper(),
-        "stripe_checkout_session_id": session_id,
-        "shipping_address": tx.get("shipping_address", {}),
-        "billing_address": tx.get("shipping_address", {}),
-        "status": "paid",
-        "created_at": now_iso(),
-        "updated_at": now_iso(),
-    }
+    await sb_update(
+        "payment_transactions",
+        {"payment_status": "paid", "updated_at": now_iso()},
+        "session_id",
+        session_id,
+    )
 
-    try:
-        inserted_order = await sb_insert("orders", order_data)
-    except Exception as e:
-        logger.warning(f"Order insert failed for session {session_id}: {e}.")
-        return await sb_select_one("orders", "stripe_checkout_session_id", session_id)
-
-    order = inserted_order.data[0]
-    line_items = tx.get("items", [])
-
-    # ← Dans _ensure_order_from_tx, après inserted_order
-
-    try:
-        await send_push_notification(
-            title="🛍️ Nouvelle commande !",
-            body=f"{order.get('email', 'Client')} — {float(order.get('total', 0)):.2f} CHF",
-            data={"order_id": order["id"], "type": "new_order"},
-        )
-    except Exception as e:
-        logger.error(f"Push notification order failed: {e}")
-
-    # ← ajouter ce bloc pour insérer les order_items
-    if line_items:
-        order_items = [
+    # Une seule transaction PostgreSQL crée la commande,
+    # ses articles, le paiement et déduit le stock.
+    result = await asyncio.to_thread(
+        lambda: supabase.rpc(
+            "finalize_paid_order",
             {
-                "order_id": order["id"],
-                "product_id": item.get("product_id"),
-                "variant_id": item.get("variant_id"),  # ← ajouter
-                "product_title": item.get("product_title") or item.get("name"),
-                "variant_title": " · ".join(
-                    filter(None, [item.get("size"), item.get("color")])
-                )
-                or None,
-                "sku": item.get("sku"),
-                "quantity": item.get("quantity", 1),
-                "unit_price": item.get("unit_price", 0),
-                "total_price": item.get(
-                    "total_price", item.get("unit_price", 0) * item.get("quantity", 1)
-                ),
-            }
-            for item in line_items
-        ]
-        try:
-            await sb_insert("order_items", order_items)
-        except Exception as e:
-            logger.error(f"Order items insert failed: {e}")
+                "p_session_id": session_id,
+                "p_payment_intent_id": (session.payment_intent),
+                "p_customer_id": customer_id,
+            },
+        ).execute()
+    )
 
-    order["items"] = line_items
+    order_id = result.data
 
-    # ← Ajouter ici
-    try:
-        stripe_session = await asyncio.to_thread(
-            stripe.checkout.Session.retrieve, session_id
-        )
-        payment_intent_id = stripe_session.payment_intent
-        if payment_intent_id:
-            await sb_update(
-                "orders",
-                {"stripe_payment_intent_id": payment_intent_id},
-                "id",
-                order["id"],
-            )
-    except Exception as e:
-        logger.error(f"Could not retrieve payment_intent: {e}")
+    if not order_id:
+        raise RuntimeError("La finalisation de la commande a échoué")
 
-    # ── Enregistrer les pré-commandes ─────────────────────────────────────
-    for item in line_items:
-        product_id = item.get("product_id")
-        if not product_id:
-            continue
-        try:
-            product = await sb_select_one("products", "id", product_id)
-            if product and product.get("preorder"):
-                await sb_insert(
-                    "preorder_notifications",
-                    {
-                        "product_id": product_id,
-                        "order_id": order["id"],
-                        "email": order.get("email", ""),
-                        "notified_at": None,
-                    },
-                )
-        except Exception as e:
-            logger.error(f"Preorder notification insert failed: {e}")
-
-    try:
-        await _decrease_stock_for_order(order)
-    except Exception as e:
-        logger.error(f"Stock decrement failed: {e}")
-
-    email = order.get("email")
-    if email:
-        try:
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{SUPABASE_URL}/functions/v1/send-order-email",
-                    json={"order_id": order["id"]},
-                    headers={
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=10,
-                )
-        except Exception as e:
-            logger.error(f"send-order-email failed: {e}")
-
-    return order
+    return await sb_select_one("orders", "id", order_id)
 
 
 @api_router.get("/checkout/status/{session_id}")
 async def checkout_status(session_id: str):
     if not STRIPE_API_KEY:
-        raise HTTPException(status_code=500, detail="Stripe non configuré")
+        raise HTTPException(status_code=503, detail="Stripe non configuré")
 
     tx = await sb_select_one("payment_transactions", "session_id", session_id)
 
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction introuvable")
 
+    # Vérification en lecture seule auprès de Stripe.
     try:
         session = await asyncio.to_thread(stripe.checkout.Session.retrieve, session_id)
-
-        new_status = session.status or "unknown"
-        new_payment = session.payment_status or "unknown"
-        amount_total = session.amount_total or int(
-            round(float(tx.get("amount", 0)) * 100)
-        )
-        currency = session.currency or tx.get("currency", "chf")
-        metadata = dict(session.metadata or {})
-
-    except Exception as e:
-        logger.warning(
-            f"Stripe status retrieval failed for {session_id}: {e}. Falling back to DB."
+    except Exception:
+        logger.exception("Impossible de lire la session Stripe %s", session_id)
+        raise HTTPException(
+            status_code=503, detail="Statut de paiement temporairement indisponible"
         )
 
-        new_status = tx.get("status", "initiated")
-        new_payment = tx.get("payment_status", "pending")
-        amount_total = int(round(float(tx.get("amount", 0)) * 100))
-        currency = tx.get("currency", "chf")
-        metadata = tx.get("metadata", {}) or {}
+    # Consulter la commande existante.
+    # Ne jamais en créer depuis cette route.
+    order = await sb_select_one(
+        "orders", "stripe_checkout_session_id", session_id, select="id,status"
+    )
 
-    if tx.get("payment_status") != new_payment or tx.get("status") != new_status:
-        await sb_update(
-            "payment_transactions",
-            {
-                "status": new_status,
-                "payment_status": new_payment,
-                "updated_at": now_iso(),
-            },
-            "session_id",
-            session_id,
-        )
-
-    if new_payment == "paid":
-        await _ensure_order_from_tx(session_id)
+    payment_paid = session.payment_status == "paid"
+    order_ready = (
+        payment_paid
+        and order is not None
+        and order.get("status")
+        in ("paid", "processing", "shipped", "delivered", "refunded")
+    )
 
     return {
-        "status": new_status,
-        "payment_status": new_payment,
-        "amount_total": amount_total,
-        "currency": currency,
-        "metadata": metadata,
+        "status": session.status,
+        "payment_status": session.payment_status,
+        "amount_total": session.amount_total,
+        "currency": session.currency,
+        "order_ready": order_ready,
+        "order_id": order["id"] if order_ready else None,
+        "order_status": (order["status"] if order else None),
     }
 
 
@@ -1658,6 +1623,26 @@ async def sync_stripe_refund(refund):
     )
 
 
+async def finish_stripe_event(event_id: str, claim_token: str):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("stripe_webhook_events")
+        .update(
+            {
+                "processing_status": "processed",
+                "processed_at": now_iso(),
+            }
+        )
+        .eq("event_id", event_id)
+        .eq("claim_token", claim_token)
+        .eq("processing_status", "processing")
+        .select("id")
+        .execute()
+    )
+
+    if not result.data:
+        raise RuntimeError(f"Impossible de finaliser le webhook {event_id}")
+
+
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     if not STRIPE_API_KEY:
@@ -1686,24 +1671,37 @@ async def stripe_webhook(request: Request):
     event_type = event.get("type", "")
     obj = event.get("data", {}).get("object", {})
 
-    # ── Déduplication ─────────────────────────────────────────────────────
-    if event_id:
-        existing_event = await sb_select_one(
-            "stripe_webhook_events", "event_id", event_id
-        )
-        if existing_event:
-            return {"received": True, "processed": False, "duplicate": True}
+    # Réserver l'événement Stripe de manière atomique.
+    if not event_id:
+        raise HTTPException(status_code=400, detail="Identifiant Stripe manquant.")
 
-        await sb_insert(
-            "stripe_webhook_events",
+    claim_result = await asyncio.to_thread(
+        lambda: supabase.rpc(
+            "claim_stripe_event",
             {
-                "id": str(uuid.uuid4()),
-                "event_id": event_id,
-                "event_type": event_type,
-                "session_id": obj.get("id"),
-                "payment_status": obj.get("payment_status", ""),
-                "received_at": now_iso(),
+                "p_event_id": event_id,
+                "p_event_type": event_type,
+                "p_session_id": (
+                    obj.get("id") if obj.get("object") == "checkout.session" else None
+                ),
+                "p_payment_status": (obj.get("payment_status") or ""),
             },
+        ).execute()
+    )
+
+    claim_token = claim_result.data
+
+    if not claim_token:
+        previous = await sb_select_one("stripe_webhook_events", "event_id", event_id)
+
+        if previous and previous.get("processing_status") == "processed":
+            return {
+                "received": True,
+                "duplicate": True,
+            }
+
+        raise HTTPException(
+            status_code=503, detail="Événement déjà en cours de traitement."
         )
 
     # ── checkout.session.completed ────────────────────────────────────────
@@ -1712,12 +1710,14 @@ async def stripe_webhook(request: Request):
         "checkout.session.async_payment_succeeded",
     ):
         if obj.get("object") != "checkout.session":
+            await finish_stripe_event(event_id, claim_token)
             return {"received": True, "processed": False}
 
         session_id = obj.get("id")
         payment_status = obj.get("payment_status", "")
 
         if not session_id:
+            await finish_stripe_event(event_id, claim_token)
             return {"received": True, "processed": False}
 
         await sb_update(
@@ -1739,35 +1739,78 @@ async def stripe_webhook(request: Request):
                 f"order_id={order.get('id') if order else None}"
             )
 
-    # ── payment_intent.payment_failed ─────────────────────────────────────
     elif event_type == "payment_intent.payment_failed":
         payment_intent_id = obj.get("id")
-        error_message = obj.get("last_payment_error", {}).get(
-            "message", "Paiement échoué"
+
+        if not payment_intent_id:
+            raise HTTPException(status_code=400, detail="PaymentIntent manquant.")
+
+        sessions = await asyncio.to_thread(
+            stripe.checkout.Session.list, payment_intent=payment_intent_id, limit=1
         )
 
-        logger.warning(f"Payment failed: {payment_intent_id} — {error_message}")
+        if not sessions.data:
+            logger.warning(
+                "Aucune session Checkout pour " "PaymentIntent %s", payment_intent_id
+            )
+        else:
+            stripe_session = sessions.data[0]
+            session_id = stripe_session.id
 
-        # Chercher la transaction par payment_intent si possible
-        result = await asyncio.to_thread(
-            lambda: supabase.table("payment_transactions")
-            .select("session_id")
-            .eq("status", "initiated")
-            .limit(1)
-            .execute()
+            tx = await sb_select_one("payment_transactions", "session_id", session_id)
+
+            if not tx:
+                # Ne jamais associer cet échec à
+                # une autre transaction au hasard.
+                raise RuntimeError(f"Transaction absente pour {session_id}")
+
+            if stripe_session.payment_status != "paid":
+                # Un échec de tentative de carte n'est
+                # pas forcément l'échec définitif du
+                # Checkout : la cliente peut réessayer.
+                await sb_update(
+                    "payment_transactions",
+                    {
+                        "last_webhook_event": event_type,
+                        "last_webhook_event_id": event_id,
+                        "updated_at": now_iso(),
+                    },
+                    "session_id",
+                    session_id,
+                )
+
+                logger.warning(
+                    "Tentative de paiement échouée " "pour la session %s", session_id
+                )
+
+    elif event_type == "checkout.session.async_payment_failed":
+        session_id = obj.get("id")
+
+        if not session_id:
+            raise HTTPException(status_code=400, detail="Session Stripe manquante.")
+
+        tx = await sb_select_one("payment_transactions", "session_id", session_id)
+
+        if not tx:
+            raise RuntimeError(f"Transaction absente pour {session_id}")
+
+        stripe_session = await asyncio.to_thread(
+            stripe.checkout.Session.retrieve, session_id
         )
 
-        if result.data:
+        # Ne jamais écraser un paiement déjà confirmé.
+        if stripe_session.payment_status != "paid":
             await sb_update(
                 "payment_transactions",
                 {
-                    "payment_status": "failed",
+                    "status": "failed",
+                    "payment_status": "unpaid",
                     "last_webhook_event": event_type,
                     "last_webhook_event_id": event_id,
                     "updated_at": now_iso(),
                 },
                 "session_id",
-                result.data[0]["session_id"],
+                session_id,
             )
 
     # ========================================================
@@ -1887,6 +1930,7 @@ async def stripe_webhook(request: Request):
     else:
         logger.info(f"Webhook event non géré : {event_type}")
 
+    await finish_stripe_event(event_id, claim_token)
     return {
         "received": True,
         "processed": True,
