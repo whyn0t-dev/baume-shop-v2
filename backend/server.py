@@ -4420,9 +4420,16 @@ async def convert_loyalty_points(
                     },
                     headers={
                         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                        "apikey": SUPABASE_SERVICE_ROLE_KEY,
                         "Content-Type": "application/json",
                     },
                 )
+                if response.status_code != 200:
+                    logger.error(
+                        "send-loyalty-code : HTTP %s — %s",
+                        response.status_code,
+                        response.text[:300],
+                    )
                 response.raise_for_status()
 
         except Exception:
