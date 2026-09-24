@@ -1686,15 +1686,19 @@ async def stripe_webhook(request: Request):
         raise HTTPException(status_code=503, detail="Webhook Stripe non configuré")
 
     try:
-        event = stripe.Webhook.construct_event(
+        # Vérifier d'abord la signature Stripe.
+        stripe.Webhook.construct_event(
             payload=body,
             sig_header=sig,
             secret=webhook_secret,
         )
-    except Exception as e:
-        logger.error(f"Stripe webhook signature/parse error: {e}")
-        raise HTTPException(status_code=400, detail="Signature Stripe invalide")
 
+        # Utiliser ensuite un dictionnaire Python standard.
+        event = json.loads(body)
+
+    except Exception:
+        logger.exception("Signature ou événement Stripe invalide")
+        raise HTTPException(status_code=400, detail="Événement Stripe invalide")
     event_id = event.get("id")
     event_type = event.get("type", "")
     obj = event.get("data", {}).get("object", {})
