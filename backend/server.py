@@ -1806,11 +1806,50 @@ async def stripe_webhook(request: Request):
 
         if payment_status == "paid":
             order = await _ensure_order_from_tx(session_id)
+
             logger.info(
-                f"Order processed for session={session_id} "
-                f"order_id={order.get('id') if order else None}"
+                "Order processed for session=%s order_id=%s",
+                session_id,
+                order.get("id") if order else None,
             )
 
+        if order:
+            loyalty_result = await asyncio.to_thread(
+                lambda: supabase.rpc(
+                    "award_paid_order_loyalty",
+                    {"p_order_id": order["id"]},
+                ).execute()
+            )
+
+            logger.info(
+                "Fidélité : commande=%s, points attribués=%s",
+                order["id"],
+                loyalty_result.data,
+            )
+
+            if order:
+                try:
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        email_response = await client.post(
+                            f"{SUPABASE_URL}/functions/v1/send-order-confirmation",
+                            json={"order_id": order["id"]},
+                            headers={
+                                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                                "Content-Type": "application/json",
+                            },
+                        )
+                        email_response.raise_for_status()
+
+                    logger.info(
+                        "Confirmation email requested for order_id=%s",
+                        order["id"],
+                    )
+
+                except Exception:
+                    logger.exception(
+                        "Confirmation email failed for order_id=%s",
+                        order["id"],
+                    )
     elif event_type == "payment_intent.payment_failed":
         payment_intent_id = obj.get("id")
 
