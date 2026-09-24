@@ -1663,7 +1663,6 @@ async def finish_stripe_event(event_id: str, claim_token: str):
         .eq("event_id", event_id)
         .eq("claim_token", claim_token)
         .eq("processing_status", "processing")
-        .select("id")
         .execute()
     )
 
