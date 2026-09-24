@@ -1398,6 +1398,34 @@ async def _ensure_order_from_tx(session_id: str):
     if session.currency.lower() != tx["currency"].lower():
         raise RuntimeError("Devise Stripe différente de la transaction")
 
+    # Une ancienne commande créée par la Edge Function
+    # ne doit pas être finalisée automatiquement.
+    existing_order = await sb_select_one(
+        "orders",
+        "stripe_checkout_session_id",
+        session_id,
+    )
+
+    if existing_order:
+        payments_result = await asyncio.to_thread(
+            lambda: supabase.table("payments")
+            .select("id")
+            .eq("order_id", existing_order["id"])
+            .eq("status", "paid")
+            .limit(1)
+            .execute()
+        )
+
+        if not payments_result.data:
+            logger.error(
+                "Commande existante incomplète : %s",
+                existing_order["id"],
+            )
+            raise RuntimeError(
+                "Commande existante sans paiement enregistré : "
+                "réparation manuelle nécessaire."
+            )
+
     customer_id = None
 
     # Retrouver ou créer uniquement le client
@@ -1671,6 +1699,33 @@ async def stripe_webhook(request: Request):
     event_type = event.get("type", "")
     obj = event.get("data", {}).get("object", {})
 
+    # Les réservations d'ateliers sont gérées
+    # exclusivement par la Edge Function Supabase.
+    checkout_event_types = {
+        "checkout.session.completed",
+        "checkout.session.async_payment_succeeded",
+        "checkout.session.async_payment_failed",
+        "checkout.session.expired",
+    }
+
+    if event_type in checkout_event_types:
+        if obj.get("object") != "checkout.session":
+            return {
+                "received": True,
+                "processed": False,
+            }
+
+        if (obj.get("metadata") or {}).get("source") != "baume_checkout":
+            logger.info(
+                "Session non e-commerce ignorée : %s",
+                obj.get("id"),
+            )
+            return {
+                "received": True,
+                "processed": False,
+                "reason": "not_baume_checkout",
+            }
+
     # Réserver l'événement Stripe de manière atomique.
     if not event_id:
         raise HTTPException(status_code=400, detail="Identifiant Stripe manquant.")
@@ -1720,14 +1775,28 @@ async def stripe_webhook(request: Request):
             await finish_stripe_event(event_id, claim_token)
             return {"received": True, "processed": False}
 
+        tx = await sb_select_one("payment_transactions", "session_id", session_id)
+
+        if not tx:
+            raise RuntimeError(f"Transaction introuvable : {session_id}")
+
+        updates = {
+            "last_webhook_event": event_type,
+            "last_webhook_event_id": event_id,
+            "updated_at": now_iso(),
+        }
+
+        # Ne jamais rétrograder un paiement déjà confirmé.
+        if tx.get("payment_status") != "paid":
+            updates["payment_status"] = (
+                "paid"
+                if payment_status == "paid"
+                else tx.get("payment_status") or "pending"
+            )
+
         await sb_update(
             "payment_transactions",
-            {
-                "payment_status": payment_status or "unknown",
-                "last_webhook_event": event_type,
-                "last_webhook_event_id": event_id,
-                "updated_at": now_iso(),
-            },
+            updates,
             "session_id",
             session_id,
         )
@@ -1756,6 +1825,13 @@ async def stripe_webhook(request: Request):
         else:
             stripe_session = sessions.data[0]
             session_id = stripe_session.id
+
+            if (stripe_session.metadata or {}).get("source") != "baume_checkout":
+                await finish_stripe_event(event_id, claim_token)
+                return {
+                    "received": True,
+                    "processed": False,
+                }
 
             tx = await sb_select_one("payment_transactions", "session_id", session_id)
 
@@ -3022,7 +3098,7 @@ def stats_sell_through(net_sold, opening_stock, received):
 @api_router.get("/ecom/admin/statistics/sales")
 async def get_admin_statistics_sales(
     period: str = "month",
-    profile=Depends(require_admin),
+    _profile=Depends(require_admin),
 ):
     start, end = stats_period_bounds(period)
 
@@ -3323,7 +3399,7 @@ async def get_admin_statistics_sales(
             coverage_status = "no_recent_sales"
         elif stock == 0:
             coverage_status = "out_of_stock"
-        elif coverage_days <= 30:
+        elif coverage_days is not None and coverage_days <= 30:
             coverage_status = "under_30_days"
         else:
             coverage_status = "over_30_days"
@@ -3424,7 +3500,9 @@ async def get_admin_statistics_sales(
                 "units_with_estimated_cost": 0,
             }
 
-        group = results_by_currency[currency]
+        group = results_by_currency.get(currency)
+        if group is None:
+            continue
         group["orders_count"] += 1
 
         order_items = items_by_order.get(order["id"], [])
@@ -3461,7 +3539,7 @@ async def get_admin_statistics_sales(
             if not product_id:
                 continue
 
-            product = product_map.get(product_id, {})
+            product = product_map.get(product_id) or {}
 
             quantity = int(item.get("quantity") or 0)
             gross = money(item.get("total_price"))
