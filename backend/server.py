@@ -1844,6 +1844,87 @@ async def finish_stripe_event(event_id: str, claim_token: str):
         raise RuntimeError(f"Impossible de finaliser le webhook {event_id}")
 
 
+async def release_coupon_after_stripe_failure(
+    session_id: str,
+    event_type: str,
+) -> bool:
+    """
+    Libère un coupon uniquement après vérification
+    du statut réel de la session auprès de Stripe.
+    """
+
+    session = await asyncio.to_thread(
+        stripe.checkout.Session.retrieve,
+        session_id,
+    )
+
+    # Ne jamais libérer un coupon si Stripe indique
+    # que le paiement est confirmé.
+    if session.payment_status == "paid":
+        logger.warning(
+            "Libération refusée : paiement confirmé, session=%s",
+            session_id,
+        )
+        return False
+
+    # Vérifier que l'événement correspond bien à
+    # l'état réel de la session.
+    if event_type == "checkout.session.expired":
+        if session.status != "expired":
+            raise RuntimeError(f"Session {session_id} non expirée dans Stripe")
+
+    elif event_type == "checkout.session.async_payment_failed":
+        if session.payment_status != "unpaid":
+            raise RuntimeError(f"Échec non confirmé pour {session_id}")
+
+    else:
+        raise ValueError(f"Événement de libération non autorisé : {event_type}")
+
+    # Seules les transactions de notre boutique
+    # peuvent être traitées.
+    if (session.metadata or {}).get("source") != "baume_checkout":
+        raise RuntimeError(f"Session étrangère à Baume Shop : {session_id}")
+
+    tx = await sb_select_one(
+        "payment_transactions",
+        "session_id",
+        session_id,
+    )
+
+    if not tx:
+        raise RuntimeError(f"Transaction introuvable : {session_id}")
+
+    if tx.get("payment_status") == "paid":
+        logger.warning(
+            "Libération refusée : transaction déjà payée, " "session=%s",
+            session_id,
+        )
+        return False
+
+    # Une commande sans coupon ne nécessite
+    # aucune libération.
+    if not tx.get("discount_code"):
+        return False
+
+    result = await asyncio.to_thread(
+        lambda: supabase.rpc(
+            "release_discount_session",
+            {"p_session_id": session_id},
+        ).execute()
+    )
+
+    released = result.data is True
+
+    logger.info(
+        "Libération coupon : session=%s, " "événement=%s, libéré=%s",
+        session_id,
+        event_type,
+        released,
+    )
+
+    return released
+
+
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     if not STRIPE_API_KEY:
@@ -2082,6 +2163,55 @@ async def stripe_webhook(request: Request):
                     "Tentative de paiement échouée " "pour la session %s", session_id
                 )
 
+    elif event_type == "checkout.session.expired":
+        session_id = obj.get("id")
+
+        if not session_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Session Stripe manquante.",
+            )
+
+        tx = await sb_select_one(
+            "payment_transactions",
+            "session_id",
+            session_id,
+        )
+
+        if not tx:
+            raise RuntimeError(f"Transaction absente pour {session_id}")
+
+        stripe_session = await asyncio.to_thread(
+            stripe.checkout.Session.retrieve,
+            session_id,
+        )
+
+        if (
+            stripe_session.status != "expired"
+            or stripe_session.payment_status == "paid"
+        ):
+            raise RuntimeError(f"Expiration Stripe non confirmée : {session_id}")
+
+        if tx.get("payment_status") != "paid":
+            # Libérer d'abord le coupon. En cas d'échec
+            # SQL, Stripe pourra retenter le webhook.
+            await release_coupon_after_stripe_failure(
+                session_id,
+                event_type,
+            )
+
+            await sb_update(
+                "payment_transactions",
+                {
+                    "status": "expired",
+                    "last_webhook_event": event_type,
+                    "last_webhook_event_id": event_id,
+                    "updated_at": now_iso(),
+                },
+                "session_id",
+                session_id,
+            )
+
     elif event_type == "checkout.session.async_payment_failed":
         session_id = obj.get("id")
 
@@ -2097,8 +2227,16 @@ async def stripe_webhook(request: Request):
             stripe.checkout.Session.retrieve, session_id
         )
 
-        # Ne jamais écraser un paiement déjà confirmé.
+        # Ne jamais rétrograder un paiement déjà confirmé.
         if stripe_session.payment_status != "paid":
+            # Libération avant la mise à jour.
+            # Si elle échoue, l'événement reste
+            # non traité et pourra être retenté.
+            await release_coupon_after_stripe_failure(
+                session_id,
+                event_type,
+            )
+
             await sb_update(
                 "payment_transactions",
                 {
@@ -2111,7 +2249,6 @@ async def stripe_webhook(request: Request):
                 "session_id",
                 session_id,
             )
-
     # ========================================================
     # BAUME — WEBHOOK : REMBOURSEMENTS STRIPE
     #
@@ -2238,30 +2375,115 @@ async def stripe_webhook(request: Request):
 
 
 @api_router.get("/discounts/{code}")
-async def get_discount(code: str):
-    discount = await sb_select_one("discounts", "code", code.upper())
+@limiter.limit("20/minute")
+async def get_discount(
+    request: Request,
+    code: str,
+):
+    code = code.strip().upper()
+
+    if not code or len(code) > 80:
+        raise HTTPException(
+            status_code=404,
+            detail="Code promo invalide",
+        )
+
+    # Récupérer uniquement les colonnes nécessaires.
+    discount = await sb_select_one(
+        "discounts",
+        "code",
+        code,
+        select=(
+            "id,code,type,value,active,"
+            "starts_at,ends_at,usage_limit,"
+            "used_count,min_order_amount,"
+            "owner_profile_id"
+        ),
+    )
 
     if not discount or not discount.get("active"):
-        raise HTTPException(status_code=404, detail="Code promo invalide")
+        raise HTTPException(
+            status_code=404,
+            detail="Code promo invalide",
+        )
 
-    # Vérifier les dates
+    owner_id = discount.get("owner_profile_id")
+
+    # Empêcher la consultation des coupons personnels
+    # par un autre compte ou un visiteur anonyme.
+    if owner_id is not None:
+        user = await get_optional_user(request)
+        user_id = auth_user_id(user)
+
+        if not user_id or str(user_id) != str(owner_id):
+            raise HTTPException(
+                status_code=404,
+                detail="Code promo invalide",
+            )
+
+    # Un ancien coupon FIDELITE sans propriétaire
+    # ne doit pas être traité comme un code public.
+    if code.startswith("FIDELITE") and not owner_id:
+        raise HTTPException(
+            status_code=404,
+            detail="Code promo invalide",
+        )
+
     now = datetime.now(timezone.utc)
-    if (
-        discount.get("starts_at")
-        and datetime.fromisoformat(discount["starts_at"]) > now
-    ):
-        raise HTTPException(status_code=404, detail="Code promo pas encore actif")
-    if discount.get("ends_at") and datetime.fromisoformat(discount["ends_at"]) < now:
-        raise HTTPException(status_code=404, detail="Code promo expiré")
 
-    # Vérifier la limite d'usage
-    if (
-        discount.get("usage_limit")
-        and discount.get("used_count", 0) >= discount["usage_limit"]
-    ):
-        raise HTTPException(status_code=404, detail="Code promo épuisé")
+    if discount.get("starts_at"):
+        starts_at = datetime.fromisoformat(discount["starts_at"].replace("Z", "+00:00"))
 
-    return discount
+        if starts_at > now:
+            raise HTTPException(
+                status_code=404,
+                detail="Code promo pas encore actif",
+            )
+
+    if discount.get("ends_at"):
+        ends_at = datetime.fromisoformat(discount["ends_at"].replace("Z", "+00:00"))
+
+        if ends_at <= now:
+            raise HTTPException(
+                status_code=404,
+                detail="Code promo expiré",
+            )
+
+    usage_limit = discount.get("usage_limit")
+    used_count = int(discount.get("used_count") or 0)
+
+    if usage_limit is not None and used_count >= int(usage_limit):
+        raise HTTPException(
+            status_code=404,
+            detail="Code promo épuisé",
+        )
+
+    # Tenir compte des coupons déjà réservés.
+    reserved_result = await asyncio.to_thread(
+        lambda: supabase.table("discount_reservations")
+        .select("id", count="exact")
+        .eq("discount_id", discount["id"])
+        .eq("status", "reserved")
+        .execute()
+    )
+
+    reserved_count = reserved_result.count or 0
+
+    if usage_limit is not None and used_count + reserved_count >= int(usage_limit):
+        raise HTTPException(
+            status_code=409,
+            detail="Ce code promo est actuellement réservé",
+        )
+
+    # Liste blanche : aucune information interne
+    # ou liée au propriétaire n'est divulguée.
+    return {
+        "code": discount["code"],
+        "type": discount["type"],
+        "value": float(discount["value"]),
+        "min_order_amount": float(discount.get("min_order_amount") or 0),
+        "active": True,
+    }
 
 
 @api_router.post("/ecom/admin/discounts")
