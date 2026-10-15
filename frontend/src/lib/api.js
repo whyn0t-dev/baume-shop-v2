@@ -131,6 +131,76 @@ export const resetPassword = (token, password) =>
 export const refreshToken = () =>
   authApi.post("/auth/refresh").then((r) => r.data);
 
+async function callAccountSecurity(payload) {
+  const token = localStorage.getItem("access_token");
+
+  if (!token) {
+    throw new Error(
+      "Votre session a expiré. Veuillez vous reconnecter."
+    );
+  }
+
+  const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+
+  if (!supabaseUrl) {
+    throw new Error(
+      "REACT_APP_SUPABASE_URL manquant."
+    );
+  }
+
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/account-security`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+
+      body: JSON.stringify(payload),
+    }
+  );
+
+  const text = await response.text();
+
+  let data;
+
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {
+      message: text || "Réponse invalide du serveur.",
+    };
+  }
+
+  if (!response.ok || data?.success === false) {
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      "Impossible de modifier les paramètres de sécurité."
+    );
+  }
+
+  return data;
+}
+
+export const updateAccountEmail = (newEmail) =>
+  callAccountSecurity({
+    action: "update_email",
+    new_email: newEmail,
+  });
+
+export const updateAccountPassword = (
+  currentPassword,
+  newPassword
+) =>
+  callAccountSecurity({
+    action: "update_password",
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+
 // Orders
 export const getMyOrders = () =>
   api.get("/orders/mine").then((r) => normalizeArray(r.data));

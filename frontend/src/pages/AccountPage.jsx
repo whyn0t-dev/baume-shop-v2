@@ -30,10 +30,19 @@ import {
 	Users,
 	Wallet,
 	X,
+	Eye,
+	EyeOff,
+	KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../lib/auth";
-import { api, formatApiError, getMyOrders } from "../lib/api";
+import {
+	api,
+	formatApiError,
+	getMyOrders,
+	updateAccountEmail,
+	updateAccountPassword,
+} from "../lib/api";
 import Breadcrumb from "../components/Breadcrumb";
 
 /* Remplace intégralement ton ancien AccountPage.jsx par ce fichier.
@@ -316,6 +325,21 @@ export default function AccountPage() {
 	const addressInput = useRef(null);
 	const [selectedAddress, setSelectedAddress] = useState(false);
 
+	const [securityEmail, setSecurityEmail] = useState(user?.email || "");
+
+	const [emailForm, setEmailForm] = useState({
+		email: user?.email || "",
+	});
+
+	const [passwordForm, setPasswordForm] = useState({
+		current_password: "",
+		new_password: "",
+		confirm_password: "",
+	});
+
+	const [securityBusy, setSecurityBusy] = useState(null);
+	const [showPasswords, setShowPasswords] = useState(false);
+
 	const refreshOrders = async () => {
 		setLoadingOrders(true);
 		setOrdersError(false);
@@ -373,7 +397,17 @@ export default function AccountPage() {
 		});
 	}, [user]);
 
-	// Google Places n'est chargé que quand la section d'adresse est ouverte.
+	useEffect(() => {
+		if (!user?.email) return;
+
+		setSecurityEmail(user.email);
+
+		setEmailForm({
+			email: user.email,
+		});
+	}, [user?.email]);
+
+	// Google Places n'est chargé que quand la section d'address est ouverte.
 	useEffect(() => {
 		if (status !== "authenticated" || !["profile", "addresses"].includes(tab))
 			return;
@@ -523,6 +557,108 @@ export default function AccountPage() {
 		}
 	};
 
+	const handleUpdateEmail = async (event) => {
+		event.preventDefault();
+
+		const nextEmail = emailForm.email.trim().toLowerCase();
+
+		if (!nextEmail) {
+			toast.error("Saisissez une nouvelle adresse e-mail.");
+			return;
+		}
+
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+			toast.error("L'adresse e-mail saisie n'est pas valide.");
+			return;
+		}
+
+		if (
+			nextEmail === String(securityEmail || user?.email || "").toLowerCase()
+		) {
+			toast.error("Cette adresse e-mail est déjà utilisée sur votre compte.");
+			return;
+		}
+
+		setSecurityBusy("email");
+
+		try {
+			const result = await updateAccountEmail(nextEmail);
+
+			const updatedEmail = result.email || nextEmail;
+
+			setSecurityEmail(updatedEmail);
+
+			setEmailForm({
+				email: updatedEmail,
+			});
+
+			toast.success("Adresse e-mail mise à jour", {
+				description:
+					"La nouvelle adresse est maintenant active sur votre compte.",
+			});
+		} catch (error) {
+			toast.error("Impossible de modifier l'adresse e-mail", {
+				description: error?.message || "Une erreur est survenue.",
+			});
+		} finally {
+			setSecurityBusy(null);
+		}
+	};
+
+	const handleUpdatePassword = async (event) => {
+		event.preventDefault();
+
+		const currentPassword = passwordForm.current_password;
+
+		const newPassword = passwordForm.new_password;
+
+		const confirmPassword = passwordForm.confirm_password;
+
+		if (!currentPassword || !newPassword || !confirmPassword) {
+			toast.error("Complétez les trois champs du mot de passe.");
+			return;
+		}
+
+		if (newPassword.length < 8) {
+			toast.error(
+				"Le nouveau mot de passe doit contenir au moins 8 caractères.",
+			);
+			return;
+		}
+
+		if (newPassword !== confirmPassword) {
+			toast.error("Les deux nouveaux mots de passe ne correspondent pas.");
+			return;
+		}
+
+		if (newPassword === currentPassword) {
+			toast.error("Le nouveau mot de passe doit être différent de l'actuel.");
+			return;
+		}
+
+		setSecurityBusy("password");
+
+		try {
+			await updateAccountPassword(currentPassword, newPassword);
+
+			setPasswordForm({
+				current_password: "",
+				new_password: "",
+				confirm_password: "",
+			});
+
+			setShowPasswords(false);
+
+			toast.success("Votre mot de passe a été modifié.");
+		} catch (error) {
+			toast.error("Impossible de modifier le mot de passe", {
+				description: error?.message || "Vérifiez votre mot de passe actuel.",
+			});
+		} finally {
+			setSecurityBusy(null);
+		}
+	};
+
 	if (status === "loading")
 		return (
 			<main className="flex min-h-[50vh] items-center justify-center bg-baume-ivory">
@@ -567,7 +703,7 @@ export default function AccountPage() {
 				<Field
 					label="Adresse e-mail"
 					htmlFor="account-email"
-					hint="Pour changer d'e-mail, contactez notre service client."
+					hint="Pour changer votre adresse e-mail, rendez-vous dans l'onglet Sécurité."
 				>
 					<input
 						id="account-email"
@@ -1431,45 +1567,259 @@ export default function AccountPage() {
 						<div className="space-y-5">
 							<Panel
 								title="Sécurité de mon compte"
-								subtitle="Vérifiez votre adresse e-mail et gardez le contrôle de votre session."
+								subtitle="Gérez votre adresse e-mail, votre mot de passe et la sécurité de votre session."
 							>
-								<div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-baume-ivory p-5">
-									<div className="flex items-center gap-3">
-										<span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-baume-burgundy">
-											<Mail size={20} />
-										</span>
-										<div>
-											<p className="text-sm font-semibold">Adresse e-mail</p>
-											<p className="mt-1 break-all text-sm text-baume-charcoal/65">
-												{user?.email || "Non disponible"}
+								<div className="grid gap-5 xl:grid-cols-2">
+									{/* ───────────────────────────────────── */}
+									{/* MODIFICATION DE L'ADRESSE E-MAIL     */}
+									{/* ───────────────────────────────────── */}
+
+									<form
+										onSubmit={handleUpdateEmail}
+										className="rounded-[20px] border border-baume-border bg-baume-ivory/45 p-5 sm:p-6"
+									>
+										<div className="flex items-start gap-3">
+											<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-baume-burgundy">
+												<Mail size={20} />
+											</span>
+
+											<div className="min-w-0">
+												<h3 className="font-editorial text-[23px] text-baume-charcoal">
+													Adresse e-mail
+												</h3>
+
+												<p className="mt-1 text-sm leading-6 text-baume-charcoal/60">
+													Modifiez l'adresse utilisée pour vous connecter à
+													votre compte Baume.
+												</p>
+											</div>
+										</div>
+
+										<div className="mt-6 rounded-2xl border border-baume-border bg-white px-4 py-3">
+											<p className="text-[11px] font-bold uppercase tracking-[0.15em] text-baume-charcoal/45">
+												Adresse actuelle
+											</p>
+
+											<p className="mt-1 break-all text-sm font-semibold text-baume-charcoal">
+												{securityEmail || user?.email || "Non disponible"}
 											</p>
 										</div>
-									</div>
-									<button
-										onClick={() => selectTab("profile")}
-										className={OUTLINE}
+
+										<div className="mt-5">
+											<label
+												htmlFor="security-email"
+												className="text-[13px] font-semibold text-baume-charcoal"
+											>
+												Nouvelle adresse e-mail
+											</label>
+
+											<input
+												id="security-email"
+												type="email"
+												autoComplete="email"
+												className={INPUT}
+												value={emailForm.email}
+												onChange={(event) =>
+													setEmailForm({
+														email: event.target.value,
+													})
+												}
+												placeholder="nouvelle@email.com"
+											/>
+										</div>
+
+										<div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+											<p className="text-xs leading-5 text-amber-900">
+												<strong>Modification immédiate :</strong> la nouvelle
+												adresse sera utilisée directement. Aucune confirmation
+												par e-mail ne sera demandée.
+											</p>
+										</div>
+
+										<button
+											type="submit"
+											disabled={securityBusy !== null}
+											className={`${SOLID} mt-5 w-full sm:w-auto`}
+										>
+											{securityBusy === "email" ? (
+												<Loader2 size={16} className="animate-spin" />
+											) : (
+												<Check size={16} />
+											)}
+
+											{securityBusy === "email"
+												? "Mise à jour…"
+												: "Mettre à jour l'e-mail"}
+										</button>
+									</form>
+
+									{/* ───────────────────────────────────── */}
+									{/* MODIFICATION DU MOT DE PASSE         */}
+									{/* ───────────────────────────────────── */}
+
+									<form
+										onSubmit={handleUpdatePassword}
+										className="rounded-[20px] border border-baume-border bg-white p-5 sm:p-6"
 									>
-										Voir mon profil
-									</button>
+										<div className="flex items-start justify-between gap-3">
+											<div className="flex items-start gap-3">
+												<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F7EBE7] text-baume-burgundy">
+													<KeyRound size={20} />
+												</span>
+
+												<div>
+													<h3 className="font-editorial text-[23px] text-baume-charcoal">
+														Mot de passe
+													</h3>
+
+													<p className="mt-1 text-sm leading-6 text-baume-charcoal/60">
+														Indiquez votre mot de passe actuel avant
+														d'enregistrer le nouveau.
+													</p>
+												</div>
+											</div>
+
+											<button
+												type="button"
+												onClick={() => setShowPasswords((value) => !value)}
+												className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-baume-border text-baume-charcoal/60 transition hover:text-baume-burgundy"
+												aria-label={
+													showPasswords
+														? "Masquer les mots de passe"
+														: "Afficher les mots de passe"
+												}
+											>
+												{showPasswords ? (
+													<EyeOff size={18} />
+												) : (
+													<Eye size={18} />
+												)}
+											</button>
+										</div>
+
+										<div className="mt-6">
+											<label
+												htmlFor="current-password"
+												className="text-[13px] font-semibold text-baume-charcoal"
+											>
+												Mot de passe actuel
+											</label>
+
+											<input
+												id="current-password"
+												type={showPasswords ? "text" : "password"}
+												autoComplete="current-password"
+												className={INPUT}
+												value={passwordForm.current_password}
+												onChange={(event) =>
+													setPasswordForm((state) => ({
+														...state,
+														current_password: event.target.value,
+													}))
+												}
+											/>
+										</div>
+
+										<div className="mt-5 grid gap-5 sm:grid-cols-2">
+											<div>
+												<label
+													htmlFor="new-password"
+													className="text-[13px] font-semibold text-baume-charcoal"
+												>
+													Nouveau mot de passe
+												</label>
+
+												<input
+													id="new-password"
+													type={showPasswords ? "text" : "password"}
+													autoComplete="new-password"
+													className={INPUT}
+													value={passwordForm.new_password}
+													onChange={(event) =>
+														setPasswordForm((state) => ({
+															...state,
+															new_password: event.target.value,
+														}))
+													}
+												/>
+
+												<p className="mt-1.5 text-xs text-baume-charcoal/50">
+													8 caractères minimum.
+												</p>
+											</div>
+
+											<div>
+												<label
+													htmlFor="confirm-password"
+													className="text-[13px] font-semibold text-baume-charcoal"
+												>
+													Confirmer le nouveau mot de passe
+												</label>
+
+												<input
+													id="confirm-password"
+													type={showPasswords ? "text" : "password"}
+													autoComplete="new-password"
+													className={INPUT}
+													value={passwordForm.confirm_password}
+													onChange={(event) =>
+														setPasswordForm((state) => ({
+															...state,
+															confirm_password: event.target.value,
+														}))
+													}
+												/>
+											</div>
+										</div>
+
+										<button
+											type="submit"
+											disabled={securityBusy !== null}
+											className={`${SOLID} mt-6 w-full sm:w-auto`}
+										>
+											{securityBusy === "password" ? (
+												<Loader2 size={16} className="animate-spin" />
+											) : (
+												<ShieldCheck size={16} />
+											)}
+
+											{securityBusy === "password"
+												? "Modification…"
+												: "Modifier mon mot de passe"}
+										</button>
+									</form>
 								</div>
-								<div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-baume-border p-5">
+
+								{/* SESSION */}
+
+								<div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-baume-border p-5">
 									<div>
 										<p className="text-sm font-semibold">Session actuelle</p>
+
 										<p className="mt-1 text-sm text-baume-charcoal/60">
 											Déconnectez-vous lorsque vous utilisez un appareil
 											partagé.
 										</p>
 									</div>
+
 									<button onClick={signOut} className={OUTLINE}>
-										<LogOut size={16} /> Se déconnecter
+										<LogOut size={16} />
+										Se déconnecter
 									</button>
 								</div>
-								<p className="mt-5 text-xs leading-5 text-baume-charcoal/55">
-									La modification du mot de passe, la double authentification et
-									les notifications nécessitent des fonctionnalités
-									d'authentification ou des API dédiées. Aucun réglage non
-									enregistré ne vous est présenté ici.
-								</p>
+
+								<div className="mt-4 flex items-start gap-3 rounded-2xl bg-baume-ivory/50 px-4 py-4">
+									<ShieldCheck
+										size={18}
+										className="mt-0.5 shrink-0 text-baume-burgundy"
+									/>
+
+									<p className="text-xs leading-5 text-baume-charcoal/60">
+										Les modifications sensibles sont traitées côté serveur par
+										Supabase. La clé administrateur n'est jamais exposée au
+										navigateur.
+									</p>
+								</div>
 							</Panel>
 						</div>
 					)}
