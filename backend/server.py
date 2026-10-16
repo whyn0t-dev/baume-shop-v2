@@ -1269,7 +1269,7 @@ async def create_checkout(
                 amount_off=int(round(discount_amount * 100)),
                 currency="chf",
                 duration="once",
-                name=f"Réduction ({discount_code})",
+                name=f"Fidélité {str(discount_code)[:20]}",
                 max_redemptions=1,
             )
             stripe_coupon_id = coupon.id
