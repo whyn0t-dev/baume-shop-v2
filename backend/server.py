@@ -6201,5 +6201,15 @@ async def update_variant(
 
 
 api_router.include_router(auth_router)
+
+
+# ---------- Health check (UptimeRobot / Render) ----------
+# Accepts GET and HEAD: UptimeRobot pings with HEAD by default.
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/api/health", methods=["GET", "HEAD"], include_in_schema=False)
+async def health():
+    return {"service": "baume-api", "status": "ok"}
+
 # ---------- CORS & Mount ----------
 app.include_router(api_router)
