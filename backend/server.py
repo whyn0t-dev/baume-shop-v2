@@ -6200,6 +6200,533 @@ async def update_variant(
     return await sb_select_one("product_variants", "id", variant_id)
 
 
+# ============================================================
+# BAUME — CAISSE (APPLICATION MOBILE ADMIN)
+#
+# Ventes en boutique encaissées par QR code Stripe.
+# Le paiement suit exactement le même circuit que le site :
+#   payment_transactions → webhook Stripe → finalize_paid_order
+#   (commande + paiement + déduction du stock) → points fidélité.
+#
+# La session porte metadata.source = "baume_checkout" pour être
+# traitée par le webhook existant, et metadata.channel = "pos"
+# pour être reconnue comme une vente en boutique.
+#
+# Aucune route existante n'est modifiée par ce bloc.
+# ============================================================
+
+POS_CHANNEL = "pos"
+POS_PAYMENT_METHODS = ["card", "twint"]
+POS_SESSION_TTL_SECONDS = 30 * 60  # minimum imposé par Stripe
+POS_ORDER_READY_STATUSES = ("paid", "processing", "shipped", "delivered", "refunded")
+
+
+class PosCheckoutItem(BaseModel):
+    product_id: str
+    variant_id: Optional[str] = None
+    quantity: int = Field(..., gt=0, le=100, strict=True)
+
+
+class PosCheckoutRequest(BaseModel):
+    items: List[PosCheckoutItem] = Field(..., min_length=1, max_length=100)
+    customer_profile_id: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+
+def _pos_clean_search(value: str) -> str:
+    # Les virgules et parenthèses cassent les filtres or() de PostgREST.
+    cleaned = "".join(ch for ch in value if ch not in ",()%_*\\")
+    return cleaned.strip()[:80]
+
+
+def _pos_product_image(product: dict) -> Optional[str]:
+    if product.get("image"):
+        return product["image"]
+    gallery = product.get("gallery") or []
+    return gallery[0] if gallery else None
+
+
+def _pos_public_profile(p: dict) -> dict:
+    return {
+        "id": p.get("id"),
+        "email": p.get("email"),
+        "first_name": p.get("first_name"),
+        "last_name": p.get("last_name"),
+        "phone": p.get("phone"),
+        "address": p.get("address"),
+        "postal_code": p.get("postal_code"),
+        "city": p.get("city"),
+        "country": p.get("country"),
+        "role": p.get("role"),
+        "created_at": p.get("created_at"),
+    }
+
+
+async def _pos_require_tx(session_id: str) -> dict:
+    tx = await sb_select_one("payment_transactions", "session_id", session_id)
+    if not tx or (tx.get("metadata") or {}).get("channel") != POS_CHANNEL:
+        raise HTTPException(status_code=404, detail="Vente en boutique introuvable")
+    return tx
+
+
+async def _pos_channels_for_sessions(session_ids: list) -> dict:
+    channels = {}
+    ids = [s for s in session_ids if s]
+    for start in range(0, len(ids), 80):
+        chunk = ids[start : start + 80]
+        result = await asyncio.to_thread(
+            lambda: supabase.table("payment_transactions")
+            .select("session_id,metadata")
+            .in_("session_id", chunk)
+            .execute()
+        )
+        for row in result.data or []:
+            channel = (row.get("metadata") or {}).get("channel")
+            channels[row["session_id"]] = channel or "online"
+    return channels
+
+
+async def _pos_hand_over(order: dict) -> dict:
+    """
+    Une vente en boutique est remise immédiatement au client :
+    la commande passe directement de « paid » à « delivered ».
+    Aucun e-mail d'expédition n'est envoyé.
+    """
+    if order and order.get("status") == "paid":
+        await sb_update(
+            "orders",
+            {"status": "delivered", "updated_at": now_iso()},
+            "id",
+            order["id"],
+        )
+        order = {**order, "status": "delivered"}
+    return order
+
+
+# ── Catalogue avec stock (source de vérité : product_variants.stock) ──
+
+
+@api_router.get("/pos/catalog")
+async def pos_catalog(profile=Depends(require_admin)):
+    products = await stats_fetch_all(
+        lambda: supabase.table("products").select("*").order("name")
+    )
+    variants = await stats_fetch_all(
+        lambda: supabase.table("product_variants").select("*").order("created_at")
+    )
+
+    by_product = defaultdict(list)
+    for v in variants:
+        by_product[v.get("product_id")].append(
+            {
+                "id": v.get("id"),
+                "title": v.get("title"),
+                "sku": v.get("sku"),
+                "barcode": v.get("barcode"),
+                "price": v.get("price"),
+                "stock": int(v.get("stock") or 0),
+                "available": bool(v.get("available")),
+                "active": v.get("active") is not False,
+            }
+        )
+
+    catalog = []
+    for p in products:
+        if p.get("status") == "archived":
+            continue
+        product_variants = by_product.get(p.get("id"), [])
+        active_variants = [v for v in product_variants if v["active"]]
+        catalog.append(
+            {
+                "id": p.get("id"),
+                "slug": p.get("slug"),
+                "name": p.get("name") or p.get("title") or "Produit",
+                "price": p.get("price"),
+                "image": _pos_product_image(p),
+                "category": p.get("product_category"),
+                "status": p.get("status"),
+                "available": bool(p.get("available")),
+                "featured": bool(p.get("featured")),
+                "bestseller": bool(p.get("bestseller")),
+                "stock": sum(v["stock"] for v in active_variants),
+                "variants": product_variants,
+            }
+        )
+
+    return {"generated_at": now_iso(), "products": catalog}
+
+
+# ── Clients ──
+
+
+@api_router.get("/pos/customers")
+async def pos_customers(
+    search: Optional[str] = None,
+    limit: int = Query(100, gt=0, le=500),
+    profile=Depends(require_admin),
+):
+    term = _pos_clean_search(search or "")
+
+    def run():
+        q = supabase.table("profiles").select("*")
+        if term:
+            like = f"%{term}%"
+            q = q.or_(
+                f"email.ilike.{like},first_name.ilike.{like},last_name.ilike.{like}"
+            )
+        return q.order("created_at", desc=True).limit(limit).execute()
+
+    result = await asyncio.to_thread(run)
+    return [_pos_public_profile(p) for p in result.data or []]
+
+
+async def _pos_customer_detail(p: dict) -> dict:
+    loyalty = await sb_select_one("loyalty_points", "profile_id", p["id"]) or {}
+
+    transactions = await asyncio.to_thread(
+        lambda: supabase.table("loyalty_transactions")
+        .select("*")
+        .eq("profile_id", p["id"])
+        .order("created_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+
+    orders = []
+    if p.get("email"):
+        orders_result = await asyncio.to_thread(
+            lambda: supabase.table("orders")
+            .select("*")
+            .ilike("email", p["email"].replace("%", "").replace("_", "\\_"))
+            .order("created_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+        orders = orders_result.data or []
+
+    return {
+        **_pos_public_profile(p),
+        "loyalty": {
+            "points": loyalty.get("points") or 0,
+            "total_earned": loyalty.get("total_earned") or 0,
+            "total_spent": loyalty.get("total_spent") or 0,
+            "generated_codes": loyalty.get("generated_codes") or [],
+        },
+        "loyalty_transactions": transactions.data or [],
+        "orders": orders,
+    }
+
+
+@api_router.get("/pos/customers/lookup")
+async def pos_customer_lookup(email: str, profile=Depends(require_admin)):
+    """Recherche exacte par e-mail (QR de la carte fidélité « BAUME:email »)."""
+    value = (email or "").strip()
+    if not value or "%" in value or "," in value:
+        raise HTTPException(status_code=400, detail="E-mail invalide")
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("profiles")
+        .select("*")
+        .ilike("email", value.replace("_", "\\_"))
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Aucun compte Baume pour cet e-mail")
+
+    return await _pos_customer_detail(result.data[0])
+
+
+@api_router.get("/pos/customers/{profile_id}")
+async def pos_customer(profile_id: str, profile=Depends(require_admin)):
+    p = await sb_select_one("profiles", "id", profile_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="Client introuvable")
+    return await _pos_customer_detail(p)
+
+
+# ── Commandes (site + boutique) ──
+
+
+@api_router.get("/pos/orders")
+async def pos_orders(
+    limit: int = Query(200, gt=0, le=500),
+    profile=Depends(require_admin),
+):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*, order_items(*)")
+        .order("created_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    orders = result.data or []
+
+    channels = await _pos_channels_for_sessions(
+        [o.get("stripe_checkout_session_id") for o in orders]
+    )
+
+    for o in orders:
+        o["channel"] = channels.get(o.get("stripe_checkout_session_id"), "online")
+        o["items"] = o.get("order_items", [])
+
+    return orders
+
+
+@api_router.post("/pos/orders/{order_id}/hand-over")
+async def pos_hand_over_order(order_id: str, profile=Depends(require_admin)):
+    order = await sb_select_one("orders", "id", order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    await _pos_require_tx(order.get("stripe_checkout_session_id") or "")
+    order = await _pos_hand_over(order)
+    return {"success": True, "order_id": order_id, "status": order.get("status")}
+
+
+# ── Ajustement de stock d'une variante ──
+
+
+class PosStockAdjust(BaseModel):
+    delta: Optional[int] = Field(None, ge=-10000, le=10000)
+    set: Optional[int] = Field(None, ge=0, le=100000)
+
+
+@api_router.post("/pos/variants/{variant_id}/stock")
+async def pos_adjust_stock(
+    variant_id: str,
+    payload: PosStockAdjust,
+    profile=Depends(require_admin),
+):
+    """
+    Ajuste le stock en relatif (delta) ou en absolu (set).
+    La lecture et l'écriture se font côté serveur, juste avant
+    l'écriture, pour limiter les conflits avec une vente en cours.
+    """
+    if (payload.delta is None) == (payload.set is None):
+        raise HTTPException(status_code=400, detail="Indiquez delta ou set.")
+
+    variant = await sb_select_one("product_variants", "id", variant_id)
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variante introuvable")
+
+    previous = int(variant.get("stock") or 0)
+    new_stock = payload.set if payload.set is not None else max(previous + payload.delta, 0)
+
+    await sb_update(
+        "product_variants",
+        {"stock": new_stock, "available": new_stock > 0, "updated_at": now_iso()},
+        "id",
+        variant_id,
+    )
+
+    logger.info(
+        "Stock ajusté depuis l'app : variante=%s %s → %s par %s",
+        variant_id,
+        previous,
+        new_stock,
+        profile.get("id"),
+    )
+
+    return {"variant_id": variant_id, "previous_stock": previous, "stock": new_stock}
+
+
+# ── Encaissement par QR code ──
+
+
+@api_router.post("/pos/checkout")
+async def pos_create_checkout(
+    payload: PosCheckoutRequest,
+    profile=Depends(require_admin),
+):
+    # Mêmes garde-fous que le paiement du site.
+    if os.environ.get("CHECKOUT_ENABLED", "false").lower() != "true":
+        raise HTTPException(
+            status_code=503, detail="Paiement temporairement indisponible."
+        )
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=500, detail="Stripe non configuré")
+    if not STRIPE_API_KEY.startswith("sk_test_"):
+        raise HTTPException(
+            status_code=503, detail="Seul Stripe en mode test est autorisé."
+        )
+
+    customer = None
+    if payload.customer_profile_id:
+        customer = await sb_select_one("profiles", "id", payload.customer_profile_id)
+        if not customer:
+            raise HTTPException(status_code=404, detail="Client introuvable")
+
+    email = (
+        payload.email
+        or (customer or {}).get("email")
+        or os.environ.get("POS_DEFAULT_EMAIL")
+    )
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Indiquez l'e-mail du client pour le reçu.",
+        )
+
+    # Prix, disponibilité et stock vérifiés côté serveur,
+    # exactement comme pour le site.
+    priced = await _price_cart([item.model_dump() for item in payload.items])
+    total = float(Decimal(str(priced["subtotal"])).quantize(Decimal("0.01")))
+
+    if total <= 0:
+        raise HTTPException(status_code=400, detail="Montant à payer invalide")
+
+    customer_id = (customer or {}).get("id") or ""
+    customer_name = " ".join(
+        x for x in [(customer or {}).get("first_name"), (customer or {}).get("last_name")] if x
+    )
+
+    metadata = {
+        "source": "baume_checkout",
+        "channel": POS_CHANNEL,
+        "country": "CH",
+        "email": email,
+        "user_id": customer_id,
+        "items_count": str(sum(i.quantity for i in payload.items)),
+        "discount_code": "",
+        "discount_amount": "0.0",
+        "cashier_id": profile.get("id") or "",
+    }
+
+    stripe_line_items = [
+        {
+            "price_data": {
+                "currency": "chf",
+                "product_data": {
+                    "name": item["name"],
+                    **({"description": item["size"]} if item.get("size") else {}),
+                },
+                "unit_amount": int(round(item["unit_price"] * 100)),
+            },
+            "quantity": item["quantity"],
+        }
+        for item in priced["items"]
+    ]
+
+    try:
+        session = await asyncio.to_thread(
+            stripe.checkout.Session.create,
+            mode="payment",
+            payment_method_types=POS_PAYMENT_METHODS,
+            customer_email=email,
+            success_url=(
+                f"{FRONTEND_URL}/commande/confirmation" "?session_id={CHECKOUT_SESSION_ID}"
+            ),
+            cancel_url=f"{FRONTEND_URL}/commande/confirmation?cancelled=true",
+            metadata=metadata,
+            line_items=stripe_line_items,
+            expires_at=int(time.time()) + POS_SESSION_TTL_SECONDS,
+            idempotency_key=f"baume-pos-{uuid.uuid4()}",
+        )
+    except Exception:
+        logger.exception("Caisse : impossible de créer la session Stripe")
+        raise HTTPException(status_code=503, detail="Création du paiement indisponible")
+
+    tx = {
+        "id": str(uuid.uuid4()),
+        "session_id": session.id,
+        "amount": total,
+        "subtotal": priced["subtotal"],
+        "shipping": 0.0,
+        "discount_code": None,
+        "discount_amount": 0.0,
+        "currency": "chf",
+        "email": email,
+        "user_id": customer_id or None,
+        "country": "CH",
+        "items": priced["items"],
+        "shipping_address": {
+            "type": "in_store",
+            "name": customer_name or "Client boutique",
+            "first_name": (customer or {}).get("first_name"),
+            "last_name": (customer or {}).get("last_name"),
+            "line1": "Vente en boutique",
+            "address": "Vente en boutique",
+            "country": "CH",
+        },
+        "status": "initiated",
+        "payment_status": "pending",
+        "metadata": metadata,
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+
+    try:
+        await sb_insert("payment_transactions", tx)
+    except Exception:
+        logger.exception("Caisse : transaction non enregistrée %s", session.id)
+        try:
+            await asyncio.to_thread(stripe.checkout.Session.expire, session.id)
+        except Exception:
+            logger.exception("Caisse : expiration à vérifier %s", session.id)
+        raise HTTPException(status_code=503, detail="Impossible de préparer le paiement")
+
+    return {
+        "session_id": session.id,
+        "url": session.url,
+        "total": total,
+        "email": email,
+        "expires_at": session.expires_at,
+        "items": priced["items"],
+    }
+
+
+@api_router.get("/pos/checkout/{session_id}")
+async def pos_checkout_status(session_id: str, profile=Depends(require_admin)):
+    await _pos_require_tx(session_id)
+
+    try:
+        session = await asyncio.to_thread(stripe.checkout.Session.retrieve, session_id)
+    except Exception:
+        logger.exception("Caisse : lecture de la session %s impossible", session_id)
+        raise HTTPException(status_code=503, detail="Statut du paiement indisponible")
+
+    order = await sb_select_one("orders", "stripe_checkout_session_id", session_id)
+    paid = session.payment_status == "paid"
+    order_ready = bool(paid and order and order.get("status") in POS_ORDER_READY_STATUSES)
+
+    if order_ready:
+        order = await _pos_hand_over(order)
+
+    return {
+        "status": session.status,  # open | complete | expired
+        "payment_status": session.payment_status,  # unpaid | paid
+        "amount_total": session.amount_total,
+        "order_ready": order_ready,
+        "order": (
+            {
+                "id": order.get("id"),
+                "order_number": order.get("order_number"),
+                "status": order.get("status"),
+                "total": order.get("total"),
+            }
+            if order_ready
+            else None
+        ),
+    }
+
+
+@api_router.post("/pos/checkout/{session_id}/cancel")
+async def pos_cancel_checkout(session_id: str, profile=Depends(require_admin)):
+    await _pos_require_tx(session_id)
+
+    session = await asyncio.to_thread(stripe.checkout.Session.retrieve, session_id)
+
+    if session.payment_status == "paid" or session.status == "complete":
+        raise HTTPException(status_code=409, detail="Ce paiement a déjà été effectué.")
+
+    if session.status == "open":
+        await asyncio.to_thread(stripe.checkout.Session.expire, session_id)
+
+    return {"success": True, "status": "expired"}
+
+
+
 api_router.include_router(auth_router)
 
 

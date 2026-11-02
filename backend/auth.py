@@ -85,6 +85,45 @@ async def login(payload: LoginRequest):
     }
 
 
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+@auth_router.post("/refresh")
+async def refresh_session(payload: RefreshRequest):
+    """
+    Renouvelle la session Supabase à partir du refresh token.
+    Appel REST direct à GoTrue : le client Supabase partagé
+    n'est pas modifié (aucun état global).
+    """
+    import httpx
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                f"{SUPABASE_URL}/auth/v1/token",
+                params={"grant_type": "refresh_token"},
+                json={"refresh_token": payload.refresh_token},
+                headers={
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Content-Type": "application/json",
+                },
+            )
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service d'authentification indisponible")
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Session expirée")
+
+    data = response.json()
+
+    return {
+        "access_token": data.get("access_token"),
+        "refresh_token": data.get("refresh_token"),
+        "expires_in": data.get("expires_in"),
+    }
+
+
 @auth_router.post("/register")
 async def register(payload: RegisterRequest):
     result = supabase.auth.sign_up(
