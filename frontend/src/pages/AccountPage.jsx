@@ -1477,6 +1477,38 @@ export default function AccountPage() {
 												</p>
 											</div>
 										</div>
+										{/* Limite annuelle : 5 parrainages par année civile */}
+										<div className="mt-5 rounded-2xl border border-baume-border bg-baume-white p-5">
+											<div className="flex flex-wrap items-center justify-between gap-2">
+												<p className="text-sm font-semibold">
+													Parrainages utilisés cette année
+												</p>
+												<p className="text-sm font-semibold text-baume-burgundy">
+													{referral?.used_this_year ?? 0} /{" "}
+													{referral?.yearly_limit ?? 5}
+												</p>
+											</div>
+											<div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-baume-ivory">
+												<div
+													className="h-full rounded-full bg-baume-burgundy transition-all"
+													style={{
+														width: `${Math.min(
+															100,
+															((referral?.used_this_year ?? 0) /
+																(referral?.yearly_limit || 5)) *
+																100,
+														)}%`,
+													}}
+												/>
+											</div>
+											<p className="mt-3 text-xs leading-5 text-baume-charcoal/60">
+												{(referral?.remaining_this_year ?? 5) > 0
+													? `Encore ${referral?.remaining_this_year ?? 5} parrainage(s) possible(s) cette année.`
+													: "Limite atteinte pour cette année — elle se renouvelle le 1er janvier."}{" "}
+												Vos points sont crédités au premier achat de votre
+												filleule (nouvelle cliente uniquement).
+											</p>
+										</div>
 										<div className="mt-6 space-y-5">
 											<div>
 												<p className="mb-2 text-sm font-semibold">
@@ -1551,9 +1583,13 @@ export default function AccountPage() {
 													</p>
 												</div>
 												<span className="rounded-full bg-baume-ivory px-3 py-1 text-xs font-semibold text-baume-burgundy">
-													{r.status === "completed"
-														? `+${r.reward_points} points`
-														: "En attente"}
+													{{
+														completed: `+${r.reward_points} points`,
+														pending: "En attente du 1er achat",
+														capped: "Limite annuelle atteinte",
+														reversed: "Annulé (remboursement)",
+														rejected: "Non éligible",
+													}[r.status] || "En attente"}
 												</span>
 											</div>
 										))}

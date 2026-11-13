@@ -307,12 +307,12 @@ export const getShippingMethods = (country) =>
     })
     .then((r) => normalizeArray(r.data));
 
-// ── Reviews (acheteurs vérifiés) ──────────────────────────────────────────────
+// ── Reviews (ouverts à toute personne connectée) ──────────────────────────────────────────────
 
-// Vérifie si l'utilisateur connecté a commandé ce produit + récupère son avis existant
+// Indique si l'utilisateur connecté a commandé ce produit (badge « Achat vérifié ») + son avis existant
 export const getUserOrder = (productId) =>
   api.get(`/products/${productId}/order-status`).then((r) => r.data);
-// Retourne : { has_ordered, order, review }
+// Retourne : { has_ordered, can_review, order, review }
 
 // Soumet un nouvel avis
 export const submitReview = (payload) =>

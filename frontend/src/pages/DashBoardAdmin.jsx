@@ -31,6 +31,7 @@ import {
 import { LayoutDashboard } from "lucide-react";
 import StatisticsSection from "../components/StatisticsSection";
 import HomeSection from "../components/HomeSection";
+import CustomersSection from "../components/CustomersSection";
 import { MessageCircle } from "lucide-react";
 import { ScanLine } from "lucide-react";
 import { RotateCcw } from "lucide-react";
@@ -42,7 +43,7 @@ const SECTIONS = [
 	{ key: "workshops", label: "Ateliers", icon: CalendarDays },
 	{ key: "workshop_bookings", label: "Réservations", icon: CalendarDays },
 	{ key: "orders", label: "Commandes", icon: ShoppingCart },
-	{ key: "profiles", label: "Utilisateurs", icon: Users },
+	{ key: "profiles", label: "Clients", icon: Users },
 	{ key: "discounts", label: "Réductions", icon: Percent },
 	{ key: "store_settings", label: "Paramètres boutique", icon: Settings },
 	{ key: "reviews", label: "Avis clients", icon: Star },
@@ -82,6 +83,7 @@ export default function DashBoardAdmin() {
 			active !== "scanner" &&
 			active !== "chat" &&
 			active !== "statistics" &&
+			active !== "profiles" && // fiche client : chargement autonome
 			active !== "returns" // ← ajouter aux exceptions
 		) {
 			loadData(active);
@@ -200,6 +202,7 @@ export default function DashBoardAdmin() {
 									active !== "accueil" &&
 									active !== "scanner" &&
 									active !== "chat" &&
+									active !== "profiles" &&
 									active !== "returns" && (
 										<span className="text-[13px] text-baume-charcoal/60">
 											{rows.length} élément{rows.length > 1 ? "s" : ""}
@@ -242,6 +245,7 @@ export default function DashBoardAdmin() {
 						active !== "accueil" &&
 						active !== "statistics" &&
 						active !== "scanner" &&
+						active !== "profiles" &&
 						active !== "chat" ? (
 							<div className="py-24 flex justify-center">
 								<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
@@ -252,6 +256,7 @@ export default function DashBoardAdmin() {
 						  active !== "statistics" &&
 						  active !== "scanner" &&
 						  active !== "chat" &&
+						  active !== "profiles" &&
 						  active !== "returns" ? (
 							<div className="p-10 text-center text-baume-charcoal/65">
 								Aucun élément trouvé.
@@ -418,19 +423,7 @@ function AdminTable({ table, rows, onDelete, onRefresh, productSearch = "" }) {
 	}
 
 	if (table === "profiles") {
-		return (
-			<Table
-				columns={["Email", "Nom", "Rôle", "Créé le"]}
-				rows={rows.map((u) => [
-					u.email || "-",
-					`${u.first_name || ""} ${u.last_name || ""}`.trim() || "-",
-					u.role || "customer",
-					u.created_at
-						? new Date(u.created_at).toLocaleDateString("fr-CH")
-						: "-",
-				])}
-			/>
-		);
+		return <CustomersSection />;
 	}
 
 	if (table === "discounts") {

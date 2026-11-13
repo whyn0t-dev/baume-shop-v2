@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Save, ImagePlus } from "lucide-react";
 import { createAdminProduct, formatApiError } from "../lib/api";
+import { parseLines, parseSpecs } from "../lib/productInfo";
 
 const emptyVariant = {
 	title: "",
@@ -64,6 +65,9 @@ export default function AdminProductCreate() {
 		usage: "",
 		how_to_use: "",
 		fabrication: "",
+		care_instructions: "",
+		highlights_text: "",
+		specs_text: "",
 		colors: [],
 		sizes: [],
 		benefits: [],
@@ -152,9 +156,13 @@ export default function AdminProductCreate() {
 		setLoading(true);
 
 		try {
+			const { highlights_text, specs_text, ...productFields } = product;
 			const payload = {
 				product: {
-					...product,
+					...productFields,
+					highlights: parseLines(highlights_text),
+					specs: parseSpecs(specs_text),
+					care_instructions: product.care_instructions || null,
 					name: product.name || product.title,
 					price: product.price ? Number(product.price) : null,
 					compare_price: product.compare_price
@@ -370,6 +378,24 @@ export default function AdminProductCreate() {
 							label="Comment utiliser"
 							value={product.how_to_use}
 							onChange={(value) => updateProduct("how_to_use", value)}
+						/>
+
+						<Textarea
+							label="Entretien & conservation"
+							value={product.care_instructions}
+							onChange={(value) => updateProduct("care_instructions", value)}
+						/>
+
+						<Textarea
+							label="Points clés « L'essentiel » — un par ligne (ex. Sans PFAS)"
+							value={product.highlights_text}
+							onChange={(value) => updateProduct("highlights_text", value)}
+						/>
+
+						<Textarea
+							label="Caractéristiques — « Libellé : valeur », une par ligne"
+							value={product.specs_text}
+							onChange={(value) => updateProduct("specs_text", value)}
 						/>
 
 						<Textarea

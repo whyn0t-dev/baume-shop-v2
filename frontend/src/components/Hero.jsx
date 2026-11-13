@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import TrackedBanner from "./TrackedBanner";
 
 const SLIDES = [
 	{
+		id: "hero-boutique",
 		tag: "Boutique · Genève · Depuis 2021",
 		title: "Prenez soin de vous,\nsans honte ni compromis.",
 		sub: "Des produits choisis avec exigence pour chaque phase de votre vie — cycle, intimité, maternité, ménopause.",
@@ -14,6 +16,7 @@ const SLIDES = [
 		overlay: "from-baume-burgundy/75 via-baume-burgundy/40 to-transparent",
 	},
 	{
+		id: "hero-cycle",
 		tag: "Cycle & bien-être",
 		title: "Votre cycle,\nvotre rythme.",
 		sub: "Culottes menstruelles, cups, soins intimes — des solutions pensées pour que vos règles ne vous ralentissent plus.",
@@ -24,6 +27,7 @@ const SLIDES = [
 		overlay: "from-[#1a1a2e]/70 via-[#1a1a2e]/35 to-transparent",
 	},
 	{
+		id: "hero-postpartum",
 		tag: "Post-partum & maternité",
 		title: "Le post-partum\nmérite qu'on en parle.",
 		sub: "Des produits doux et adaptés pour les semaines qui suivent l'accouchement — conçus avec des sage-femmes.",
@@ -34,6 +38,7 @@ const SLIDES = [
 		overlay: "from-[#2d1b1b]/75 via-[#2d1b1b]/40 to-transparent",
 	},
 	{
+		id: "hero-menopause",
 		tag: "Ménopause & transitions",
 		title: "La ménopause\nn'est pas une fin.",
 		sub: "Accompagnement, produits adaptés et ateliers animés par des expertes — parce que chaque transition mérite du soutien.",
@@ -44,6 +49,7 @@ const SLIDES = [
 		overlay: "from-[#1c2b1c]/70 via-[#1c2b1c]/35 to-transparent",
 	},
 	{
+		id: "hero-intimite",
 		tag: "Intimité & désir",
 		title: "Le plaisir féminin\nn'a rien à prouver.",
 		sub: "Lubrifiants naturels, accessoires et conseils — une approche décomplexée de l'intimité, sans tabou.",
@@ -144,7 +150,12 @@ export default function Hero() {
 			{/* Contenu */}
 			<div className="absolute inset-0 z-30 flex items-end md:items-center">
 				<div className="baume-container w-full pb-20 md:pb-0">
-					<div className="max-w-[640px]">
+					<TrackedBanner
+						key={`banner-${slide.id}`}
+						id={slide.id}
+						label={`Carrousel accueil — ${slide.tag}`}
+						className="max-w-[640px]"
+					>
 						<p
 							key={`tag-${idx}`}
 							className="text-[11px] uppercase tracking-[0.3em] text-white/70 font-semibold mb-5"
@@ -185,7 +196,7 @@ export default function Hero() {
 								{slide.ctaSecondary.label}
 							</Link>
 						</div>
-					</div>
+					</TrackedBanner>
 				</div>
 			</div>
 

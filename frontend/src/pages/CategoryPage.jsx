@@ -135,26 +135,24 @@ export default function CategoryPage({ kind }) {
 			</section>
 
 			<section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pb-24">
-				<div className="flex flex-col xl:flex-row gap-8">
-					<aside className="xl:w-[310px] shrink-0">
-						<div className="xl:sticky xl:top-[150px] rounded-3xl border border-baume-border bg-baume-white p-5">
-							<div className="flex items-center gap-2 mb-5">
-								<SlidersHorizontal className="h-5 w-5 text-baume-burgundy" />
-								<p className="font-editorial text-[24px] text-baume-charcoal">
-									Filtrer
-								</p>
-							</div>
+				{/* ── Barre de filtres horizontale (pastilles arrondies) ── */}
+				<div className="mb-8 rounded-[28px] border border-baume-border bg-baume-white px-4 md:px-6 py-5">
+					<div className="flex items-center gap-2 mb-4">
+						<SlidersHorizontal className="h-5 w-5 text-baume-burgundy" />
+						<p className="font-editorial text-[22px] text-baume-charcoal">
+							Filtrer
+						</p>
+					</div>
+					<Filters
+						filters={filters}
+						setFilters={setFilters}
+						needs={showNeedsFilter ? needs : []}
+						cats={showCatsFilter ? cats : []}
+						onReset={() => setFilters({})}
+					/>
+				</div>
 
-							<Filters
-								filters={filters}
-								setFilters={setFilters}
-								needs={showNeedsFilter ? needs : []}
-								cats={showCatsFilter ? cats : []}
-								onReset={() => setFilters({})}
-							/>
-						</div>
-					</aside>
-
+				<div className="flex flex-col gap-8">
 					<main className="flex-1 min-w-0">
 						<div className="mb-6 rounded-3xl border border-baume-border bg-baume-white px-5 md:px-6 py-4 flex flex-col md:flex-row md:items-center gap-3">
 							<div>
@@ -197,7 +195,7 @@ export default function CategoryPage({ kind }) {
 						</div>
 
 						{products.length > 0 ? (
-							<div className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6">
+							<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
 								{products.map((p) => (
 									<ProductCard
 										key={p.id}

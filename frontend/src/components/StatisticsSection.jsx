@@ -116,6 +116,162 @@ function EmptyTable({ columns, message }) {
 // ============================================================
 // BAUME — TABLEAU DES VENTES RÉELLES
 // ============================================================
+// ── Tableau générique (rentabilité produits / marques) ──────────────────────
+function DataTable({ columns, rows, empty }) {
+	if (!rows || rows.length === 0) {
+		return <EmptyState message={empty} />;
+	}
+	return (
+		<div className="overflow-x-auto rounded-xl border border-baume-border">
+			<table className="w-full text-[13px]">
+				<thead className="bg-baume-ivory/60 text-baume-charcoal/60">
+					<tr>
+						{columns.map((c) => (
+							<th
+								key={c.key}
+								className={`px-4 py-3 font-semibold whitespace-nowrap ${
+									c.align === "right" ? "text-right" : "text-left"
+								}`}
+							>
+								{c.label}
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody className="divide-y divide-baume-border">
+					{rows.map((r, i) => (
+						<tr key={r.key || i} className="bg-baume-white">
+							{columns.map((c) => (
+								<td
+									key={c.key}
+									className={`px-4 py-3 whitespace-nowrap ${
+										c.align === "right" ? "text-right tabular-nums" : ""
+									}`}
+								>
+									{c.render ? c.render(r) : (r[c.key] ?? "—")}
+								</td>
+							))}
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+}
+
+const chfOrDash = (v) => {
+	const f = formatAmount(v);
+	return f == null ? "—" : `${f} CHF`;
+};
+
+function downloadCsv(filename, columns, rows) {
+	const esc = (v) => {
+		const str = v == null ? "" : String(v);
+		return /[";\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+	};
+	const lines = [
+		columns.map((c) => esc(c.label)).join(";"),
+		...rows.map((r) => columns.map((c) => esc(r[c.key])).join(";")),
+	];
+	const blob = new Blob(["\ufeff" + lines.join("\n")], {
+		type: "text/csv;charset=utf-8",
+	});
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement("a");
+	a.href = url;
+	a.download = filename;
+	a.click();
+	URL.revokeObjectURL(url);
+}
+
+const PRODUCT_COLUMNS = [
+	{ key: "name", label: "Produit" },
+	{ key: "vendor", label: "Marque" },
+	{ key: "quantity_sold_gross", label: "Quantité", align: "right" },
+	{
+		key: "revenue_after_discounts",
+		label: "CA après remises",
+		align: "right",
+		render: (r) => chfOrDash(r.revenue_after_discounts),
+	},
+	{
+		key: "cogs_estimated",
+		label: "Coût",
+		align: "right",
+		render: (r) => chfOrDash(r.cogs_estimated),
+	},
+	{
+		key: "gross_margin_estimated",
+		label: "Marge brute",
+		align: "right",
+		render: (r) => chfOrDash(r.gross_margin_estimated),
+	},
+	{
+		key: "margin_rate",
+		label: "Taux de marque",
+		align: "right",
+		render: (r) =>
+			r.margin_rate == null ? "—" : `${formatAmount(r.margin_rate, 1)} %`,
+	},
+	{
+		key: "coefficient",
+		label: "Coefficient",
+		align: "right",
+		render: (r) => (r.coefficient == null ? "—" : formatAmount(r.coefficient)),
+	},
+];
+
+const BRAND_COLUMNS = [
+	{ key: "vendor", label: "Marque" },
+	{ key: "products_count", label: "Produits", align: "right" },
+	{ key: "units_sold", label: "Unités vendues", align: "right" },
+	{
+		key: "revenue_after_discounts",
+		label: "CA après remises",
+		align: "right",
+		render: (r) => chfOrDash(r.revenue_after_discounts),
+	},
+	{
+		key: "cogs_estimated",
+		label: "Coût",
+		align: "right",
+		render: (r) => chfOrDash(r.cogs_estimated),
+	},
+	{
+		key: "gross_margin_estimated",
+		label: "Marge brute",
+		align: "right",
+		render: (r) => chfOrDash(r.gross_margin_estimated),
+	},
+	{
+		key: "gross_margin_rate",
+		label: "Taux",
+		align: "right",
+		render: (r) =>
+			r.gross_margin_rate == null
+				? "—"
+				: `${formatAmount(r.gross_margin_rate, 1)} %`,
+	},
+];
+
+function enrichProducts(products = []) {
+	return products
+		.filter((p) => p.quantity_sold_gross > 0)
+		.map((p) => {
+			const rev = Number(p.revenue_after_discounts);
+			const cost = p.cogs_estimated == null ? null : Number(p.cogs_estimated);
+			const margin =
+				p.gross_margin_estimated == null ? null : Number(p.gross_margin_estimated);
+			return {
+				...p,
+				key: p.product_id,
+				margin_rate: margin != null && rev > 0 ? (margin / rev) * 100 : null,
+				coefficient: cost != null && cost > 0 ? rev / cost : null,
+			};
+		})
+		.sort((a, b) => Number(b.revenue_after_discounts) - Number(a.revenue_after_discounts));
+}
+
 function SalesTable({ products, currency = "CHF", loading, type }) {
 	const isBest = type === "best";
 	const columns = isBest
@@ -205,8 +361,8 @@ function OverviewView({ salesData, loading }) {
 					value={chf ? metrics.units_sold_gross : null}
 				/>
 				<StatCard
-					title="Marge estimée avant TVA et remboursements"
-					description="CA produits après remises − coût d'achat simulé des unités vendues."
+					title="Marge brute"
+					description="CA produits après remises − coût d'achat des unités vendues (avant TVA et remboursements)."
 					icon={TrendingUp}
 					unit="CHF"
 					value={formatAmount(metrics.gross_margin_estimated)}
@@ -295,9 +451,11 @@ function SalesView({ salesData }) {
 		margin != null && revenue != null && Number(revenue) > 0
 			? (Number(margin) / Number(revenue)) * 100
 			: null;
+	const productRows = enrichProducts(salesData?.currencies?.CHF?.products);
+	const brandRows = salesData?.currencies?.CHF?.brands || [];
 	return (
 		<div className="space-y-6">
-			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
 				<StatCard
 					title="Unités vendues nettes"
 					description="Ventes diminuées des retours"
@@ -309,6 +467,13 @@ function SalesView({ salesData }) {
 					icon={Wallet}
 					unit="CHF"
 					value={formatAmount(cogs)}
+				/>
+				<StatCard
+					title="Marge brute"
+					description="CA après remises − coût des produits vendus, avant TVA et remboursements."
+					icon={TrendingUp}
+					unit="CHF"
+					value={formatAmount(margin)}
 				/>
 				<StatCard
 					title="Coefficient indicatif"
@@ -422,21 +587,13 @@ function SalesView({ salesData }) {
 			</SectionCard>
 			<SectionCard
 				title="Rentabilité par produit"
-				description="Comparer les ventes, les coûts et les marges."
+				description="Comparer les ventes, les coûts et les marges brutes."
 				icon={TrendingUp}
 			>
-				<EmptyTable
-					columns={[
-						"Produit",
-						"Marque",
-						"Quantité",
-						"CA net HT",
-						"Coût",
-						"Marge",
-						"Taux de marque",
-						"Coefficient",
-					]}
-					message="Les résultats par produit apparaîtront ici."
+				<DataTable
+					columns={PRODUCT_COLUMNS}
+					rows={productRows}
+					empty="Aucune vente sur la période sélectionnée."
 				/>
 			</SectionCard>
 			<SectionCard
@@ -444,16 +601,52 @@ function SalesView({ salesData }) {
 				description="Quantités, chiffre d'affaires et marge par marque."
 				icon={BarChart3}
 			>
-				<EmptyState message="Le graphique des marques apparaîtra ici." />
+				<DataTable
+					columns={BRAND_COLUMNS}
+					rows={brandRows.map((b) => ({ ...b, key: b.vendor }))}
+					empty="Aucune donnée de marque sur la période."
+				/>
 			</SectionCard>
 			<SectionCard
 				title="Remises et remboursements"
 				description="Suivre leur incidence sur le chiffre d'affaires."
 				icon={RefreshCw}
 			>
-				<EmptyTable
-					columns={["Indicateur", "Montant", "Part du CA"]}
-					message="Les remises et remboursements apparaîtront ici."
+				<DataTable
+					columns={[
+						{ key: "label", label: "Indicateur" },
+						{
+							key: "amount",
+							label: "Montant",
+							align: "right",
+							render: (r) => chfOrDash(r.amount),
+						},
+						{
+							key: "share",
+							label: "Part du CA brut",
+							align: "right",
+							render: (r) =>
+								r.share == null ? "—" : `${formatAmount(r.share, 1)} %`,
+						},
+					]}
+					rows={
+						metrics.product_revenue_gross != null
+							? [
+									{
+										key: "discounts",
+										label: "Remises accordées",
+										amount: metrics.discounts_allocated,
+										share:
+											Number(metrics.product_revenue_gross) > 0
+												? (Number(metrics.discounts_allocated) /
+														Number(metrics.product_revenue_gross)) *
+													100
+												: null,
+									},
+								]
+							: []
+					}
+					empty="Les remises apparaîtront ici. Les remboursements ne sont pas encore déduits."
 				/>
 			</SectionCard>
 		</div>
@@ -688,47 +881,149 @@ function InventoryView({ salesData }) {
 		</div>
 	);
 }
-function ReportsView() {
+function ReportsView({ salesData, period }) {
+	const [sending, setSending] = useState(false);
+	const [sendResult, setSendResult] = useState(null);
+	const metrics = salesData?.currencies?.CHF?.metrics || {};
+	const brandRows = (salesData?.currencies?.CHF?.brands || []).map((b) => ({
+		...b,
+		key: b.vendor,
+	}));
+	const productRows = enrichProducts(salesData?.currencies?.CHF?.products);
+	const periodLabel =
+		PERIODS.find((p) => p.value === period)?.label || "Période sélectionnée";
+
+	const sendTest = async () => {
+		setSending(true);
+		setSendResult(null);
+		try {
+			const res = await api.post("/ecom/admin/reports/monthly/send");
+			setSendResult({
+				ok: true,
+				message: `Rapport envoyé à ${(res.data?.recipients || []).join(", ") || "l'administration"}.`,
+			});
+		} catch (err) {
+			setSendResult({
+				ok: false,
+				message:
+					err.response?.data?.detail ||
+					"Envoi impossible. Vérifiez la fonction Supabase send-monthly-report.",
+			});
+		} finally {
+			setSending(false);
+		}
+	};
+
 	return (
 		<div className="space-y-6">
+			<div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+				<StatCard
+					title="CA après remises"
+					description={periodLabel}
+					icon={Wallet}
+					unit="CHF"
+					value={formatAmount(metrics.product_revenue_after_discounts)}
+				/>
+				<StatCard
+					title="Coût des produits vendus"
+					description="Coût d'achat des unités vendues"
+					icon={Truck}
+					unit="CHF"
+					value={formatAmount(metrics.cogs_estimated)}
+				/>
+				<StatCard
+					title="Marge brute"
+					description="CA après remises − coût des produits vendus"
+					icon={TrendingUp}
+					unit="CHF"
+					value={formatAmount(metrics.gross_margin_estimated)}
+				/>
+				<StatCard
+					title="Taux de marge brute"
+					description="Marge brute / CA après remises"
+					icon={Percent}
+					unit="%"
+					value={formatAmount(metrics.gross_margin_rate, 1)}
+				/>
+			</div>
 			<SectionCard
-				title="Rapport mensuel par marque"
-				description="Récapitulatif des ventes, marges et quantités pour chaque marque."
+				title="Rapport par marque"
+				description={`Ventes, coûts et marge brute par marque — ${periodLabel.toLowerCase()}.`}
 				icon={FileText}
 			>
-				<EmptyTable
-					columns={[
-						"Marque",
-						"Unités vendues",
-						"CA net HT",
-						"Coût",
-						"Marge brute",
-						"Stock final",
-					]}
-					message="Le rapport mensuel apparaîtra ici."
+				<DataTable
+					columns={BRAND_COLUMNS}
+					rows={brandRows}
+					empty="Aucune vente sur la période sélectionnée."
 				/>
 			</SectionCard>
 			<SectionCard
 				title="Envoi automatique par email"
-				description="Rapport du mois précédent, envoyé aux destinataires autorisés."
+				description="Le 1er de chaque mois, le rapport du mois précédent (ventes, achats fournisseurs, marge brute, stocks, marques) est envoyé à l'administration."
 				icon={Mail}
 			>
 				<div className="rounded-xl border border-baume-border bg-baume-ivory/40 p-5">
 					<p className="text-[13px] text-baume-charcoal/65">
-						L'envoi automatique sera configuré après la mise en place des
-						calculs et la validation du rapport.
+						Planifié chaque 1er du mois à 8h (heure de Genève) via une tâche
+						cron Supabase et la fonction <code>send-monthly-report</code>.
+						Destinataires : variable <code>REPORT_RECIPIENTS</code>.
 					</p>
-					<span className="inline-flex mt-4 px-3 py-1 rounded-full border border-baume-border text-[12px] font-semibold text-baume-charcoal/60">
-						Non configuré
-					</span>
+					<div className="mt-4 flex flex-wrap items-center gap-3">
+						<span className="inline-flex px-3 py-1 rounded-full border border-baume-border text-[12px] font-semibold text-baume-burgundy">
+							Mensuel · 1er du mois
+						</span>
+						<button
+							type="button"
+							onClick={sendTest}
+							disabled={sending}
+							className="inline-flex items-center gap-2 h-9 px-4 rounded-full bg-baume-burgundy text-white text-[12px] font-semibold disabled:opacity-50"
+						>
+							<Mail className="h-4 w-4" />
+							{sending ? "Envoi…" : "Envoyer le rapport du mois précédent"}
+						</button>
+					</div>
+					{sendResult && (
+						<p
+							className={`mt-3 text-[12px] ${
+								sendResult.ok ? "text-emerald-700" : "text-red-600"
+							}`}
+						>
+							{sendResult.message}
+						</p>
+					)}
 				</div>
 			</SectionCard>
 			<SectionCard
 				title="Export des statistiques"
-				description="Téléchargement des rapports de ventes et de stocks."
+				description="Téléchargement au format CSV (compatible Excel) de la période sélectionnée."
 				icon={Download}
 			>
-				<EmptyState message="Les exports CSV seront disponibles après la connexion au backend." />
+				<div className="flex flex-wrap gap-3">
+					<button
+						type="button"
+						disabled={!productRows.length}
+						onClick={() =>
+							downloadCsv(
+								`baume-produits-${period}.csv`,
+								PRODUCT_COLUMNS,
+								productRows,
+							)
+						}
+						className="inline-flex items-center gap-2 h-10 px-5 rounded-full border border-baume-border text-[13px] font-semibold text-baume-charcoal hover:border-baume-burgundy/50 disabled:opacity-40"
+					>
+						<Download className="h-4 w-4" /> Rentabilité par produit
+					</button>
+					<button
+						type="button"
+						disabled={!brandRows.length}
+						onClick={() =>
+							downloadCsv(`baume-marques-${period}.csv`, BRAND_COLUMNS, brandRows)
+						}
+						className="inline-flex items-center gap-2 h-10 px-5 rounded-full border border-baume-border text-[13px] font-semibold text-baume-charcoal hover:border-baume-burgundy/50 disabled:opacity-40"
+					>
+						<Download className="h-4 w-4" /> Ventes par marque
+					</button>
+				</div>
 			</SectionCard>
 		</div>
 	);
@@ -862,7 +1157,9 @@ export default function StatisticsSection() {
 			)}
 			{activeTab === "sales" && <SalesView salesData={salesData} />}
 			{activeTab === "inventory" && <InventoryView salesData={salesData} />}
-			{activeTab === "reports" && <ReportsView />}
+			{activeTab === "reports" && (
+				<ReportsView salesData={salesData} period={period} />
+			)}
 		</div>
 	);
 }

@@ -53,6 +53,7 @@ import ErrorBoundary, { ErrorBoundaryWithReset } from "./components/ErrorBoundar
 
 import ReturnRequestPage from "./pages/ReturnRequestPage";
 import AdminReturnsPage from "./pages/AdminReturnsPage";
+import AdminCustomerPage from "./pages/AdminCustomerPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -157,6 +158,14 @@ function AppShell() {
             element={
               <AdminRoute>
                 <DashBoardAdmin />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/clients/:profileId"
+            element={
+              <AdminRoute>
+                <AdminCustomerPage />
               </AdminRoute>
             }
           />

@@ -5,7 +5,7 @@ import { uploadReviewImages } from "../lib/api";
 // ─── Composant principal ──────────────────────────────────────────────────────
 // Props :
 //   product        — objet produit (id, name, image)
-//   order          — objet commande (id, date) — passé uniquement si l'utilisateur a commandé ce produit
+//   order          — objet commande (id, date) ou null : l'achat n'est plus obligatoire
 //   currentUser    — objet utilisateur connecté (id, name, avatar) ou null
 //   onSubmit       — async (reviewData) => void  — appelé après validation
 //   existingReview — objet avis existant ou null (pour édition)
@@ -27,7 +27,7 @@ export default function ReviewForm({
 	const [errors, setErrors] = useState({});
 	const fileRef = useRef(null);
 
-	// ── Garde-fou : accès réservé aux acheteurs connectés ────────────────────
+	// ── Garde-fou : accès réservé aux personnes connectées ──────────────────
 	if (!currentUser) {
 		return (
 			<div className="rounded-3xl border border-baume-border bg-baume-white p-8 text-center">
@@ -39,10 +39,6 @@ export default function ReviewForm({
 				</p>
 			</div>
 		);
-	}
-
-	if (!order) {
-		return null; // Invisible si l'utilisateur n'a pas acheté ce produit
 	}
 
 	// ── Gestion des images ────────────────────────────────────────────────────
@@ -150,10 +146,12 @@ export default function ReviewForm({
 						{product.name}
 					</p>
 				</div>
-				{/* Acheteur vérifié */}
+				{/* Acheteur vérifié (affiché uniquement si la personne a commandé) */}
+				{order && (
 				<span className="shrink-0 text-[11px] font-medium text-baume-charcoal/50 border border-baume-border px-2.5 py-1 rounded-full hidden sm:inline">
 					Achat vérifié
 				</span>
+				)}
 			</div>
 
 			<div className="px-6 md:px-8 py-7 flex flex-col gap-7">

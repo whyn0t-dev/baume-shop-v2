@@ -29,6 +29,10 @@ import {
 	MessageCircle,
 	ArrowRight,
 	Sparkles,
+	Check,
+	Droplets,
+	Clock,
+	Leaf,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1358,6 +1362,9 @@ export default function ProductPage() {
 								</a>
 							</div>
 
+							{/* ── L'essentiel : premières informations produit ── */}
+							<ProductEssentials product={product} />
+
 							{/* ── Accordéons fins — style éditorial ── */}
 							<Accordion
 								type="single"
@@ -1385,6 +1392,12 @@ export default function ProductPage() {
 										content: product.how_to_use,
 									},
 									{
+										value: "entretien",
+										icon: <CheckIcon />,
+										label: "Entretien & conservation",
+										content: product.care_instructions,
+									},
+									{
 										value: "fabrication",
 										icon: <GlobeIcon />,
 										label: "Provenance & Fabrication",
@@ -1396,7 +1409,9 @@ export default function ProductPage() {
 										label: "Description",
 										content: product.description,
 									},
-								].map(({ value, icon, label, content }) => (
+								]
+									.filter(({ content }) => String(content || "").trim())
+									.map(({ value, icon, label, content }) => (
 									<AccordionItem
 										key={value}
 										value={value}
@@ -1413,7 +1428,7 @@ export default function ProductPage() {
 											</span>
 											<PlusMinusIcon />
 										</AccordionTrigger>
-										<AccordionContent className="text-[13px] leading-[22px] text-baume-charcoal/65 pb-4 pl-7">
+										<AccordionContent className="text-[13px] leading-[22px] text-baume-charcoal/65 pb-4 pl-7 whitespace-pre-line">
 											{content}
 										</AccordionContent>
 									</AccordionItem>
@@ -1734,6 +1749,140 @@ export function InfoLine({ icon: Icon, title, text }) {
 				<p className="text-[14px] font-semibold text-baume-charcoal">{title}</p>
 				<p className="text-[12px] text-baume-charcoal/65">{text}</p>
 			</div>
+		</div>
+	);
+}
+
+
+// ─── L'essentiel : résumé des informations produit ──────────────────────────
+// Affiché sous « Laisser un avis ». Se construit à partir des champs saisis
+// dans l'admin (points clés, caractéristiques) et, à défaut, des attributs
+// existants du produit (usage, flux, tailles, bénéfices).
+const USAGE_LABELS = { jour: "Jour", nuit: "Nuit", sport: "Sport" };
+const FLUX_LABELS = { leger: "Léger", moyen: "Moyen", abondant: "Abondant" };
+
+function ProductEssentials({ product }) {
+	if (!product) return null;
+
+	const highlights = (
+		Array.isArray(product.highlights) && product.highlights.length
+			? product.highlights
+			: Array.isArray(product.benefits)
+				? product.benefits
+				: []
+	).slice(0, 6);
+
+	const specs = Array.isArray(product.specs) ? [...product.specs] : [];
+	const hasLabel = (label) =>
+		specs.some((s) => s.label?.toLowerCase() === label.toLowerCase());
+
+	if (product.usage && !hasLabel("Usage"))
+		specs.push({
+			label: "Usage",
+			value: USAGE_LABELS[product.usage] || product.usage,
+		});
+	if (product.flux && !hasLabel("Flux"))
+		specs.push({
+			label: "Flux",
+			value: FLUX_LABELS[product.flux] || product.flux,
+		});
+	if (Array.isArray(product.sizes) && product.sizes.length && !hasLabel("Tailles"))
+		specs.push({ label: "Tailles", value: product.sizes.join(" · ") });
+
+	const quickFacts = [
+		product.composition && {
+			icon: Leaf,
+			label: "Composition",
+			text: product.composition,
+		},
+		product.how_to_use && {
+			icon: Clock,
+			label: "Utilisation",
+			text: product.how_to_use,
+		},
+		product.care_instructions && {
+			icon: Droplets,
+			label: "Entretien",
+			text: product.care_instructions,
+		},
+	].filter(Boolean);
+
+	if (!highlights.length && !specs.length && !quickFacts.length) return null;
+
+	const excerpt = (t) => {
+		const str = String(t || "").replace(/\s+/g, " ").trim();
+		return str.length > 110 ? `${str.slice(0, 107)}…` : str;
+	};
+
+	return (
+		<div
+			className="rounded-3xl border border-baume-border bg-baume-ivory/60 p-5 shadow-sm"
+			data-testid="product-essentials"
+		>
+			<div className="flex items-center gap-2 mb-4">
+				<Sparkles className="h-4 w-4 text-baume-burgundy" />
+				<p className="text-[11px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold">
+					L'essentiel
+				</p>
+			</div>
+
+			{highlights.length > 0 && (
+				<ul className="flex flex-wrap gap-2 mb-4">
+					{highlights.map((h) => (
+						<li
+							key={h}
+							className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-baume-white border border-baume-border text-[12px] font-medium text-baume-charcoal"
+						>
+							<Check className="h-3.5 w-3.5 text-baume-burgundy" />
+							{h}
+						</li>
+					))}
+				</ul>
+			)}
+
+			{specs.length > 0 && (
+				<dl className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-baume-border bg-baume-border mb-4">
+					{specs.slice(0, 8).map((s, i, arr) => (
+						<div
+							key={`${s.label}-${s.value}`}
+							className={`bg-baume-white px-4 py-3 ${
+								i === arr.length - 1 && arr.length % 2 === 1 ? "col-span-2" : ""
+							}`}
+						>
+							<dt className="text-[10px] uppercase tracking-[0.16em] text-baume-charcoal/45 font-semibold">
+								{s.label}
+							</dt>
+							<dd className="mt-0.5 text-[13px] text-baume-charcoal font-medium">
+								{s.value || "—"}
+							</dd>
+						</div>
+					))}
+				</dl>
+			)}
+
+			{quickFacts.length > 0 && (
+				<ul className="space-y-3">
+					{quickFacts.map(({ icon: Icon, label, text }) => (
+						<li key={label} className="flex gap-3">
+							<span className="h-8 w-8 shrink-0 rounded-full bg-baume-white border border-baume-border flex items-center justify-center">
+								<Icon className="h-4 w-4 text-baume-burgundy" />
+							</span>
+							<div className="min-w-0">
+								<p className="text-[12px] font-semibold text-baume-charcoal">
+									{label}
+								</p>
+								<p className="text-[12px] leading-[19px] text-baume-charcoal/60">
+									{excerpt(text)}
+								</p>
+							</div>
+						</li>
+					))}
+				</ul>
+			)}
+
+			<p className="mt-4 text-[11px] text-baume-charcoal/45">
+				Tous les détails sont à retrouver ci-dessous.
+			</p>
 		</div>
 	);
 }

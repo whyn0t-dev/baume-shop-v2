@@ -147,8 +147,8 @@ export default function ShopIndexPage({ kind }) {
 			{/* PRODUIT MODE — layout 2 colonnes avec filtres */}
 			{kind === "produit" && (
 				<section className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 pb-24">
-					<div className="flex gap-10 lg:items-start">
-						{/* Filtres desktop */}
+					{/* Barre de filtres horizontale (pastilles arrondies) */}
+					<div className="mb-8 rounded-[28px] border border-baume-border bg-baume-white px-4 md:px-6 py-5">
 						<Filters
 							filters={filters}
 							setFilters={setFilters}
@@ -156,6 +156,9 @@ export default function ShopIndexPage({ kind }) {
 							cats={cats}
 							onReset={() => setFilters(DEFAULT_FILTERS)}
 						/>
+					</div>
+
+					<div className="flex gap-10 lg:items-start">
 
 						{/* Contenu principal */}
 						<div className="flex-1 min-w-0">

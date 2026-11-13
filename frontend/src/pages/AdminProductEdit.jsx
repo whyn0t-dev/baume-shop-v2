@@ -1,4 +1,10 @@
 import React, { useCallback, useEffect, useState } from "react";
+import {
+	parseLines,
+	parseSpecs,
+	linesToText,
+	specsToText,
+} from "../lib/productInfo";
 import { useNavigate, useParams } from "react-router-dom";
 import {
 	getAdminProductFull,
@@ -87,6 +93,9 @@ export default function AdminProductEdit() {
 				usage: data.usage || "",
 				how_to_use: data.how_to_use || "",
 				fabrication: data.fabrication || "",
+				care_instructions: data.care_instructions || "",
+				highlights_text: linesToText(data.highlights),
+				specs_text: specsToText(data.specs),
 				colors: data.colors || [],
 				sizes: data.sizes || [],
 				benefits: data.benefits || [],
@@ -155,6 +164,9 @@ export default function AdminProductEdit() {
 					usage: product.usage,
 					how_to_use: product.how_to_use,
 					fabrication: product.fabrication,
+					care_instructions: product.care_instructions || null,
+					highlights: parseLines(product.highlights_text),
+					specs: parseSpecs(product.specs_text),
 					colors: product.colors || [],
 					sizes: product.sizes || [],
 					benefits: product.benefits || [],
@@ -636,6 +648,54 @@ export default function AdminProductEdit() {
 					/>
 				</div>
 
+				{/* Fiche produit — bloc « L'essentiel » + accordéons */}
+				<section className="rounded-[28px] border border-baume-border bg-baume-white p-6 md:p-8">
+					<p className="text-[11px] uppercase tracking-[0.22em] text-baume-burgundy/70 font-semibold">
+						Fiche produit
+					</p>
+					<h2 className="mt-1 text-[24px] font-semibold text-baume-burgundy">
+						Informations produit
+					</h2>
+					<p className="mt-2 mb-6 text-[13px] text-baume-charcoal/60">
+						Affichées sur la fiche produit, sous « Laisser un avis » : un
+						résumé « L'essentiel » puis le détail en accordéons.
+					</p>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+						<Textarea
+							label="Points clés — un par ligne (ex. Sans PFAS)"
+							value={product.highlights_text || ""}
+							onChange={(v) => setProduct({ ...product, highlights_text: v })}
+						/>
+						<Textarea
+							label="Caractéristiques — « Libellé : valeur », une par ligne"
+							value={product.specs_text || ""}
+							onChange={(v) => setProduct({ ...product, specs_text: v })}
+						/>
+						<Textarea
+							label="Composition"
+							value={product.composition || ""}
+							onChange={(v) => setProduct({ ...product, composition: v })}
+						/>
+						<Textarea
+							label="Conseils d'utilisation"
+							value={product.how_to_use || ""}
+							onChange={(v) => setProduct({ ...product, how_to_use: v })}
+						/>
+						<Textarea
+							label="Entretien & conservation"
+							value={product.care_instructions || ""}
+							onChange={(v) =>
+								setProduct({ ...product, care_instructions: v })
+							}
+						/>
+						<Textarea
+							label="Provenance & fabrication"
+							value={product.fabrication || ""}
+							onChange={(v) => setProduct({ ...product, fabrication: v })}
+						/>
+					</div>
+				</section>
+
 				{/* Section Pré-commande */}
 				<section className="rounded-[28px] border border-baume-burgundy/20 bg-baume-burgundy/5 p-6">
 					<div className="flex items-center justify-between mb-6">
@@ -765,36 +825,36 @@ export default function AdminProductEdit() {
 			</form>
 		</main>
 	);
+}
 
-	function Input({ label, value, onChange, type = "text", className = "" }) {
-		return (
-			<label className={`block ${className}`}>
-				<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
-					{label}
-				</span>
-				<input
-					type={type}
-					value={value}
-					onChange={(e) => onChange(e.target.value)}
-					className="h-12 w-full rounded-2xl border border-baume-border bg-baume-white px-4 text-[14px] outline-none focus:ring-2 focus:ring-baume-taupe"
-				/>
-			</label>
-		);
-	}
+function Input({ label, value, onChange, type = "text", className = "" }) {
+	return (
+		<label className={`block ${className}`}>
+			<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+				{label}
+			</span>
+			<input
+				type={type}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				className="h-12 w-full rounded-2xl border border-baume-border bg-baume-white px-4 text-[14px] outline-none focus:ring-2 focus:ring-baume-taupe"
+			/>
+		</label>
+	);
+}
 
-	function Textarea({ label, value, onChange, className = "" }) {
-		return (
-			<label className={`block ${className}`}>
-				<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
-					{label}
-				</span>
-				<textarea
-					value={value}
-					onChange={(e) => onChange(e.target.value)}
-					rows={5}
-					className="w-full rounded-2xl border border-baume-border bg-baume-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-baume-taupe resize-none"
-				/>
-			</label>
-		);
-	}
+function Textarea({ label, value, onChange, className = "" }) {
+	return (
+		<label className={`block ${className}`}>
+			<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+				{label}
+			</span>
+			<textarea
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				rows={5}
+				className="w-full rounded-2xl border border-baume-border bg-baume-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-baume-taupe resize-none"
+			/>
+		</label>
+	);
 }

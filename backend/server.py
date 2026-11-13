@@ -213,6 +213,10 @@ class Product(BaseModel):
     composition: Optional[str] = None
     how_to_use: Optional[str] = None
     fabrication: Optional[str] = None
+    # Bloc « L'essentiel » sous « Laisser un avis » (fiche produit)
+    highlights: List[str] = Field(default_factory=list)
+    specs: List[Dict[str, Any]] = Field(default_factory=list)
+    care_instructions: Optional[str] = None
 
     rating: Optional[float] = 0
     reviews_count: Optional[int] = 0
@@ -621,16 +625,20 @@ async def get_product_order_status(
     product_id: str,
     profile=Depends(get_current_profile),
 ):
+    # Les avis sont ouverts à toutes les personnes connectées : l'achat
+    # n'est plus obligatoire. On renvoie quand même l'info "a commandé"
+    # pour afficher le badge « Achat vérifié ».
     customer = await get_or_create_customer(profile)
     order_item = await _customer_bought_product(customer["id"], product_id)
 
-    if not order_item:
-        return {"has_ordered": False, "order": None, "review": None}
-
-    order_summary = {
-        "id": order_item["orders"]["id"],
-        "status": order_item["orders"]["status"],
-    }
+    order_summary = (
+        {
+            "id": order_item["orders"]["id"],
+            "status": order_item["orders"]["status"],
+        }
+        if order_item
+        else None
+    )
 
     review_result = await asyncio.to_thread(
         lambda: supabase.table("reviews")
@@ -642,7 +650,8 @@ async def get_product_order_status(
     )
 
     return {
-        "has_ordered": True,
+        "has_ordered": bool(order_item),
+        "can_review": True,
         "order": order_summary,
         "review": review_result.data[0] if review_result.data else None,
     }
@@ -656,12 +665,13 @@ async def submit_review(
     customer = await get_or_create_customer(profile)
     customer_id = customer["id"]
 
+    # L'achat n'est plus obligatoire pour laisser un avis. S'il existe,
+    # l'avis est simplement marqué « Achat vérifié ».
+    product = await sb_select_one("products", "id", payload.product_id, "id")
+    if not product:
+        raise HTTPException(status_code=404, detail="Produit introuvable")
+
     order_item = await _customer_bought_product(customer_id, payload.product_id)
-    if not order_item:
-        raise HTTPException(
-            status_code=403,
-            detail="Vous devez avoir commandé ce produit pour laisser un avis.",
-        )
 
     existing = await asyncio.to_thread(
         lambda: supabase.table("reviews")
@@ -684,13 +694,13 @@ async def submit_review(
         "id": str(uuid.uuid4()),
         "product_id": payload.product_id,
         "customer_id": customer_id,
-        "order_id": order_item["orders"]["id"],
+        "order_id": order_item["orders"]["id"] if order_item else None,
         "author": author,
         "rating": payload.rating,
         "title": payload.title,
         "body": payload.body,
         "images": [],
-        "verified_purchase": True,
+        "verified_purchase": bool(order_item),
         "status": "pending",
         "created_at": now_iso(),
         "updated_at": now_iso(),
@@ -2083,6 +2093,17 @@ async def stripe_webhook(request: Request):
                     order["id"],
                     loyalty_result.data,
                 )
+
+                # Parrainage : valider automatiquement au 1er achat payé
+                try:
+                    ref_result = await _complete_referral_for_order(order)
+                    if ref_result:
+                        logger.info("Parrainage validé : %s", ref_result)
+                except Exception:
+                    logger.exception(
+                        "Validation parrainage échouée pour order_id=%s",
+                        order["id"],
+                    )
 
                 # Demander l'envoi de l'e-mail de confirmation.
                 try:
@@ -3995,6 +4016,7 @@ async def get_admin_statistics_sales(
                 line_discount = ZERO
 
             revenue_after_discount = gross - line_discount
+            line_cogs_for_product = None
 
             # Coûts en CHF uniquement : aucune conversion FX implicite.
             # Les quantités vendues sont brutes (retours non déduits).
@@ -4014,6 +4036,7 @@ async def get_admin_statistics_sales(
                 group["supplier_cost_estimated"] += supplier_cost
                 group["acquisition_fees_estimated"] += acquisition_cost
                 group["cogs_estimated"] += line_cogs
+                line_cogs_for_product = line_cogs
                 if variant.get("cost_price_source") == "estimated":
                     group["units_with_estimated_cost"] += quantity
 
@@ -4067,6 +4090,8 @@ async def get_admin_statistics_sales(
                     "gross_revenue": ZERO,
                     "allocated_discount": ZERO,
                     "revenue_after_discounts": ZERO,
+                    "cogs_estimated": ZERO,
+                    "units_missing_cost": 0,
                 }
 
             stat = group["products"][product_id]
@@ -4075,6 +4100,10 @@ async def get_admin_statistics_sales(
             stat["gross_revenue"] += gross
             stat["allocated_discount"] += line_discount
             stat["revenue_after_discounts"] += revenue_after_discount
+            if line_cogs_for_product is not None:
+                stat["cogs_estimated"] += line_cogs_for_product
+            else:
+                stat["units_missing_cost"] += quantity
 
             group["units_sold_gross"] += quantity
             group["product_revenue_gross"] += gross
@@ -4108,6 +4137,8 @@ async def get_admin_statistics_sales(
                 "gross_revenue": ZERO,
                 "allocated_discount": ZERO,
                 "revenue_after_discounts": ZERO,
+                "cogs_estimated": ZERO,
+                "units_missing_cost": 0,
             }
 
     # --------------------------------------------------------
@@ -4123,15 +4154,74 @@ async def get_admin_statistics_sales(
     for currency, group in results_by_currency.items():
         product_results = []
 
+        brands = {}
+
         for stat in group["products"].values():
+            cost_complete = currency == "CHF" and stat["units_missing_cost"] == 0
+            product_margin = (
+                stat["revenue_after_discounts"] - stat["cogs_estimated"]
+                if cost_complete
+                else None
+            )
             product_results.append(
                 {
                     **stat,
                     "gross_revenue": amount(stat["gross_revenue"]),
                     "allocated_discount": amount(stat["allocated_discount"]),
                     "revenue_after_discounts": amount(stat["revenue_after_discounts"]),
+                    "cogs_estimated": (
+                        amount(stat["cogs_estimated"]) if cost_complete else None
+                    ),
+                    "gross_margin_estimated": (
+                        amount(product_margin) if product_margin is not None else None
+                    ),
                 }
             )
+
+            # Agrégat par marque (ventes, coût, marge brute)
+            vendor = stat.get("vendor") or "Sans marque"
+            b = brands.setdefault(
+                vendor,
+                {
+                    "vendor": vendor,
+                    "products_count": 0,
+                    "units_sold": 0,
+                    "revenue_after_discounts": ZERO,
+                    "cogs_estimated": ZERO,
+                    "units_missing_cost": 0,
+                },
+            )
+            b["products_count"] += 1
+            b["units_sold"] += stat["quantity_sold_gross"]
+            b["revenue_after_discounts"] += stat["revenue_after_discounts"]
+            b["cogs_estimated"] += stat["cogs_estimated"]
+            b["units_missing_cost"] += stat["units_missing_cost"]
+
+        brand_results = []
+        for b in brands.values():
+            complete = currency == "CHF" and b["units_missing_cost"] == 0
+            margin = b["revenue_after_discounts"] - b["cogs_estimated"]
+            brand_results.append(
+                {
+                    "vendor": b["vendor"],
+                    "products_count": b["products_count"],
+                    "units_sold": b["units_sold"],
+                    "revenue_after_discounts": amount(b["revenue_after_discounts"]),
+                    "cogs_estimated": amount(b["cogs_estimated"]) if complete else None,
+                    "gross_margin_estimated": amount(margin) if complete else None,
+                    "gross_margin_rate": (
+                        float(
+                            round(
+                                margin / b["revenue_after_discounts"] * Decimal("100"),
+                                1,
+                            )
+                        )
+                        if complete and b["revenue_after_discounts"] > ZERO
+                        else None
+                    ),
+                }
+            )
+        brand_results.sort(key=lambda r: -float(r["revenue_after_discounts"] or 0))
 
         best_sellers = sorted(
             product_results,
@@ -4181,11 +4271,29 @@ async def get_admin_statistics_sales(
                     if currency == "CHF" and not group["units_missing_cost"]
                     else None
                 ),
+                "gross_margin_rate": (
+                    float(
+                        round(
+                            (
+                                group["product_revenue_after_discounts"]
+                                - group["cogs_estimated"]
+                            )
+                            / group["product_revenue_after_discounts"]
+                            * Decimal("100"),
+                            1,
+                        )
+                    )
+                    if currency == "CHF"
+                    and not group["units_missing_cost"]
+                    and group["product_revenue_after_discounts"] > ZERO
+                    else None
+                ),
                 "units_missing_cost": group["units_missing_cost"],
                 "missing_cost_items": group["missing_cost_items"],  # AJOUT
                 "units_with_estimated_cost": group["units_with_estimated_cost"],
             },
             "products": product_results,
+            "brands": brand_results,
             "best_sellers": best_sellers,
             "least_sellers": least_sellers,
         }
@@ -4333,6 +4441,719 @@ async def get_admin_statistics_sales(
             "Les produits sans ventes sont issus du catalogue actif actuel.",
         ],
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# NOUVELLES ROUTES ADMIN / INTERNES
+# (déclarées AVANT /ecom/admin/{table} pour ne pas être capturées par la
+#  route générique)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+def require_internal_token(request: Request):
+    """Protège les routes appelées par les fonctions Supabase (cron)."""
+    expected = os.environ.get("BAUME_INTERNAL_TOKEN", "")
+    received = request.headers.get("X-Baume-Internal-Token", "")
+    if not expected or received != expected:
+        raise HTTPException(status_code=401, detail="Non autorisé")
+    return True
+
+
+async def _supabase_function(name: str, payload: dict, timeout: float = 60.0) -> dict:
+    """Appelle une fonction Supabase (Edge Function) avec le jeton interne."""
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        res = await client.post(
+            f"{SUPABASE_URL}/functions/v1/{name}",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "X-Baume-Internal-Token": os.environ.get("BAUME_INTERNAL_TOKEN", ""),
+                "Content-Type": "application/json",
+            },
+        )
+    try:
+        data = res.json()
+    except Exception:
+        data = {"raw": res.text}
+    if res.status_code >= 400:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Fonction {name} en erreur ({res.status_code}) : {data}",
+        )
+    return data
+
+
+# ── Rapport mensuel ─────────────────────────────────────────────────────────
+
+
+async def _purchases_for_period(start: datetime, end: datetime) -> dict:
+    """
+    Achats / réceptions de stock sur la période : mouvements d'inventaire
+    positifs (hors annulations de commande), valorisés au coût actuel.
+    """
+    movements = await asyncio.to_thread(
+        lambda: supabase.table("inventory_movements")
+        .select("inventory_item_id,change_quantity,reason,reference_type,created_at")
+        .gt("change_quantity", 0)
+        .gte("created_at", start.astimezone(timezone.utc).isoformat())
+        .lt("created_at", end.astimezone(timezone.utc).isoformat())
+        .limit(5000)
+        .execute()
+    )
+    rows = [
+        m
+        for m in (movements.data or [])
+        if (m.get("reference_type") or "") != "order"
+        and not str(m.get("reason") or "").startswith("order_")
+    ]
+    if not rows:
+        return {"units": 0, "value_chf": None, "lines": []}
+
+    item_ids = list({m["inventory_item_id"] for m in rows if m.get("inventory_item_id")})
+    items = await asyncio.to_thread(
+        lambda: supabase.table("inventory_items")
+        .select("id,variant_id")
+        .in_("id", item_ids)
+        .execute()
+    )
+    variant_by_item = {i["id"]: i.get("variant_id") for i in (items.data or [])}
+    variant_ids = [v for v in variant_by_item.values() if v]
+    variants = (
+        await asyncio.to_thread(
+            lambda: supabase.table("product_variants")
+            .select("id,product_id,title,sku,cost_price")
+            .in_("id", variant_ids)
+            .execute()
+        )
+        if variant_ids
+        else None
+    )
+    variant_map = {v["id"]: v for v in ((variants.data if variants else None) or [])}
+    product_ids = list({v["product_id"] for v in variant_map.values() if v.get("product_id")})
+    products = (
+        await asyncio.to_thread(
+            lambda: supabase.table("products")
+            .select("id,name,vendor")
+            .in_("id", product_ids)
+            .execute()
+        )
+        if product_ids
+        else None
+    )
+    product_map = {p["id"]: p for p in ((products.data if products else None) or [])}
+
+    agg: Dict[str, dict] = {}
+    total_units = 0
+    total_value = Decimal("0")
+    value_complete = True
+    for m in rows:
+        variant = variant_map.get(variant_by_item.get(m.get("inventory_item_id")))
+        qty = int(m.get("change_quantity") or 0)
+        total_units += qty
+        product = product_map.get((variant or {}).get("product_id")) or {}
+        key = (variant or {}).get("id") or m.get("inventory_item_id")
+        line = agg.setdefault(
+            key,
+            {
+                "product": product.get("name") or "Produit inconnu",
+                "vendor": product.get("vendor") or "Sans marque",
+                "variant": (variant or {}).get("title"),
+                "sku": (variant or {}).get("sku"),
+                "units": 0,
+                "value_chf": Decimal("0"),
+            },
+        )
+        line["units"] += qty
+        if variant and variant.get("cost_price") is not None:
+            v = Decimal(str(variant["cost_price"])) * qty
+            line["value_chf"] += v
+            total_value += v
+        else:
+            value_complete = False
+
+    lines = sorted(agg.values(), key=lambda r: -r["units"])
+    for l in lines:
+        l["value_chf"] = float(round(l["value_chf"], 2))
+    return {
+        "units": total_units,
+        "value_chf": float(round(total_value, 2)) if value_complete else None,
+        "lines": lines[:100],
+    }
+
+
+async def _build_monthly_report(period: str = "previous_month") -> dict:
+    stats = await get_admin_statistics_sales(period=period, _profile=None)
+    start, end = stats_period_bounds(period)
+    purchases = await _purchases_for_period(start, end)
+    chf = (stats.get("currencies") or {}).get("CHF") or {}
+    month_label = start.astimezone(ZoneInfo("Europe/Zurich")).strftime("%m/%Y")
+    products = [p for p in chf.get("products", []) if p.get("quantity_sold_gross")]
+    products.sort(key=lambda p: -float(p.get("revenue_after_discounts") or 0))
+    return {
+        "period": period,
+        "month_label": month_label,
+        "start": stats.get("start"),
+        "end": stats.get("end"),
+        "metrics": chf.get("metrics") or {},
+        "brands": chf.get("brands") or [],
+        "products_sold": products,
+        "best_sellers": chf.get("best_sellers") or [],
+        "least_sellers": chf.get("least_sellers") or [],
+        "stock_history": stats.get("stock_history"),
+        "inventory": stats.get("inventory"),
+        "purchases": purchases,
+        "limitations": stats.get("limitations") or [],
+        "generated_at": now_iso(),
+    }
+
+
+@api_router.get("/internal/reports/monthly")
+async def internal_monthly_report(
+    request: Request,
+    period: str = "previous_month",
+):
+    """Données du rapport mensuel — appelée par la fonction send-monthly-report."""
+    require_internal_token(request)
+    return await _build_monthly_report(period)
+
+
+@api_router.get("/ecom/admin/reports/monthly")
+async def admin_monthly_report(
+    period: str = "previous_month",
+    profile=Depends(require_admin),
+):
+    return await _build_monthly_report(period)
+
+
+@api_router.post("/ecom/admin/reports/monthly/send")
+async def admin_send_monthly_report(profile=Depends(require_admin)):
+    """Déclenche manuellement l'envoi du rapport du mois précédent."""
+    return await _supabase_function("send-monthly-report", {"trigger": "manual"})
+
+
+# ── CTR des bannières promotionnelles ──────────────────────────────────────
+
+BANNER_ID_ALLOWED = set("abcdefghijklmnopqrstuvwxyz0123456789-_")
+
+
+@api_router.post("/banners/track")
+@limiter.limit("120/minute")
+async def track_banner_event(request: Request):
+    """
+    Enregistre un affichage ou un clic de bannière. Le corps est envoyé en
+    text/plain par navigator.sendBeacon : on le décode nous-mêmes.
+    """
+    try:
+        raw = await request.body()
+        payload = json.loads(raw.decode("utf-8") or "{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Corps invalide")
+
+    banner_id = str(payload.get("banner_id") or "").strip().lower()[:80]
+    event_type = payload.get("event_type")
+
+    if (
+        not banner_id
+        or any(c not in BANNER_ID_ALLOWED for c in banner_id)
+        or event_type not in ("view", "click")
+    ):
+        raise HTTPException(status_code=400, detail="Événement invalide")
+
+    user = await get_optional_user(request)
+
+    try:
+        await sb_insert(
+            "banner_events",
+            {
+                "banner_id": banner_id,
+                "banner_label": str(payload.get("banner_label") or banner_id)[:160],
+                "event_type": event_type,
+                "page": str(payload.get("page") or "")[:200] or None,
+                "target": str(payload.get("target") or "")[:200] or None,
+                "session_id": str(payload.get("session_id") or "")[:80] or None,
+                "profile_id": auth_user_id(user),
+                "created_at": now_iso(),
+            },
+        )
+    except Exception:
+        # Le suivi ne doit jamais casser la navigation
+        logger.exception("banner_events insert failed")
+
+    return {"ok": True}
+
+
+@api_router.get("/ecom/admin/banners/ctr")
+async def admin_banner_ctr(
+    period: str = "30d",
+    profile=Depends(require_admin),
+):
+    days = {"today": 1, "7d": 7, "30d": 30, "90d": 90}.get(period, 30)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+
+    result = await asyncio.to_thread(
+        lambda: supabase.rpc(
+            "banner_ctr_stats", {"p_since": since.isoformat()}
+        ).execute()
+    )
+    rows = result.data or []
+
+    banners = []
+    total_views = total_clicks = 0
+    for r in rows:
+        views = int(r.get("unique_viewers") or 0)
+        clicks = int(r.get("clicks") or 0)
+        total_views += views
+        total_clicks += clicks
+        banners.append(
+            {
+                "banner_id": r["banner_id"],
+                "label": r.get("banner_label") or r["banner_id"],
+                "views": views,
+                "clicks": clicks,
+                "unique_clickers": int(r.get("unique_clickers") or 0),
+                "ctr": round(clicks / views * 100, 2) if views else None,
+                "last_event_at": r.get("last_event_at"),
+            }
+        )
+
+    banners.sort(key=lambda b: (-(b["ctr"] or 0), -b["views"]))
+    return {
+        "period": period,
+        "since": since.isoformat(),
+        "total_views": total_views,
+        "total_clicks": total_clicks,
+        "global_ctr": (
+            round(total_clicks / total_views * 100, 2) if total_views else None
+        ),
+        "banners": banners,
+    }
+
+
+# ── Fiche client (admin) ───────────────────────────────────────────────────
+
+PAID_ORDER_STATUSES = ("paid", "processing", "shipped", "delivered", "refunded")
+
+
+async def _safe_rows(fn) -> list:
+    """Exécute une requête Supabase et renvoie [] en cas d'erreur
+    (ex. table pas encore migrée) pour ne pas casser la fiche client."""
+    try:
+        result = await asyncio.to_thread(fn)
+        return result.data or []
+    except Exception as e:
+        logger.warning("Fiche client : requête ignorée (%s)", e)
+        return []
+
+
+def _loyalty_status(paid_orders: int, net_spent: float) -> dict:
+    """Statut fidélité calculé (indépendant des points)."""
+    if net_spent >= 600 or paid_orders >= 6:
+        return {"key": "vip", "label": "VIP"}
+    if net_spent >= 300 or paid_orders >= 4:
+        return {"key": "fidele", "label": "Fidèle"}
+    if paid_orders >= 2:
+        return {"key": "reguliere", "label": "Régulière"}
+    if paid_orders == 1:
+        return {"key": "nouvelle", "label": "Nouvelle cliente"}
+    return {"key": "prospect", "label": "Prospect (sans achat)"}
+
+
+@api_router.get("/ecom/admin/customers")
+async def admin_list_customers(
+    search: Optional[str] = None,
+    limit: int = Query(300, gt=0, le=1000),
+    profile=Depends(require_admin),
+):
+    """Liste des clientes avec indicateurs clés (dépense, commandes, statut)."""
+
+    def run_profiles():
+        q = supabase.table("profiles").select(
+            "id,email,first_name,last_name,phone,role,created_at"
+        )
+        if search:
+            term = search.replace(",", " ").strip()
+            q = q.or_(
+                f"email.ilike.%{term}%,first_name.ilike.%{term}%,last_name.ilike.%{term}%"
+            )
+        return q.order("created_at", desc=True).limit(limit).execute()
+
+    profiles = await _safe_rows(run_profiles)
+    if not profiles:
+        return []
+
+    profile_ids = [p["id"] for p in profiles]
+    customers = await _safe_rows(
+        lambda: supabase.table("customers")
+        .select("id,profile_id,tags,marketing_opt_out")
+        .in_("profile_id", profile_ids)
+        .execute()
+    )
+    customer_by_profile = {c["profile_id"]: c for c in customers}
+    customer_ids = [c["id"] for c in customers]
+
+    orders = (
+        await _safe_rows(
+            lambda: supabase.table("orders")
+            .select("customer_id,total,status,created_at")
+            .in_("customer_id", customer_ids)
+            .limit(10000)
+            .execute()
+        )
+        if customer_ids
+        else []
+    )
+    loyalty = await _safe_rows(
+        lambda: supabase.table("loyalty_points")
+        .select("profile_id,points")
+        .in_("profile_id", profile_ids)
+        .execute()
+    )
+    points_by_profile = {l["profile_id"]: l.get("points") or 0 for l in loyalty}
+
+    stats: Dict[str, dict] = {}
+    for o in orders:
+        st = stats.setdefault(
+            o["customer_id"], {"orders": 0, "spent": 0.0, "refunded": 0.0, "last": None}
+        )
+        if o.get("status") not in PAID_ORDER_STATUSES:
+            continue
+        total = float(o.get("total") or 0)
+        st["orders"] += 1
+        st["spent"] += total
+        if o.get("status") == "refunded":
+            st["refunded"] += total
+        if not st["last"] or o["created_at"] > st["last"]:
+            st["last"] = o["created_at"]
+
+    rows = []
+    for p in profiles:
+        c = customer_by_profile.get(p["id"]) or {}
+        st = stats.get(c.get("id"), {"orders": 0, "spent": 0.0, "refunded": 0.0, "last": None})
+        net = round(st["spent"] - st["refunded"], 2)
+        rows.append(
+            {
+                **p,
+                "customer_id": c.get("id"),
+                "tags": c.get("tags") or [],
+                "marketing_opt_out": bool(c.get("marketing_opt_out")),
+                "orders_count": st["orders"],
+                "net_spent": net,
+                "last_order_at": st["last"],
+                "loyalty_points": points_by_profile.get(p["id"], 0),
+                "loyalty_status": _loyalty_status(st["orders"], net),
+            }
+        )
+    return rows
+
+
+@api_router.get("/ecom/admin/customers/{profile_id}")
+async def admin_customer_file(profile_id: str, profile=Depends(require_admin)):
+    """Fiche client complète : identité, historique, habitudes, fidélité, offres."""
+    person = await sb_select_one("profiles", "id", profile_id)
+    if not person:
+        raise HTTPException(status_code=404, detail="Cliente introuvable")
+
+    email = (person.get("email") or "").strip().lower()
+    customers = await _safe_rows(
+        lambda: supabase.table("customers").select("*").eq("profile_id", profile_id).execute()
+    )
+    customer_ids = [c["id"] for c in customers]
+    customer = customers[0] if customers else {}
+
+    # Commandes rattachées au compte + commandes invitées avec le même email
+    def run_orders():
+        q = supabase.table("orders").select(
+            "*, order_items(*), payments(*), refunds(*)"
+        )
+        filters = []
+        if customer_ids:
+            filters.append(f"customer_id.in.({','.join(customer_ids)})")
+        if email:
+            filters.append(f"email.ilike.{email}")
+        if not filters:
+            return type("R", (), {"data": []})()
+        return q.or_(",".join(filters)).order("created_at", desc=True).limit(500).execute()
+
+    orders = await _safe_rows(run_orders)
+    for o in orders:
+        o.pop("stripe_checkout_session_id", None)
+        o.pop("stripe_payment_intent_id", None)
+
+    addresses = (
+        await _safe_rows(
+            lambda: supabase.table("addresses").select("*").in_("customer_id", customer_ids).execute()
+        )
+        if customer_ids
+        else []
+    )
+    loyalty = await sb_select_one("loyalty_points", "profile_id", profile_id) or {}
+    loyalty_tx = await _safe_rows(
+        lambda: supabase.table("loyalty_transactions")
+        .select("*")
+        .eq("profile_id", profile_id)
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+    returns = (
+        await _safe_rows(
+            lambda: supabase.table("return_requests")
+            .select("*")
+            .ilike("email", email)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if email
+        else []
+    )
+    reviews = (
+        await _safe_rows(
+            lambda: supabase.table("reviews")
+            .select("id,product_id,rating,title,status,created_at")
+            .in_("customer_id", customer_ids)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if customer_ids
+        else []
+    )
+    referrals = await _safe_rows(
+        lambda: supabase.table("referrals")
+        .select("id,referee_email,status,reward_points,created_at,completed_at")
+        .eq("referrer_id", profile_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    discounts = await _safe_rows(
+        lambda: supabase.table("discounts")
+        .select("id,code,type,value,active,used_count,usage_limit,ends_at,description,campaign,created_at")
+        .eq("owner_profile_id", profile_id)
+        .order("created_at", desc=True)
+        .limit(50)
+        .execute()
+    )
+    followups = (
+        await _safe_rows(
+            lambda: supabase.table("customer_followups")
+            .select("*")
+            .eq("customer_email", email)
+            .order("created_at", desc=True)
+            .limit(30)
+            .execute()
+        )
+        if email
+        else []
+    )
+    offers = await _safe_rows(
+        lambda: supabase.table("customer_offers")
+        .select("*")
+        .eq("profile_id", profile_id)
+        .order("created_at", desc=True)
+        .limit(30)
+        .execute()
+    )
+    newsletter = (
+        await sb_select_one("newsletter_subscribers", "email", email) if email else None
+    )
+    workshops = (
+        await _safe_rows(
+            lambda: supabase.table("workshop_bookings")
+            .select("id,workshop_id,quantity,amount,status,created_at")
+            .ilike("email", email)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if email
+        else []
+    )
+    quiz = await _safe_rows(
+        lambda: supabase.table("quiz_results")
+        .select("id,recommended_categories,created_at")
+        .eq("profile_id", profile_id)
+        .order("created_at", desc=True)
+        .limit(5)
+        .execute()
+    )
+
+    # ── Indicateurs & habitudes d'achat ─────────────────────────────────────
+    paid = [o for o in orders if o.get("status") in PAID_ORDER_STATUSES]
+    gross_spent = sum(float(o.get("total") or 0) for o in paid)
+    refunded_total = 0.0
+    for o in paid:
+        refunds = o.get("refunds") or []
+        if refunds:
+            refunded_total += sum(float(r.get("amount") or 0) for r in refunds)
+        elif o.get("status") == "refunded":
+            refunded_total += float(o.get("total") or 0)
+    net_spent = round(gross_spent - refunded_total, 2)
+    paid_dates = sorted(o["created_at"] for o in paid if o.get("created_at"))
+
+    frequency_days = None
+    if len(paid_dates) >= 2:
+        first = datetime.fromisoformat(paid_dates[0].replace("Z", "+00:00"))
+        last = datetime.fromisoformat(paid_dates[-1].replace("Z", "+00:00"))
+        frequency_days = round((last - first).days / (len(paid_dates) - 1))
+
+    product_ids = list(
+        {
+            i.get("product_id")
+            for o in paid
+            for i in (o.get("order_items") or [])
+            if i.get("product_id")
+        }
+    )
+    products = (
+        await _safe_rows(
+            lambda: supabase.table("products")
+            .select("id,name,slug,image,vendor,product_category,price,status")
+            .in_("id", product_ids)
+            .execute()
+        )
+        if product_ids
+        else []
+    )
+    product_map = {p["id"]: p for p in products}
+
+    by_product: Dict[str, dict] = {}
+    by_category: Dict[str, int] = defaultdict(int)
+    by_vendor: Dict[str, int] = defaultdict(int)
+    sizes: Dict[str, int] = defaultdict(int)
+    for o in paid:
+        for i in o.get("order_items") or []:
+            qty = int(i.get("quantity") or 0)
+            pid = i.get("product_id")
+            prod = product_map.get(pid) or {}
+            entry = by_product.setdefault(
+                pid or i.get("product_title") or "?",
+                {
+                    "product_id": pid,
+                    "name": prod.get("name") or i.get("product_title") or "Produit",
+                    "slug": prod.get("slug"),
+                    "image": prod.get("image"),
+                    "category": prod.get("product_category"),
+                    "quantity": 0,
+                    "orders": 0,
+                    "spent": 0.0,
+                    "last_bought_at": None,
+                },
+            )
+            entry["quantity"] += qty
+            entry["orders"] += 1
+            entry["spent"] += float(i.get("total_price") or 0)
+            if not entry["last_bought_at"] or o["created_at"] > entry["last_bought_at"]:
+                entry["last_bought_at"] = o["created_at"]
+            if prod.get("product_category"):
+                by_category[prod["product_category"]] += qty
+            if prod.get("vendor"):
+                by_vendor[prod["vendor"]] += qty
+            if i.get("size"):
+                sizes[str(i["size"])] += qty
+
+    top_products = sorted(by_product.values(), key=lambda e: (-e["quantity"], -e["spent"]))
+    for e in top_products:
+        e["spent"] = round(e["spent"], 2)
+
+    def ranked(d):
+        return [{"key": k, "quantity": v} for k, v in sorted(d.items(), key=lambda kv: -kv[1])]
+
+    stats = {
+        "orders_count": len(orders),
+        "paid_orders_count": len(paid),
+        "gross_spent": round(gross_spent, 2),
+        "refunded_total": round(refunded_total, 2),
+        "net_spent": net_spent,
+        "average_basket": round(gross_spent / len(paid), 2) if paid else 0,
+        "first_order_at": paid_dates[0] if paid_dates else None,
+        "last_order_at": paid_dates[-1] if paid_dates else None,
+        "purchase_frequency_days": frequency_days,
+        "returns_count": len(returns),
+        "reviews_count": len(reviews),
+    }
+
+    return {
+        "profile": person,
+        "customer": customer,
+        "addresses": addresses,
+        "stats": stats,
+        "loyalty": {
+            "points": loyalty.get("points") or 0,
+            "total_earned": loyalty.get("total_earned") or 0,
+            "total_spent": loyalty.get("total_spent") or 0,
+            "status": _loyalty_status(len(paid), net_spent),
+            "transactions": loyalty_tx,
+        },
+        "habits": {
+            "top_products": top_products[:12],
+            "categories": ranked(by_category),
+            "brands": ranked(by_vendor),
+            "sizes": ranked(sizes),
+        },
+        "orders": orders,
+        "returns": returns,
+        "reviews": reviews,
+        "referrals": referrals,
+        "discounts": discounts,
+        "followups": followups,
+        "offers": offers,
+        "newsletter": newsletter,
+        "workshops": workshops,
+        "quiz": quiz,
+    }
+
+
+class CustomerAdminUpdate(BaseModel):
+    admin_notes: Optional[str] = Field(None, max_length=5000)
+    tags: Optional[List[str]] = None
+    marketing_opt_out: Optional[bool] = None
+
+
+@api_router.patch("/ecom/admin/customers/{profile_id}")
+async def admin_update_customer(
+    profile_id: str,
+    payload: CustomerAdminUpdate,
+    profile=Depends(require_admin),
+):
+    person = await sb_select_one("profiles", "id", profile_id)
+    if not person:
+        raise HTTPException(status_code=404, detail="Cliente introuvable")
+    customer = await get_or_create_customer(person)
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if "tags" in updates:
+        updates["tags"] = [t.strip()[:40] for t in updates["tags"] if t.strip()][:20]
+    if not updates:
+        return customer
+    updates["updated_at"] = now_iso()
+    await sb_update("customers", updates, "id", customer["id"])
+    return await sb_select_one("customers", "id", customer["id"])
+
+
+class CustomerOfferRequest(BaseModel):
+    percent: int = Field(10, ge=5, le=30)
+    validity_days: int = Field(21, ge=3, le=90)
+    message: Optional[str] = Field(None, max_length=600)
+
+
+@api_router.post("/ecom/admin/customers/{profile_id}/offer")
+async def admin_send_customer_offer(
+    profile_id: str,
+    payload: CustomerOfferRequest,
+    profile=Depends(require_admin),
+):
+    """Envoie immédiatement une offre personnalisée basée sur les achats."""
+    person = await sb_select_one("profiles", "id", profile_id, select="id,email")
+    if not person or not person.get("email"):
+        raise HTTPException(status_code=404, detail="Cliente introuvable ou sans email")
+    return await _supabase_function(
+        "send-personalized-offers",
+        {
+            "mode": "manual",
+            "profile_id": profile_id,
+            "percent": payload.percent,
+            "validity_days": payload.validity_days,
+            "message": payload.message,
+        },
+    )
 
 
 @api_router.get("/ecom/admin/{table}")
@@ -4863,6 +5684,72 @@ async def get_order_tracking(order_id: str):
 
 
 # ── Parrainage ─────────────────────────────────────────────────────────────
+#
+# Règles anti-abus :
+#   • 5 parrainages maximum par marraine et par année civile (fuseau Zurich).
+#     Les parrainages en attente comptent dans la limite pour éviter le spam.
+#   • Pas d'auto-parrainage (emails normalisés : majuscules, points Gmail,
+#     alias « +quelquechose » ignorés).
+#   • La filleule doit avoir un vrai compte Baume et aucune commande passée.
+#   • Emails jetables refusés.
+#   • Une seule inscription parrainée par adresse IP sur 30 jours.
+#   • Le code −10 % de la filleule est personnel (lié à son compte),
+#     à usage unique et expire après 60 jours.
+#   • Les points de la marraine ne sont versés qu'au premier achat payé
+#     de la filleule, et retirés si cette commande est remboursée.
+
+REFERRAL_YEARLY_LIMIT = 5
+REFERRAL_REWARD_POINTS = 50
+REFERRAL_IP_WINDOW_DAYS = 30
+REFERRAL_PROMO_VALIDITY_DAYS = 60
+REFERRAL_COUNTED_STATUSES = ("pending", "completed")
+
+DISPOSABLE_EMAIL_DOMAINS = {
+    "yopmail.com", "yopmail.fr", "mailinator.com", "guerrillamail.com",
+    "10minutemail.com", "tempmail.com", "temp-mail.org", "trashmail.com",
+    "getnada.com", "dispostable.com", "sharklasers.com", "maildrop.cc",
+    "throwawaymail.com", "fakeinbox.com", "mohmal.com", "emailondeck.com",
+    "jetable.org", "mailnesia.com", "tempail.com", "minuteinbox.com",
+}
+
+
+def normalize_email(email: str) -> str:
+    """Normalise un email pour repérer les doublons déguisés."""
+    email = (email or "").strip().lower()
+    if "@" not in email:
+        return email
+    local, domain = email.rsplit("@", 1)
+    local = local.split("+", 1)[0]
+    if domain in ("gmail.com", "googlemail.com"):
+        local = local.replace(".", "")
+        domain = "gmail.com"
+    return f"{local}@{domain}"
+
+
+def client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
+def _year_start_utc_iso() -> str:
+    zurich = ZoneInfo("Europe/Zurich")
+    now_local = datetime.now(zurich)
+    start_local = datetime(now_local.year, 1, 1, tzinfo=zurich)
+    return start_local.astimezone(timezone.utc).isoformat()
+
+
+async def _referrals_used_this_year(referrer_id: str, statuses=REFERRAL_COUNTED_STATUSES) -> int:
+    result = await asyncio.to_thread(
+        lambda: supabase.table("referrals")
+        .select("id", count="exact")
+        .eq("referrer_id", referrer_id)
+        .in_("status", list(statuses))
+        .gte("created_at", _year_start_utc_iso())
+        .execute()
+    )
+    return result.count or 0
 
 
 def generate_referral_code(first_name: str, profile_id: str) -> str:
@@ -4883,32 +5770,48 @@ async def get_my_referral(profile=Depends(get_current_profile)):
     # Récupérer les parrainages effectués
     referrals = await asyncio.to_thread(
         lambda: supabase.table("referrals")
-        .select("*")
+        .select("id,referee_email,status,reward_points,created_at,completed_at")
         .eq("referrer_id", profile["id"])
         .order("created_at", desc=True)
         .execute()
     )
 
-    completed = [r for r in (referrals.data or []) if r["status"] == "completed"]
-    pending = [r for r in (referrals.data or []) if r["status"] == "pending"]
+    rows = referrals.data or []
+    completed = [r for r in rows if r["status"] == "completed"]
+    pending = [r for r in rows if r["status"] == "pending"]
+    used_this_year = await _referrals_used_this_year(profile["id"])
+
+    # Masquer partiellement les emails des filleules
+    def mask(email: str) -> str:
+        if not email or "@" not in email:
+            return email
+        local, domain = email.split("@", 1)
+        return f"{local[:2]}***@{domain}"
+
+    for r in rows:
+        r["referee_email"] = mask(r.get("referee_email", ""))
 
     return {
         "referral_code": profile["referral_code"],
         "referral_link": f"{FRONTEND_URL}/inscription?ref={profile['referral_code']}",
         "total_referrals": len(completed),
         "pending_referrals": len(pending),
-        "total_points_earned": len(completed) * 50,
-        "referrals": referrals.data or [],
+        "total_points_earned": sum(int(r.get("reward_points") or 0) for r in completed),
+        "yearly_limit": REFERRAL_YEARLY_LIMIT,
+        "used_this_year": used_this_year,
+        "remaining_this_year": max(0, REFERRAL_YEARLY_LIMIT - used_this_year),
+        "referrals": rows,
     }
 
 
 @api_router.get("/referral/check/{code}")
-async def check_referral_code(code: str):
-    """Vérifie si un code parrainage est valide"""
+@limiter.limit("30/minute")
+async def check_referral_code(request: Request, code: str):
+    """Vérifie si un code parrainage est valide (et pas au maximum annuel)"""
     profile = await asyncio.to_thread(
         lambda: supabase.table("profiles")
         .select("id, first_name, referral_code")
-        .eq("referral_code", code.upper())
+        .eq("referral_code", code.strip().upper())
         .limit(1)
         .execute()
     )
@@ -4917,6 +5820,13 @@ async def check_referral_code(code: str):
         raise HTTPException(status_code=404, detail="Code parrainage invalide")
 
     referrer = profile.data[0]
+
+    if await _referrals_used_this_year(referrer["id"]) >= REFERRAL_YEARLY_LIMIT:
+        raise HTTPException(
+            status_code=409,
+            detail="Ce code parrainage a atteint sa limite pour cette année.",
+        )
+
     return {
         "valid": True,
         "referrer_name": referrer.get("first_name", "une amie"),
@@ -4924,55 +5834,129 @@ async def check_referral_code(code: str):
 
 
 @api_router.post("/referral/register")
-async def register_referral(payload: dict):
-    """Enregistre un parrainage lors de l'inscription"""
-    referral_code = payload.get("referral_code", "").upper()
-    referee_email = payload.get("email", "")
+@limiter.limit("5/hour")
+async def register_referral(request: Request, payload: dict):
+    """Enregistre un parrainage juste après l'inscription de la filleule"""
+    referral_code = (payload.get("referral_code") or "").strip().upper()
+    referee_email = (payload.get("email") or "").strip().lower()
 
-    if not referral_code or not referee_email:
+    if not referral_code or not referee_email or "@" not in referee_email:
         raise HTTPException(status_code=400, detail="Code et email requis")
 
-    # Vérifier que le code existe
+    referee_norm = normalize_email(referee_email)
+    domain = referee_norm.rsplit("@", 1)[-1]
+
+    if domain in DISPOSABLE_EMAIL_DOMAINS:
+        raise HTTPException(
+            status_code=400,
+            detail="Les adresses email temporaires ne sont pas acceptées pour le parrainage.",
+        )
+
+    # Marraine
     referrer_result = await asyncio.to_thread(
         lambda: supabase.table("profiles")
-        .select("id, first_name")
+        .select("id, first_name, email")
         .eq("referral_code", referral_code)
         .limit(1)
         .execute()
     )
-
     if not referrer_result.data:
         raise HTTPException(status_code=404, detail="Code parrainage invalide")
-
     referrer = referrer_result.data[0]
 
-    # Vérifier que l'email n'a pas déjà été parrainé
+    # Pas d'auto-parrainage
+    if normalize_email(referrer.get("email", "")) == referee_norm:
+        raise HTTPException(
+            status_code=400, detail="Vous ne pouvez pas utiliser votre propre code."
+        )
+
+    # La filleule doit avoir un vrai compte Baume
+    referee_profile = await sb_select_one(
+        "profiles", "email", referee_email, select="id,email"
+    )
+    if not referee_profile:
+        raise HTTPException(
+            status_code=400,
+            detail="Créez d'abord votre compte pour utiliser un code parrainage.",
+        )
+    if referee_profile["id"] == referrer["id"]:
+        raise HTTPException(
+            status_code=400, detail="Vous ne pouvez pas utiliser votre propre code."
+        )
+
+    # La filleule ne doit jamais avoir commandé
+    previous_orders = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("id", count="exact")
+        .ilike("email", referee_email)
+        .in_("status", ["paid", "processing", "shipped", "delivered", "refunded"])
+        .execute()
+    )
+    if (previous_orders.count or 0) > 0:
+        raise HTTPException(
+            status_code=409,
+            detail="Le parrainage est réservé aux nouvelles clientes.",
+        )
+
+    # Email déjà parrainé (y compris variantes Gmail / alias +)
     existing = await asyncio.to_thread(
         lambda: supabase.table("referrals")
         .select("id")
-        .eq("referee_email", referee_email)
+        .or_(
+            f"referee_email_normalized.eq.{referee_norm},"
+            f"referee_email.eq.{referee_email}"
+        )
         .limit(1)
         .execute()
     )
-
     if existing.data:
         raise HTTPException(status_code=409, detail="Email déjà parrainé")
 
-    # Créer le parrainage
+    # Une seule inscription parrainée par IP sur 30 jours
+    ip = client_ip(request)
+    if ip:
+        since = (
+            datetime.now(timezone.utc) - timedelta(days=REFERRAL_IP_WINDOW_DAYS)
+        ).isoformat()
+        same_ip = await asyncio.to_thread(
+            lambda: supabase.table("referrals")
+            .select("id", count="exact")
+            .eq("referee_ip", ip)
+            .gte("created_at", since)
+            .execute()
+        )
+        if (same_ip.count or 0) > 0:
+            logger.warning("Parrainage refusé : IP déjà utilisée (%s)", ip)
+            raise HTTPException(
+                status_code=429,
+                detail="Un parrainage a déjà été enregistré récemment depuis cet appareil.",
+            )
+
+    # Limite annuelle de la marraine
+    if await _referrals_used_this_year(referrer["id"]) >= REFERRAL_YEARLY_LIMIT:
+        raise HTTPException(
+            status_code=409,
+            detail="Ce code parrainage a atteint sa limite de 5 parrainages pour cette année.",
+        )
+
+    referral_id = str(uuid.uuid4())
     await sb_insert(
         "referrals",
         {
-            "id": str(uuid.uuid4()),
+            "id": referral_id,
             "referrer_id": referrer["id"],
             "referee_email": referee_email,
+            "referee_email_normalized": referee_norm,
+            "referee_profile_id": referee_profile["id"],
+            "referee_ip": ip or None,
             "referral_code": referral_code,
             "status": "pending",
-            "reward_points": 50,
+            "reward_points": REFERRAL_REWARD_POINTS,
             "created_at": now_iso(),
         },
     )
 
-    # Créer un code promo -10% pour la filleule
+    # Code −10 % personnel, usage unique, valable 60 jours
     promo_code = f"PARRAIN{str(uuid.uuid4())[:6].upper()}"
     await sb_insert(
         "discounts",
@@ -4984,6 +5968,11 @@ async def register_referral(payload: dict):
             "active": True,
             "usage_limit": 1,
             "used_count": 0,
+            "owner_profile_id": referee_profile["id"],
+            "ends_at": (
+                datetime.now(timezone.utc)
+                + timedelta(days=REFERRAL_PROMO_VALIDITY_DAYS)
+            ).isoformat(),
             "description": f"Code parrainage — {referral_code}",
             "created_at": now_iso(),
         },
@@ -4996,47 +5985,139 @@ async def register_referral(payload: dict):
     }
 
 
-@api_router.post("/referral/complete")
-async def complete_referral(payload: dict, profile=Depends(require_admin)):
-    """Complète un parrainage après la première commande de la filleule"""
-    referee_email = payload.get("referee_email", "")
-    order_id = payload.get("order_id", "")
+async def _complete_referral_for_order(order: dict) -> Optional[dict]:
+    """
+    Appelée automatiquement après une commande payée (webhook Stripe).
+    Valide le parrainage en attente de la filleule et crédite la marraine,
+    dans la limite de 5 parrainages validés par année civile.
+    """
+    email = (order.get("email") or "").strip().lower()
+    if not email:
+        return None
 
+    norm = normalize_email(email)
     referral = await asyncio.to_thread(
         lambda: supabase.table("referrals")
         .select("*")
-        .eq("referee_email", referee_email)
         .eq("status", "pending")
+        .or_(f"referee_email_normalized.eq.{norm},referee_email.eq.{email}")
         .limit(1)
         .execute()
     )
-
     if not referral.data:
-        return {"success": False, "message": "Aucun parrainage en attente"}
-
+        return None
     ref = referral.data[0]
 
-    # Mettre à jour le parrainage
-    await sb_update(
-        "referrals",
-        {
-            "status": "completed",
-            "order_id": order_id,
-            "completed_at": now_iso(),
-        },
-        "id",
-        ref["id"],
+    # Uniquement la toute première commande payée de la filleule
+    paid_orders = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("id", count="exact")
+        .ilike("email", email)
+        .in_("status", ["paid", "processing", "shipped", "delivered", "refunded"])
+        .execute()
     )
+    if (paid_orders.count or 0) > 1:
+        await sb_update(
+            "referrals",
+            {"status": "rejected", "rejection_reason": "not_first_order"},
+            "id",
+            ref["id"],
+        )
+        return None
 
-    # Attribuer les points à la marraine
+    completed_this_year = await _referrals_used_this_year(
+        ref["referrer_id"], statuses=("completed",)
+    )
+    if completed_this_year >= REFERRAL_YEARLY_LIMIT:
+        await sb_update(
+            "referrals",
+            {"status": "capped", "order_id": order["id"], "completed_at": now_iso()},
+            "id",
+            ref["id"],
+        )
+        return None
+
+    # Verrou optimiste : on ne passe en "completed" que si encore "pending"
+    updated = await asyncio.to_thread(
+        lambda: supabase.table("referrals")
+        .update(
+            {"status": "completed", "order_id": order["id"], "completed_at": now_iso()}
+        )
+        .eq("id", ref["id"])
+        .eq("status", "pending")
+        .execute()
+    )
+    if not updated.data:
+        return None
+
+    points = int(ref.get("reward_points") or REFERRAL_REWARD_POINTS)
     await add_loyalty_points(
         profile_id=ref["referrer_id"],
-        points=ref["reward_points"],
-        reason=f"Parrainage complété — {referee_email}",
-        order_id=order_id,
+        points=points,
+        reason=f"Parrainage validé — {email}",
+        order_id=order["id"],
     )
+    return {"referral_id": ref["id"], "points_awarded": points}
 
-    return {"success": True, "points_awarded": ref["reward_points"]}
+
+async def _reverse_referral_for_order(order_id: str):
+    """Retire les points de parrainage si la commande de la filleule est remboursée."""
+    if not order_id:
+        return
+    ref = await asyncio.to_thread(
+        lambda: supabase.table("referrals")
+        .select("*")
+        .eq("order_id", order_id)
+        .eq("status", "completed")
+        .limit(1)
+        .execute()
+    )
+    if not ref.data:
+        return
+    ref = ref.data[0]
+    points = int(ref.get("reward_points") or 0)
+
+    loyalty = await get_or_create_loyalty(ref["referrer_id"])
+    await sb_update(
+        "loyalty_points",
+        {
+            "points": max(0, int(loyalty.get("points") or 0) - points),
+            "total_earned": max(0, int(loyalty.get("total_earned") or 0) - points),
+            "updated_at": now_iso(),
+        },
+        "profile_id",
+        ref["referrer_id"],
+    )
+    await sb_insert(
+        "loyalty_transactions",
+        {
+            "id": str(uuid.uuid4()),
+            "profile_id": ref["referrer_id"],
+            "order_id": order_id,
+            "type": "adjust",
+            "points": -points,
+            "reason": "Parrainage annulé — commande remboursée",
+            "created_at": now_iso(),
+        },
+    )
+    await sb_update("referrals", {"status": "reversed"}, "id", ref["id"])
+
+
+@api_router.post("/referral/complete")
+async def complete_referral(payload: dict, profile=Depends(require_admin)):
+    """Validation manuelle (admin) — mêmes règles que la validation automatique"""
+    order_id = payload.get("order_id", "")
+    order = await sb_select_one("orders", "id", order_id, select="id,email,status")
+    if not order:
+        return {"success": False, "message": "Commande introuvable"}
+
+    result = await _complete_referral_for_order(order)
+    if not result:
+        return {
+            "success": False,
+            "message": "Aucun parrainage validable (absent, déjà traité ou limite annuelle atteinte)",
+        }
+    return {"success": True, "points_awarded": result["points_awarded"]}
 
 
 @api_router.post("/ecom/admin/scan")
@@ -5763,6 +6844,12 @@ async def process_return_refund(
     except Exception as e:
         logger.error(f"refund-order failed: {e}")
         raise HTTPException(status_code=500, detail="Erreur lors du remboursement")
+
+    # Parrainage : retirer les points si c'était la 1re commande d'une filleule
+    try:
+        await _reverse_referral_for_order(req["order_id"])
+    except Exception:
+        logger.exception("Annulation parrainage échouée pour %s", req["order_id"])
 
     # Mettre à jour la demande
     await sb_update(

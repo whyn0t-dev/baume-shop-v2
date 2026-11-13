@@ -15,6 +15,7 @@ import {
 	Leaf,
 } from "lucide-react";
 import Hero from "../components/Hero";
+import TrackedBanner from "../components/TrackedBanner";
 import BesoinCard from "../components/BesoinCard";
 import ProductCard from "../components/ProductCard";
 import ReviewCard from "../components/ReviewCard";
@@ -158,6 +159,7 @@ export default function HomePage() {
 			{/* 4. ACCÈS RAPIDE */}
 			<section className="bg-baume-white border-y border-baume-border">
 				<div className="baume-container py-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+					<TrackedBanner id="home-acces-solution" label="Accès rapide — Je cherche une solution" className="flex [&>a]:flex-1">
 					<Link
 						to="/shop/besoin"
 						className="group rounded-2xl border border-baume-border bg-baume-white px-5 py-5 flex items-center justify-between hover:bg-baume-ivory hover:shadow-sm transition-all"
@@ -172,6 +174,8 @@ export default function HomePage() {
 						</div>
 						<ArrowRight className="h-5 w-5 text-baume-burgundy group-hover:translate-x-1 transition-transform" />
 					</Link>
+					</TrackedBanner>
+					<TrackedBanner id="home-acces-produits" label="Accès rapide — Je veux voir les produits" className="flex [&>a]:flex-1">
 					<Link
 						to="/shop/produit"
 						className="group rounded-2xl border border-baume-border bg-baume-white px-5 py-5 flex items-center justify-between hover:bg-baume-ivory hover:shadow-sm transition-all"
@@ -186,6 +190,8 @@ export default function HomePage() {
 						</div>
 						<ArrowRight className="h-5 w-5 text-baume-burgundy group-hover:translate-x-1 transition-transform" />
 					</Link>
+					</TrackedBanner>
+					<TrackedBanner id="home-acces-ateliers" label="Accès rapide — Nos ateliers" className="flex [&>a]:flex-1">
 					<Link
 						to="/ateliers"
 						className="group rounded-2xl bg-baume-burgundy px-5 py-5 flex items-center justify-between text-baume-white hover:bg-baume-burgundyDark hover:shadow-md transition-all"
@@ -198,6 +204,7 @@ export default function HomePage() {
 						</div>
 						<Sparkles className="h-5 w-5 group-hover:scale-110 transition-transform" />
 					</Link>
+					</TrackedBanner>
 				</div>
 			</section>
 
@@ -413,7 +420,12 @@ export default function HomePage() {
 			</section>
 
 			{/* 11. CITATION PLEIN ÉCRAN */}
-			<section className="relative overflow-hidden bg-baume-burgundy">
+			<TrackedBanner
+				as="section"
+				id="home-citation-quiz"
+				label="Bandeau citation — Trouver ma routine"
+				className="relative overflow-hidden bg-baume-burgundy"
+			>
 				<div
 					className="absolute inset-0 opacity-[0.06]"
 					style={{
@@ -447,7 +459,7 @@ export default function HomePage() {
 						</Link>
 					</div>
 				</div>
-			</section>
+			</TrackedBanner>
 
 			{/* 12. ATELIERS & EXPERTES */}
 			<section className="bg-baume-taupe/25 border-y border-baume-border">

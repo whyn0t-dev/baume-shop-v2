@@ -11,6 +11,7 @@ import {
 	Loader2,
 	Package,
 	Tag,
+	MousePointerClick,
 } from "lucide-react";
 import { getAdminTable, api } from "../lib/api";
 
@@ -133,6 +134,10 @@ export default function HomeSection() {
 	const [uniqueVisitors, setUniqueVisitors] = useState(null);
 	const [activeUsers, setActiveUsers] = useState(null);
 
+	// CTR bannières promotionnelles
+	const [ctr, setCtr] = useState(null);
+	const [ctrLoading, setCtrLoading] = useState(true);
+
 	const selectedPeriod = PERIODS.find((p) => p.key === period) || PERIODS[1];
 
 	// ── Chargement données DB ───────────────────────────────────────────────
@@ -186,6 +191,24 @@ export default function HomeSection() {
 		loadPosthog();
 	}, [loadPosthog]);
 
+	// ── Chargement CTR bannières ────────────────────────────────────────────
+	const loadCtr = useCallback(async () => {
+		setCtrLoading(true);
+		try {
+			const res = await api.get(`/ecom/admin/banners/ctr?period=${period}`);
+			setCtr(res.data);
+		} catch (err) {
+			console.error("CTR error:", err);
+			setCtr(null);
+		} finally {
+			setCtrLoading(false);
+		}
+	}, [period]);
+
+	useEffect(() => {
+		loadCtr();
+	}, [loadCtr]);
+
 	// ── Calculs période ─────────────────────────────────────────────────────
 	const periodOrders = orders;
 	const periodProfiles = profiles;
@@ -234,6 +257,7 @@ export default function HomeSection() {
 						onClick={() => {
 							loadData();
 							loadPosthog();
+							loadCtr();
 						}}
 						className="h-9 w-9 rounded-full border border-baume-border bg-baume-white inline-flex items-center justify-center text-baume-charcoal hover:border-baume-burgundy transition"
 					>
@@ -321,6 +345,111 @@ export default function HomeSection() {
 						</p>
 					</div>
 				</div>
+			</div>
+
+			{/* CTR des bannières promotionnelles */}
+			<div className="rounded-2xl border border-baume-border bg-baume-white overflow-hidden">
+				<div className="px-5 py-4 border-b border-baume-border flex flex-wrap items-center justify-between gap-3">
+					<div className="flex items-center gap-3">
+						<div className="h-10 w-10 rounded-xl border border-baume-burgundy/20 bg-baume-burgundy/5 flex items-center justify-center">
+							<MousePointerClick className="h-5 w-5 text-baume-burgundy" />
+						</div>
+						<div>
+							<h3 className="font-semibold text-[15px] text-baume-charcoal">
+								Bannières promotionnelles · CTR
+							</h3>
+							<p className="text-[12px] text-baume-charcoal/50">
+								Taux de clic = clics / affichages (visiteurs uniques) ·{" "}
+								{selectedPeriod.label.toLowerCase()}
+							</p>
+						</div>
+					</div>
+					<div className="flex items-center gap-6 text-right">
+						<div>
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+								Affichages
+							</p>
+							<p className="font-editorial text-[22px] text-baume-charcoal">
+								{ctrLoading ? "…" : formatNumber(ctr?.total_views || 0)}
+							</p>
+						</div>
+						<div>
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+								Clics
+							</p>
+							<p className="font-editorial text-[22px] text-baume-charcoal">
+								{ctrLoading ? "…" : formatNumber(ctr?.total_clicks || 0)}
+							</p>
+						</div>
+						<div>
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+								CTR global
+							</p>
+							<p className="font-editorial text-[22px] text-baume-burgundy">
+								{ctrLoading
+									? "…"
+									: ctr?.global_ctr != null
+										? `${ctr.global_ctr.toFixed(1)} %`
+										: "—"}
+							</p>
+						</div>
+					</div>
+				</div>
+				{ctrLoading ? (
+					<div className="p-8 flex justify-center">
+						<Loader2 className="h-5 w-5 animate-spin text-baume-burgundy" />
+					</div>
+				) : !ctr?.banners?.length ? (
+					<p className="p-6 text-center text-[13px] text-baume-charcoal/50">
+						Aucune donnée pour l'instant — les affichages et clics apparaîtront
+						dès les premières visites.
+					</p>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="w-full text-[13px]">
+							<thead className="bg-baume-ivory/60 text-baume-charcoal/60">
+								<tr>
+									<th className="px-5 py-3 text-left font-semibold">Bannière</th>
+									<th className="px-5 py-3 text-right font-semibold">Affichages</th>
+									<th className="px-5 py-3 text-right font-semibold">Clics</th>
+									<th className="px-5 py-3 text-right font-semibold">CTR</th>
+									<th className="px-5 py-3 text-left font-semibold w-[30%]">
+										Performance
+									</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-baume-border">
+								{ctr.banners.map((b) => (
+									<tr key={b.banner_id}>
+										<td className="px-5 py-3">
+											<p className="font-medium text-baume-charcoal">{b.label}</p>
+											<p className="text-[11px] text-baume-charcoal/40 font-mono">
+												{b.banner_id}
+											</p>
+										</td>
+										<td className="px-5 py-3 text-right tabular-nums">
+											{formatNumber(b.views)}
+										</td>
+										<td className="px-5 py-3 text-right tabular-nums">
+											{formatNumber(b.clicks)}
+										</td>
+										<td className="px-5 py-3 text-right tabular-nums font-semibold text-baume-burgundy">
+											{b.ctr != null ? `${b.ctr.toFixed(1)} %` : "—"}
+										</td>
+										<td className="px-5 py-3">
+											<div className="h-2 w-full rounded-full bg-baume-ivory overflow-hidden">
+												<div
+													className="h-full rounded-full bg-baume-burgundy"
+													style={{ width: `${Math.min(100, (b.ctr || 0) * 5)}%` }}
+												/>
+											</div>
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
 			</div>
 
 			{/* Commandes récentes */}

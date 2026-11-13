@@ -4,10 +4,12 @@ import ReviewCard from "../components/ReviewCard";
 import { getUserOrder } from "../lib/api"; // à adapter selon votre API
 import { useAuth } from "../lib/auth"; // hook retournant { user }
 import { Star } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 // ─── Section avis vérifiés (à insérer dans ProductPage) ─────────────────────
-// Ce composant est autonome : il vérifie si l'utilisateur connecté
-// a commandé ce produit et affiche le formulaire uniquement dans ce cas.
+// Les avis sont ouverts à toutes les personnes connectées (l'achat n'est
+// plus obligatoire). Si la personne a commandé le produit, son avis reçoit
+// le badge « Achat vérifié ».
 //
 // Props :
 //   product     — objet produit complet
@@ -25,6 +27,10 @@ export default function ReviewSection({
 	const [existingReview, setExistingReview] = useState(null);
 	const [loadingOrder, setLoadingOrder] = useState(true);
 	const [activeTab, setActiveTab] = useState("list"); // "list" | "write"
+	const location = useLocation();
+	const loginUrl = `/connexion?redirect=${encodeURIComponent(
+		location.pathname + "#avis-clients",
+	)}`;
 
 	// ── Vérifier si l'utilisateur a commandé ce produit ──────────────────────
 	useEffect(() => {
@@ -35,16 +41,9 @@ export default function ReviewSection({
 		}
 		getUserOrder(product.id)
 			.then((data) => {
-				console.log("ORDER STATUS", data);
-
 				const { order: o, review: r } = data;
-
 				setOrder(o || null);
 				setExistingReview(r || null);
-
-				if (o && !r) {
-					setActiveTab("write");
-				}
 			})
 			.catch((err) => {
 				console.error("getUserOrder failed", err);
@@ -52,8 +51,9 @@ export default function ReviewSection({
 			.finally(() => setLoadingOrder(false));
 	}, [user, status, product.id]);
 
-	const hasOrdered = !!order;
-	const canWrite = hasOrdered;
+	// Toute personne connectée peut écrire un avis.
+	const canWrite = !!user;
+	const isGuest = !user && !loadingOrder;
 
 	const handleSubmit = async (reviewData) => {
 		await onNewReview?.(reviewData);
@@ -95,7 +95,17 @@ export default function ReviewSection({
 						)}
 					</div>
 
-					{/* ── Bouton "Laisser un avis" (acheteur uniquement) ── */}
+					{/* ── Visiteuse non connectée : lien vers la connexion ── */}
+					{isGuest && (
+						<Link
+							to={loginUrl}
+							className="self-start sm:self-auto shrink-0 h-10 px-5 inline-flex items-center rounded-full border border-baume-border bg-baume-white text-[13px] font-semibold text-baume-charcoal hover:border-baume-burgundy/60 transition-all"
+						>
+							Se connecter pour laisser un avis
+						</Link>
+					)}
+
+					{/* ── Bouton "Laisser un avis" (toute personne connectée) ── */}
 					{canWrite && (
 						<button
 							onClick={() =>
@@ -125,7 +135,7 @@ export default function ReviewSection({
 					</div>
 				)}
 
-				{/* ── Message si acheteur mais liste vide ──────────────────── */}
+				{/* ── Message si connectée mais liste vide ─────────────────── */}
 				{canWrite &&
 					!existingReview &&
 					activeTab === "list" &&
@@ -135,8 +145,8 @@ export default function ReviewSection({
 								Soyez la première à partager
 							</p>
 							<p className="text-[14px] text-baume-charcoal/60 leading-[22px]">
-								Vous avez commandé ce produit — votre retour d'expérience aide
-								les autres à choisir en confiance.
+								Votre retour d'expérience aide les autres à choisir en
+								confiance.
 							</p>
 							<button
 								onClick={() => setActiveTab("write")}
@@ -156,7 +166,7 @@ export default function ReviewSection({
 					</div>
 				)}
 
-				{/* ── État vide (aucun avis, non-acheteur) ─────────────────── */}
+				{/* ── État vide (aucun avis, non connectée) ────────────────── */}
 				{allReviews.length === 0 && !canWrite && activeTab === "list" && (
 					<div className="rounded-3xl border border-baume-border bg-baume-ivory/50 p-10 text-center">
 						<p className="font-editorial text-[22px] text-baume-charcoal/60">
