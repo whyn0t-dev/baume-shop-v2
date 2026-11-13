@@ -7814,6 +7814,274 @@ async def pos_cancel_checkout(session_id: str, profile=Depends(require_admin)):
 
 
 
+
+# ── Encaissement en espèces (caisse web /caisse) ──
+#
+# Même circuit que le paiement Stripe, sans Stripe :
+#   payment_transactions (payment_status = paid) → finalize_paid_order
+#   (commande + paiement + déduction du stock) → points fidélité.
+#
+# L'identifiant de session est « pos_cash_<client_sale_id> » : la caisse
+# génère cet identifiant une fois par vente, ce qui rend l'appel
+# idempotent (double clic, réseau coupé puis relance).
+
+POS_CASH_PREFIX = "pos_cash_"
+
+
+class PosCashCheckoutRequest(BaseModel):
+    items: List[PosCheckoutItem] = Field(..., min_length=1, max_length=100)
+    customer_profile_id: Optional[str] = None
+    email: Optional[EmailStr] = None
+    cash_received: Decimal = Field(..., ge=0, le=100000)
+    client_sale_id: uuid.UUID
+
+
+async def _pos_after_paid(order: dict, send_email: bool) -> None:
+    """Étapes post-paiement identiques au webhook Stripe."""
+    try:
+        await asyncio.to_thread(
+            lambda: supabase.rpc(
+                "award_paid_order_loyalty", {"p_order_id": order["id"]}
+            ).execute()
+        )
+    except Exception:
+        logger.exception("Caisse espèces : fidélité non attribuée %s", order["id"])
+
+    try:
+        await _complete_referral_for_order(order)
+    except Exception:
+        logger.exception("Caisse espèces : parrainage non validé %s", order["id"])
+
+    if not send_email:
+        return
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                f"{SUPABASE_URL}/functions/v1/send-order-email",
+                json={"order_id": order["id"]},
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "X-Baume-Internal-Token": os.environ["BAUME_INTERNAL_TOKEN"],
+                    "Content-Type": "application/json",
+                },
+            )
+            response.raise_for_status()
+    except Exception:
+        logger.exception("Caisse espèces : e-mail de reçu non envoyé %s", order["id"])
+
+
+def _pos_receipt_payload(order: dict, tx: dict) -> dict:
+    metadata = (tx or {}).get("metadata") or {}
+    method = metadata.get("payment_method") or "card"
+    return {
+        "order": {
+            "id": order.get("id"),
+            "order_number": order.get("order_number"),
+            "status": order.get("status"),
+            "total": order.get("total"),
+            "created_at": order.get("created_at"),
+            "email": order.get("email"),
+        },
+        "items": (tx or {}).get("items") or order.get("order_items") or [],
+        "payment": {
+            "method": method,
+            "amount": (tx or {}).get("amount"),
+            "cash_received": metadata.get("cash_received"),
+            "change_due": metadata.get("change_due"),
+        },
+        "customer_name": ((tx or {}).get("shipping_address") or {}).get("name"),
+    }
+
+
+async def _pos_finalize_cash(session_id: str, tx: dict, sale_id: str) -> dict:
+    existing = await sb_select_one("orders", "stripe_checkout_session_id", session_id)
+    if existing:
+        return existing
+
+    customer_id = None
+    if tx.get("user_id"):
+        p = await sb_select_one("profiles", "id", tx["user_id"])
+        if p:
+            customer_id = (await get_or_create_customer(p))["id"]
+
+    result = await asyncio.to_thread(
+        lambda: supabase.rpc(
+            "finalize_paid_order",
+            {
+                "p_session_id": session_id,
+                "p_payment_intent_id": f"cash_{sale_id}",
+                "p_customer_id": customer_id,
+            },
+        ).execute()
+    )
+    if not result.data:
+        raise RuntimeError("finalize_paid_order n'a renvoyé aucune commande")
+
+    # Le paiement est créé avec le fournisseur par défaut (stripe) :
+    # on l'identifie comme un encaissement en espèces.
+    try:
+        await asyncio.to_thread(
+            lambda: supabase.table("payments")
+            .update({"provider": "cash", "transaction_id": f"cash_{sale_id}"})
+            .eq("order_id", result.data)
+            .execute()
+        )
+    except Exception:
+        logger.exception("Caisse espèces : paiement non marqué « cash » %s", result.data)
+
+    return await sb_select_one("orders", "id", result.data)
+
+
+@api_router.post("/pos/checkout/cash")
+async def pos_cash_checkout(
+    payload: PosCashCheckoutRequest,
+    profile=Depends(require_admin),
+):
+    sale_id = str(payload.client_sale_id)
+    session_id = f"{POS_CASH_PREFIX}{sale_id}"
+
+    tx = await sb_select_one("payment_transactions", "session_id", session_id)
+
+    if not tx:
+        customer = None
+        if payload.customer_profile_id:
+            customer = await sb_select_one("profiles", "id", payload.customer_profile_id)
+            if not customer:
+                raise HTTPException(status_code=404, detail="Client introuvable")
+
+        explicit_email = payload.email or (customer or {}).get("email")
+        email = explicit_email or os.environ.get("POS_DEFAULT_EMAIL")
+        if not email:
+            raise HTTPException(
+                status_code=400,
+                detail="Indiquez l'e-mail du client (ou configurez POS_DEFAULT_EMAIL).",
+            )
+
+        priced = await _price_cart([item.model_dump() for item in payload.items])
+        total = Decimal(str(priced["subtotal"])).quantize(Decimal("0.01"))
+        received = payload.cash_received.quantize(Decimal("0.01"))
+
+        if total <= 0:
+            raise HTTPException(status_code=400, detail="Montant à payer invalide")
+        if received < total:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Montant reçu insuffisant : {received} CHF pour {total} CHF.",
+            )
+
+        customer_name = " ".join(
+            x
+            for x in [(customer or {}).get("first_name"), (customer or {}).get("last_name")]
+            if x
+        )
+
+        metadata = {
+            "source": "baume_checkout",
+            "channel": POS_CHANNEL,
+            "payment_method": "cash",
+            "country": "CH",
+            "email": email,
+            "user_id": (customer or {}).get("id") or "",
+            "items_count": str(sum(i.quantity for i in payload.items)),
+            "discount_code": "",
+            "discount_amount": "0.0",
+            "cashier_id": profile.get("id") or "",
+            "cash_received": str(received),
+            "change_due": str(received - total),
+            "send_receipt_email": "true" if explicit_email else "false",
+        }
+
+        tx = {
+            "id": str(uuid.uuid4()),
+            "session_id": session_id,
+            "amount": float(total),
+            "subtotal": priced["subtotal"],
+            "shipping": 0.0,
+            "discount_code": None,
+            "discount_amount": 0.0,
+            "currency": "chf",
+            "email": email,
+            "user_id": (customer or {}).get("id"),
+            "country": "CH",
+            "items": priced["items"],
+            "shipping_address": {
+                "type": "in_store",
+                "name": customer_name or "Client boutique",
+                "first_name": (customer or {}).get("first_name"),
+                "last_name": (customer or {}).get("last_name"),
+                "line1": "Vente en boutique",
+                "address": "Vente en boutique",
+                "country": "CH",
+            },
+            # Même état que celui laissé par le webhook Stripe
+            # juste avant l'appel à finalize_paid_order.
+            "status": "initiated",
+            "payment_status": "paid",
+            "metadata": metadata,
+            "created_at": now_iso(),
+            "updated_at": now_iso(),
+        }
+
+        try:
+            await sb_insert("payment_transactions", tx)
+        except Exception:
+            # Deux envois simultanés de la même vente : on relit.
+            tx = await sb_select_one("payment_transactions", "session_id", session_id)
+            if not tx:
+                logger.exception("Caisse espèces : transaction non enregistrée")
+                raise HTTPException(
+                    status_code=503, detail="Impossible d'enregistrer la vente"
+                )
+
+    elif (tx.get("metadata") or {}).get("payment_method") != "cash":
+        raise HTTPException(status_code=409, detail="Identifiant de vente déjà utilisé")
+
+    already_done = bool(
+        await sb_select_one("orders", "stripe_checkout_session_id", session_id, select="id")
+    )
+
+    try:
+        order = await _pos_finalize_cash(session_id, tx, sale_id)
+    except Exception:
+        logger.exception("Caisse espèces : finalisation échouée %s", session_id)
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "La vente est enregistrée mais la commande n'a pas pu être créée. "
+                "Réessayez : la vente ne sera pas comptée deux fois."
+            ),
+        )
+
+    order = await _pos_hand_over(order)
+
+    if not already_done:
+        send_email = (tx.get("metadata") or {}).get("send_receipt_email") == "true"
+        await _pos_after_paid(order, send_email)
+
+    return _pos_receipt_payload(order, tx)
+
+
+@api_router.get("/pos/orders/{order_id}/receipt")
+async def pos_order_receipt(order_id: str, profile=Depends(require_admin)):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*, order_items(*)")
+        .eq("id", order_id)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
+    order = result.data[0]
+    tx = await sb_select_one(
+        "payment_transactions", "session_id", order.get("stripe_checkout_session_id") or ""
+    )
+    return _pos_receipt_payload(order, tx)
+
+
 api_router.include_router(auth_router)
 
 

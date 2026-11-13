@@ -47,7 +47,7 @@ const SECTIONS = [
 	{ key: "discounts", label: "Réductions", icon: Percent },
 	{ key: "store_settings", label: "Paramètres boutique", icon: Settings },
 	{ key: "reviews", label: "Avis clients", icon: Star },
-	{ key: "scanner", label: "Scanner", icon: ScanLine },
+	{ key: "scanner", label: "Caisse & scanner", icon: ScanLine },
 	{ key: "chat", label: "Conversations", icon: MessageCircle },
 	{ key: "returns", label: "Retours", icon: RotateCcw },
 ];
@@ -452,7 +452,14 @@ function AdminTable({ table, rows, onDelete, onRefresh, productSearch = "" }) {
 
 	if (table === "scanner") {
 		return (
-			<div className="p-8 text-center">
+			<div className="p-8 flex flex-wrap justify-center gap-3">
+				<Link
+					to="/caisse"
+					className="h-12 px-8 rounded-full bg-baume-burgundy text-white font-semibold text-[15px] inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition-colors"
+				>
+					<ShoppingCart className="h-5 w-5" />
+					Ouvrir la caisse
+				</Link>
 				<Link
 					to="/admin/scanner"
 					className="h-12 px-8 rounded-full bg-baume-burgundy text-white font-semibold text-[15px] inline-flex items-center gap-2 hover:bg-baume-burgundyDark transition-colors"

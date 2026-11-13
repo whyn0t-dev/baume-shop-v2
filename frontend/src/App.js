@@ -55,6 +55,8 @@ import ReturnRequestPage from "./pages/ReturnRequestPage";
 import AdminReturnsPage from "./pages/AdminReturnsPage";
 import AdminCustomerPage from "./pages/AdminCustomerPage";
 
+const CaissePage = React.lazy(() => import("./pages/CaissePage"));
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   React.useEffect(() => {
@@ -86,13 +88,26 @@ function AdminRoute({ children }) {
 }
 
 function AppShell() {
+  // La caisse s'affiche en plein écran, sans l'habillage du site.
+  const { pathname } = useLocation();
+  const isPos = pathname === "/caisse" || pathname.startsWith("/caisse/");
+
   return (
     <>
-      <SiteLoader />
+      {!isPos && <SiteLoader />}
       <ScrollToTop />
-      <Header />
+      {!isPos && <Header />}
       <main>
         <Routes>
+          {/* La caisse gère sa propre session (activation par un admin). */}
+          <Route
+            path="/caisse"
+            element={
+              <React.Suspense fallback={null}>
+                <CaissePage />
+              </React.Suspense>
+            }
+          />
           <Route path="/" element={<HomePage />} />
           <Route
             path="/shop/besoin"
@@ -213,10 +228,14 @@ function AppShell() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      <Footer />
-      <CartDrawer />
-      <ChatBubble />
-      <CookieBanner />
+      {!isPos && (
+        <>
+          <Footer />
+          <CartDrawer />
+          <ChatBubble />
+          <CookieBanner />
+        </>
+      )}
       <Toaster
         position="top-right"
         richColors
