@@ -127,6 +127,43 @@ async def sb_select_one(table: str, column: str, value, select: str = "*"):
     return result.data[0] if result.data else None
 
 
+async def sync_variant_inventory(variant_id: Optional[str]) -> bool:
+    """
+    Aligne inventory_levels sur product_variants.stock (fonction SQL
+    sync_variant_inventory). finalize_paid_order refuse toute vente si les
+    deux stocks diffèrent ou si la ligne d'inventaire manque.
+    Ne bloque jamais l'appelant : un échec est journalisé.
+    """
+    if not variant_id:
+        return False
+    try:
+        await asyncio.to_thread(
+            lambda: supabase.rpc(
+                "sync_variant_inventory", {"p_variant_id": variant_id}
+            ).execute()
+        )
+        return True
+    except Exception:
+        logger.exception("Synchronisation inventaire impossible : variante=%s", variant_id)
+        return False
+
+
+async def sync_product_inventory(product_id: str) -> None:
+    """Synchronise l'inventaire de toutes les variantes d'un produit."""
+    try:
+        result = await asyncio.to_thread(
+            lambda: supabase.table("product_variants")
+            .select("id")
+            .eq("product_id", product_id)
+            .execute()
+        )
+    except Exception:
+        logger.exception("Variantes illisibles pour la synchronisation : %s", product_id)
+        return
+    for row in result.data or []:
+        await sync_variant_inventory(row["id"])
+
+
 async def sb_count(table: str, filters: Optional[Dict[str, Any]] = None) -> int:
     def run():
         q = supabase.table(table).select("id", count="exact")
@@ -2442,9 +2479,9 @@ async def get_discount(
                 detail="Code promo invalide",
             )
 
-    # Un ancien coupon FIDELITE sans propriétaire
-    # ne doit pas être traité comme un code public.
-    if code.startswith("FIDELITE") and not owner_id:
+    # Un coupon fidélité (FIDELITE… ancien format, FID-… nouveau)
+    # sans propriétaire ne doit pas être traité comme un code public.
+    if code.startswith(("FIDELITE", "FID-")) and not owner_id:
         raise HTTPException(
             status_code=404,
             detail="Code promo invalide",
@@ -2790,6 +2827,8 @@ async def create_admin_product(
 
         if clean_variants:
             await sb_insert("product_variants", clean_variants)
+            # Lignes d'inventaire nécessaires pour pouvoir vendre le produit.
+            await sync_product_inventory(product_id)
 
         clean_images = [
             {
@@ -2971,6 +3010,7 @@ async def update_admin_product(
                 product_id,
                 variants,
             )
+            await sync_product_inventory(product_id)
 
         if images is not None:
             await sb_delete("product_images", "product_id", product_id)
@@ -6164,6 +6204,7 @@ async def process_scan(payload: dict, profile=Depends(require_admin)):
             "id",
             v["id"],
         )
+        await sync_variant_inventory(v["id"])
 
     await sb_insert(
         "barcode_scans",
@@ -7284,6 +7325,8 @@ async def update_variant(
     payload.pop("id", None)
     payload["updated_at"] = now_iso()
     await sb_update("product_variants", payload, "id", variant_id)
+    if "stock" in payload:
+        await sync_variant_inventory(variant_id)
     return await sb_select_one("product_variants", "id", variant_id)
 
 
@@ -7607,6 +7650,8 @@ async def pos_adjust_stock(
         variant_id,
     )
 
+    await sync_variant_inventory(variant_id)
+
     logger.info(
         "Stock ajusté depuis l'app : variante=%s %s → %s par %s",
         variant_id,
@@ -7654,6 +7699,10 @@ async def pos_create_checkout(
             status_code=400,
             detail="Indiquez l'e-mail du client pour le reçu.",
         )
+
+    # Stock d'inventaire aligné avant la vente (exigé par finalize_paid_order).
+    for item in payload.items:
+        await sync_variant_inventory(item.variant_id)
 
     # Prix, disponibilité et stock vérifiés côté serveur,
     # exactement comme pour le site.
@@ -7958,6 +8007,9 @@ async def pos_cash_checkout(
                 status_code=400,
                 detail="Indiquez l'e-mail du client (ou configurez POS_DEFAULT_EMAIL).",
             )
+
+        for item in payload.items:
+            await sync_variant_inventory(item.variant_id)
 
         priced = await _price_cart([item.model_dump() for item in payload.items])
         total = Decimal(str(priced["subtotal"])).quantize(Decimal("0.01"))
