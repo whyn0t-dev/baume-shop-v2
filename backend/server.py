@@ -7361,6 +7361,7 @@ class PosCheckoutRequest(BaseModel):
     items: List[PosCheckoutItem] = Field(..., min_length=1, max_length=100)
     customer_profile_id: Optional[str] = None
     email: Optional[EmailStr] = None
+    session_id: Optional[str] = None
 
 
 def _pos_clean_search(value: str) -> str:
@@ -7683,6 +7684,9 @@ async def pos_create_checkout(
             status_code=503, detail="Seul Stripe en mode test est autorisé."
         )
 
+    # Aucune vente sans session de caisse ouverte.
+    pos_session = await _pos_require_open_session(payload.session_id)
+
     customer = None
     if payload.customer_profile_id:
         customer = await sb_select_one("profiles", "id", payload.customer_profile_id)
@@ -7727,6 +7731,7 @@ async def pos_create_checkout(
         "discount_code": "",
         "discount_amount": "0.0",
         "cashier_id": profile.get("id") or "",
+        "pos_session_id": pos_session["id"],
     }
 
     stripe_line_items = [
@@ -7883,6 +7888,7 @@ class PosCashCheckoutRequest(BaseModel):
     email: Optional[EmailStr] = None
     cash_received: Decimal = Field(..., ge=0, le=100000)
     client_sale_id: uuid.UUID
+    session_id: Optional[str] = None
 
 
 async def _pos_after_paid(order: dict, send_email: bool) -> None:
@@ -7994,6 +8000,9 @@ async def pos_cash_checkout(
     tx = await sb_select_one("payment_transactions", "session_id", session_id)
 
     if not tx:
+        # Aucune vente sans session de caisse ouverte.
+        pos_session = await _pos_require_open_session(payload.session_id)
+
         customer = None
         if payload.customer_profile_id:
             customer = await sb_select_one("profiles", "id", payload.customer_profile_id)
@@ -8043,6 +8052,7 @@ async def pos_cash_checkout(
             "cash_received": str(received),
             "change_due": str(received - total),
             "send_receipt_email": "true" if explicit_email else "false",
+            "pos_session_id": pos_session["id"],
         }
 
         tx = {
@@ -8132,6 +8142,679 @@ async def pos_order_receipt(order_id: str, profile=Depends(require_admin)):
         "payment_transactions", "session_id", order.get("stripe_checkout_session_id") or ""
     )
     return _pos_receipt_payload(order, tx)
+
+
+
+# ============================================================
+# BAUME — CAISSE : SESSIONS, MOUVEMENTS, REMBOURSEMENTS
+#
+# • Une caisse (pos_registers) a un code fixe : CAISSE-GENEVE-01.
+# • Une session s'ouvre avec un fond de caisse et se clôture avec
+#   le comptage des espèces ; le rapport Z est alors figé.
+# • Chaque vente en boutique porte metadata.pos_session_id.
+# • Les remboursements passent par la fonction SQL atomique
+#   pos_record_refund (stock, retours, refunds, statut commande).
+# ============================================================
+
+POS_DEFAULT_REGISTER = os.environ.get("POS_DEFAULT_REGISTER", "CAISSE-GENEVE-01")
+POS_REVENUE_STATUSES = ("paid", "processing", "shipped", "delivered", "refunded")
+
+
+def _money(value) -> Decimal:
+    return Decimal(str(value or 0)).quantize(Decimal("0.01"))
+
+
+async def _pos_register(code: Optional[str] = None) -> dict:
+    register = await sb_select_one("pos_registers", "code", (code or POS_DEFAULT_REGISTER).strip())
+    if not register or register.get("active") is False:
+        raise HTTPException(status_code=404, detail="Caisse introuvable ou désactivée")
+    return register
+
+
+async def _pos_open_session_for(register_id: str) -> Optional[dict]:
+    result = await asyncio.to_thread(
+        lambda: supabase.table("pos_sessions")
+        .select("*")
+        .eq("register_id", register_id)
+        .eq("status", "open")
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+async def _pos_require_open_session(session_id: Optional[str] = None) -> dict:
+    """Session ouverte à rattacher à une vente ou à un remboursement."""
+    if session_id:
+        session = await sb_select_one("pos_sessions", "id", session_id)
+        if not session or session.get("status") != "open":
+            raise HTTPException(
+                status_code=409,
+                detail="Cette session de caisse est fermée. Ouvrez la caisse pour continuer.",
+            )
+        return session
+
+    register = await _pos_register()
+    session = await _pos_open_session_for(register["id"])
+    if not session:
+        raise HTTPException(
+            status_code=409,
+            detail="La caisse est fermée. Ouvrez une session de caisse avant d'encaisser.",
+        )
+    return session
+
+
+async def _pos_session_report(session: dict) -> dict:
+    """Rapport X (session ouverte, calculé en direct) ou Z (figé à la clôture)."""
+    if session.get("status") == "closed" and session.get("report"):
+        return session["report"]
+
+    sid = session["id"]
+
+    txs = await stats_fetch_all(
+        lambda: supabase.table("payment_transactions")
+        .select("session_id,amount,items,payment_status,created_at")
+        .eq("metadata->>pos_session_id", sid)
+        .eq("payment_status", "paid")
+        .order("created_at")
+    )
+    tx_by_session = {t["session_id"]: t for t in txs if t.get("session_id")}
+
+    orders = []
+    ids = list(tx_by_session.keys())
+    for start in range(0, len(ids), 80):
+        chunk = ids[start : start + 80]
+        result = await asyncio.to_thread(
+            lambda: supabase.table("orders")
+            .select("id,order_number,total,status,stripe_checkout_session_id,created_at")
+            .in_("stripe_checkout_session_id", chunk)
+            .execute()
+        )
+        orders.extend(result.data or [])
+
+    sales_cash = sales_card = Decimal("0")
+    items_count = 0
+    sales_count = 0
+    for o in orders:
+        if o.get("status") not in POS_REVENUE_STATUSES:
+            continue
+        sales_count += 1
+        total = _money(o.get("total"))
+        if str(o.get("stripe_checkout_session_id") or "").startswith(POS_CASH_PREFIX):
+            sales_cash += total
+        else:
+            sales_card += total
+        tx = tx_by_session.get(o.get("stripe_checkout_session_id")) or {}
+        items_count += sum(int(i.get("quantity") or 0) for i in (tx.get("items") or []))
+
+    refunds = await stats_fetch_all(
+        lambda: supabase.table("pos_refunds")
+        .select("id,order_id,method,amount,reason,items,created_at")
+        .eq("session_id", sid)
+        .order("created_at")
+    )
+    refunds_cash = sum((_money(r["amount"]) for r in refunds if r["method"] == "cash"), Decimal("0"))
+    refunds_card = sum((_money(r["amount"]) for r in refunds if r["method"] == "card"), Decimal("0"))
+    returned_items = sum(
+        int(i.get("quantity") or 0) for r in refunds for i in (r.get("items") or [])
+    )
+
+    movements = await stats_fetch_all(
+        lambda: supabase.table("pos_cash_movements")
+        .select("id,type,amount,reason,created_at,created_by")
+        .eq("session_id", sid)
+        .order("created_at")
+    )
+    cash_in = sum((_money(m["amount"]) for m in movements if m["type"] == "in"), Decimal("0"))
+    cash_out = sum((_money(m["amount"]) for m in movements if m["type"] == "out"), Decimal("0"))
+
+    opening = _money(session.get("opening_float"))
+    sales_total = sales_cash + sales_card
+    refunds_total = refunds_cash + refunds_card
+    expected_cash = opening + sales_cash - refunds_cash + cash_in - cash_out
+
+    def f(d: Decimal) -> float:
+        return float(d.quantize(Decimal("0.01")))
+
+    return {
+        "generated_at": now_iso(),
+        "opening_float": f(opening),
+        "sales": {
+            "count": sales_count,
+            "items": items_count,
+            "total": f(sales_total),
+            "cash": f(sales_cash),
+            "card": f(sales_card),
+            "average_basket": f(sales_total / sales_count) if sales_count else 0.0,
+        },
+        "refunds": {
+            "count": len(refunds),
+            "items_returned": returned_items,
+            "total": f(refunds_total),
+            "cash": f(refunds_cash),
+            "card": f(refunds_card),
+            "list": refunds,
+        },
+        "movements": {
+            "in": f(cash_in),
+            "out": f(cash_out),
+            "list": movements,
+        },
+        "net_total": f(sales_total - refunds_total),
+        "expected_cash": f(expected_cash),
+    }
+
+
+def _pos_public_session(session: dict, register: Optional[dict] = None) -> dict:
+    keys = (
+        "id", "session_number", "register_id", "status", "opened_at", "opened_by",
+        "opening_float", "opening_note", "closed_at", "closed_by", "counted_cash",
+        "counted_detail", "expected_cash", "cash_difference", "closing_note",
+    )
+    data = {k: session.get(k) for k in keys}
+    if register:
+        data["register"] = {"id": register["id"], "code": register["code"], "name": register["name"]}
+    return data
+
+
+async def _pos_profile_names(ids) -> dict:
+    ids = [i for i in set(ids) if i]
+    if not ids:
+        return {}
+    result = await asyncio.to_thread(
+        lambda: supabase.table("profiles").select("id,first_name,last_name,email").in_("id", ids).execute()
+    )
+    names = {}
+    for p in result.data or []:
+        name = " ".join(x for x in [p.get("first_name"), p.get("last_name")] if x)
+        names[p["id"]] = name or p.get("email") or "—"
+    return names
+
+
+# ── Caisses & session courante ──
+
+
+@api_router.get("/pos/registers")
+async def pos_registers(profile=Depends(require_admin)):
+    result = await asyncio.to_thread(
+        lambda: supabase.table("pos_registers").select("*").eq("active", True).order("code").execute()
+    )
+    return result.data or []
+
+
+@api_router.get("/pos/session/current")
+async def pos_current_session(
+    register_code: Optional[str] = None,
+    profile=Depends(require_admin),
+):
+    register = await _pos_register(register_code)
+    session = await _pos_open_session_for(register["id"])
+    if not session:
+        return {"register": register, "session": None, "report": None}
+
+    names = await _pos_profile_names([session.get("opened_by")])
+    data = _pos_public_session(session, register)
+    data["opened_by_name"] = names.get(session.get("opened_by"))
+    return {"register": register, "session": data, "report": await _pos_session_report(session)}
+
+
+class PosSessionOpen(BaseModel):
+    register_code: Optional[str] = None
+    opening_float: Decimal = Field(..., ge=0, le=100000)
+    opening_detail: Optional[Dict[str, int]] = None
+    note: Optional[str] = Field(None, max_length=500)
+
+
+@api_router.post("/pos/session/open")
+async def pos_open_session(payload: PosSessionOpen, profile=Depends(require_admin)):
+    register = await _pos_register(payload.register_code)
+
+    if await _pos_open_session_for(register["id"]):
+        raise HTTPException(status_code=409, detail="Une session est déjà ouverte sur cette caisse.")
+
+    row = {
+        "id": str(uuid.uuid4()),
+        "register_id": register["id"],
+        "status": "open",
+        "opened_at": now_iso(),
+        "opened_by": profile.get("id"),
+        "opening_float": float(_money(payload.opening_float)),
+        "opening_detail": payload.opening_detail,
+        "opening_note": (payload.note or "").strip() or None,
+    }
+    try:
+        await sb_insert("pos_sessions", row)
+    except Exception:
+        # Deux ouvertures simultanées : l'index unique n'en laisse passer qu'une.
+        if await _pos_open_session_for(register["id"]):
+            raise HTTPException(status_code=409, detail="Une session est déjà ouverte sur cette caisse.")
+        logger.exception("Caisse : ouverture de session impossible")
+        raise HTTPException(status_code=503, detail="Ouverture de la caisse impossible")
+
+    session = await sb_select_one("pos_sessions", "id", row["id"])
+    logger.info("Caisse %s ouverte (fond %s) par %s", register["code"], row["opening_float"], profile.get("id"))
+    return {"session": _pos_public_session(session, register), "report": await _pos_session_report(session)}
+
+
+@api_router.get("/pos/session/{session_id}/report")
+async def pos_session_report(session_id: str, profile=Depends(require_admin)):
+    session = await sb_select_one("pos_sessions", "id", session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session introuvable")
+    register = await sb_select_one("pos_registers", "id", session["register_id"])
+    names = await _pos_profile_names([session.get("opened_by"), session.get("closed_by")])
+    data = _pos_public_session(session, register)
+    data["opened_by_name"] = names.get(session.get("opened_by"))
+    data["closed_by_name"] = names.get(session.get("closed_by"))
+    return {"session": data, "report": await _pos_session_report(session)}
+
+
+@api_router.get("/pos/sessions")
+async def pos_sessions_history(
+    register_code: Optional[str] = None,
+    limit: int = Query(30, gt=0, le=200),
+    profile=Depends(require_admin),
+):
+    register = await _pos_register(register_code)
+    result = await asyncio.to_thread(
+        lambda: supabase.table("pos_sessions")
+        .select("*")
+        .eq("register_id", register["id"])
+        .order("opened_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    sessions = result.data or []
+    names = await _pos_profile_names(
+        [s.get("opened_by") for s in sessions] + [s.get("closed_by") for s in sessions]
+    )
+    out = []
+    for s in sessions:
+        data = _pos_public_session(s, register)
+        data["opened_by_name"] = names.get(s.get("opened_by"))
+        data["closed_by_name"] = names.get(s.get("closed_by"))
+        rep = s.get("report") or {}
+        data["sales_total"] = (rep.get("sales") or {}).get("total")
+        data["net_total"] = rep.get("net_total")
+        out.append(data)
+    return out
+
+
+# ── Mouvements d'espèces ──
+
+
+class PosCashMovementIn(BaseModel):
+    type: str = Field(..., pattern="^(in|out)$")
+    amount: Decimal = Field(..., gt=0, le=100000)
+    reason: str = Field(..., min_length=2, max_length=300)
+
+
+@api_router.post("/pos/session/{session_id}/movements")
+async def pos_add_cash_movement(
+    session_id: str,
+    payload: PosCashMovementIn,
+    profile=Depends(require_admin),
+):
+    session = await _pos_require_open_session(session_id)
+    row = {
+        "id": str(uuid.uuid4()),
+        "session_id": session["id"],
+        "type": payload.type,
+        "amount": float(_money(payload.amount)),
+        "reason": payload.reason.strip(),
+        "created_by": profile.get("id"),
+        "created_at": now_iso(),
+    }
+    try:
+        await sb_insert("pos_cash_movements", row)
+    except Exception:
+        logger.exception("Caisse : mouvement non enregistré")
+        raise HTTPException(status_code=409, detail="Mouvement refusé : la session est peut-être fermée.")
+    return {"movement": row, "report": await _pos_session_report(session)}
+
+
+# ── Clôture ──
+
+
+class PosSessionClose(BaseModel):
+    counted_cash: Decimal = Field(..., ge=0, le=1000000)
+    counted_detail: Optional[Dict[str, int]] = None
+    note: Optional[str] = Field(None, max_length=1000)
+
+
+@api_router.post("/pos/session/{session_id}/close")
+async def pos_close_session(
+    session_id: str,
+    payload: PosSessionClose,
+    profile=Depends(require_admin),
+):
+    session = await _pos_require_open_session(session_id)
+    report = await _pos_session_report(session)
+
+    counted = _money(payload.counted_cash)
+    expected = _money(report["expected_cash"])
+    difference = counted - expected
+
+    report = {
+        **report,
+        "counted_cash": float(counted),
+        "cash_difference": float(difference),
+        "closed_at": now_iso(),
+    }
+
+    result = await asyncio.to_thread(
+        lambda: supabase.table("pos_sessions")
+        .update(
+            {
+                "status": "closed",
+                "closed_at": report["closed_at"],
+                "closed_by": profile.get("id"),
+                "counted_cash": float(counted),
+                "counted_detail": payload.counted_detail,
+                "expected_cash": float(expected),
+                "cash_difference": float(difference),
+                "report": report,
+                "closing_note": (payload.note or "").strip() or None,
+            }
+        )
+        .eq("id", session["id"])
+        .eq("status", "open")
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=409, detail="Cette session a déjà été clôturée.")
+
+    closed = result.data[0]
+    register = await sb_select_one("pos_registers", "id", closed["register_id"])
+    logger.info(
+        "Caisse %s clôturée : attendu %s, compté %s, écart %s",
+        (register or {}).get("code"), expected, counted, difference,
+    )
+    names = await _pos_profile_names([closed.get("opened_by"), closed.get("closed_by")])
+    data = _pos_public_session(closed, register)
+    data["opened_by_name"] = names.get(closed.get("opened_by"))
+    data["closed_by_name"] = names.get(closed.get("closed_by"))
+    return {"session": data, "report": report}
+
+
+# ── Remboursements & retours en boutique ──
+
+
+async def _pos_refundable(order_id: str) -> dict:
+    result = await asyncio.to_thread(
+        lambda: supabase.table("orders")
+        .select("*, order_items(*), refunds(*)")
+        .eq("id", order_id)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+    order = result.data[0]
+
+    item_ids = [i["id"] for i in order.get("order_items") or []]
+    returned = defaultdict(int)
+    if item_ids:
+        rows = await asyncio.to_thread(
+            lambda: supabase.table("order_item_returns")
+            .select("order_item_id,quantity")
+            .in_("order_item_id", item_ids)
+            .execute()
+        )
+        for r in rows.data or []:
+            returned[r["order_item_id"]] += int(r.get("quantity") or 0)
+
+    refunded = sum(
+        (
+            _money(r.get("amount"))
+            for r in order.get("refunds") or []
+            if (r.get("status") or "succeeded") in ("succeeded", "pending")
+        ),
+        Decimal("0"),
+    )
+    total = _money(order.get("total"))
+    pi = order.get("stripe_payment_intent_id") or ""
+    session_ref = order.get("stripe_checkout_session_id") or ""
+    is_cash_sale = session_ref.startswith(POS_CASH_PREFIX) or pi.startswith("cash_")
+
+    items = []
+    for i in order.get("order_items") or []:
+        qty = int(i.get("quantity") or 0)
+        items.append(
+            {
+                "id": i["id"],
+                "product_title": i.get("product_title"),
+                "variant_title": i.get("variant_title"),
+                "variant_id": i.get("variant_id"),
+                "quantity": qty,
+                "returned": returned[i["id"]],
+                "returnable": max(qty - returned[i["id"]], 0),
+                "unit_price": float(_money(i.get("unit_price"))),
+            }
+        )
+
+    refundable_status = order.get("status") in ("paid", "processing", "shipped", "delivered")
+    return {
+        "order": {
+            "id": order["id"],
+            "order_number": order.get("order_number"),
+            "status": order.get("status"),
+            "total": float(total),
+            "email": order.get("email"),
+            "created_at": order.get("created_at"),
+            "customer_id": order.get("customer_id"),
+        },
+        "items": items,
+        "refunded_total": float(refunded),
+        "remaining": float(max(total - refunded, Decimal("0"))) if refundable_status else 0.0,
+        "refundable": refundable_status and total - refunded > 0,
+        "methods": {
+            "cash": True,
+            "card": bool(pi) and not is_cash_sale,
+        },
+        "is_cash_sale": is_cash_sale,
+        "_payment_intent": pi,
+    }
+
+
+@api_router.get("/pos/orders/{order_id}/refundable")
+async def pos_order_refundable(order_id: str, profile=Depends(require_admin)):
+    data = await _pos_refundable(order_id)
+    data.pop("_payment_intent", None)
+    return data
+
+
+class PosRefundItem(BaseModel):
+    order_item_id: str
+    quantity: int = Field(..., gt=0, le=1000, strict=True)
+    restock: bool = True
+
+
+class PosRefundRequest(BaseModel):
+    client_refund_id: uuid.UUID
+    method: str = Field(..., pattern="^(cash|card)$")
+    items: List[PosRefundItem] = Field(default_factory=list, max_length=100)
+    amount: Optional[Decimal] = Field(None, gt=0, le=100000)
+    reason: Optional[str] = Field(None, max_length=300)
+
+
+async def _pos_reverse_loyalty(order: dict, amount: Decimal) -> int:
+    """Retire les points gagnés sur la part remboursée (sans passer sous zéro)."""
+    customer_id = order.get("customer_id")
+    if not customer_id:
+        return 0
+    customer = await sb_select_one("customers", "id", customer_id)
+    profile_id = (customer or {}).get("profile_id")
+    if not profile_id:
+        return 0
+
+    loyalty = await sb_select_one("loyalty_points", "profile_id", profile_id)
+    if not loyalty:
+        return 0
+    balance = int(loyalty.get("points") or 0)
+    points = min(int(amount), balance)
+    if points <= 0:
+        return 0
+
+    await sb_update(
+        "loyalty_points",
+        {
+            "points": balance - points,
+            "total_earned": max(int(loyalty.get("total_earned") or 0) - points, 0),
+            "updated_at": now_iso(),
+        },
+        "profile_id",
+        profile_id,
+    )
+    await sb_insert(
+        "loyalty_transactions",
+        {
+            "id": str(uuid.uuid4()),
+            "profile_id": profile_id,
+            "order_id": order["id"],
+            "type": "spend",
+            "points": -points,
+            "reason": f"Points retirés — remboursement commande #{order.get('order_number') or ''}".strip(),
+            "created_at": now_iso(),
+        },
+    )
+    return points
+
+
+@api_router.post("/pos/orders/{order_id}/refund")
+async def pos_refund_order(
+    order_id: str,
+    payload: PosRefundRequest,
+    profile=Depends(require_admin),
+):
+    client_refund_id = str(payload.client_refund_id)
+
+    # Rejeu (double appui, réseau coupé) : on renvoie le résultat existant.
+    existing = await sb_select_one("pos_refunds", "client_refund_id", client_refund_id)
+    if existing:
+        data = await _pos_refundable(order_id)
+        data.pop("_payment_intent", None)
+        return {"duplicate": True, "pos_refund": existing, "refundable": data}
+
+    data = await _pos_refundable(order_id)
+    if not data["refundable"]:
+        raise HTTPException(status_code=400, detail="Cette commande n'est plus remboursable.")
+
+    # Contrôle des quantités et calcul du montant des articles.
+    items_by_id = {i["id"]: i for i in data["items"]}
+    wanted = defaultdict(int)
+    items_amount = Decimal("0")
+    for it in payload.items:
+        line = items_by_id.get(it.order_item_id)
+        if not line:
+            raise HTTPException(status_code=400, detail="Article introuvable dans cette commande.")
+        wanted[it.order_item_id] += it.quantity
+        if wanted[it.order_item_id] > line["returnable"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Quantité trop élevée pour « {line['product_title']} » (max {line['returnable']}).",
+            )
+        items_amount += _money(line["unit_price"]) * it.quantity
+
+    amount = _money(payload.amount) if payload.amount is not None else _money(items_amount)
+    remaining = _money(data["remaining"])
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Indiquez les articles ou le montant à rembourser.")
+    if amount > remaining:
+        raise HTTPException(status_code=400, detail=f"Montant supérieur au solde remboursable ({remaining} CHF).")
+
+    if payload.method == "card" and not data["methods"]["card"]:
+        raise HTTPException(status_code=400, detail="Cette vente n'a pas été payée par carte : remboursez en espèces.")
+
+    # Espèces : session ouverte obligatoire. Carte : rattachée si une session est ouverte.
+    if payload.method == "cash":
+        session = await _pos_require_open_session()
+    else:
+        register = await _pos_register()
+        session = await _pos_open_session_for(register["id"])
+
+    stripe_refund_id = None
+    stripe_status = None
+    if payload.method == "card":
+        try:
+            refund = await asyncio.to_thread(
+                stripe.Refund.create,
+                payment_intent=data["_payment_intent"],
+                amount=int((amount * 100).quantize(Decimal("1"))),
+                reason="requested_by_customer",
+                metadata={
+                    "source": "baume_pos",
+                    "order_id": order_id,
+                    "client_refund_id": client_refund_id,
+                },
+                idempotency_key=f"baume-pos-refund-{client_refund_id}",
+            )
+        except Exception as exc:
+            logger.exception("Caisse : remboursement Stripe refusé pour %s", order_id)
+            raise HTTPException(status_code=502, detail=f"Remboursement par carte refusé : {getattr(exc, 'user_message', None) or 'erreur Stripe'}")
+        stripe_refund_id = refund.id
+        stripe_status = refund.status if refund.status in ("succeeded", "pending") else "pending"
+
+    items_json = [
+        {"order_item_id": it.order_item_id, "quantity": it.quantity, "restock": it.restock}
+        for it in payload.items
+    ]
+
+    try:
+        result = await asyncio.to_thread(
+            lambda: supabase.rpc(
+                "pos_record_refund",
+                {
+                    "p_client_refund_id": client_refund_id,
+                    "p_order_id": order_id,
+                    "p_session_id": (session or {}).get("id"),
+                    "p_method": payload.method,
+                    "p_amount": float(amount),
+                    "p_items": items_json,
+                    "p_reason": (payload.reason or "").strip() or None,
+                    "p_created_by": profile.get("id"),
+                    "p_stripe_refund_id": stripe_refund_id,
+                    "p_stripe_status": stripe_status,
+                },
+            ).execute()
+        )
+    except Exception as exc:
+        if stripe_refund_id:
+            # L'argent est rendu au client : le webhook Stripe enregistrera le
+            # remboursement ; seuls les retours / la remise en stock manquent.
+            logger.critical(
+                "Caisse : remboursement Stripe %s effectué mais non enregistré (commande %s)",
+                stripe_refund_id, order_id,
+            )
+        message = str(getattr(exc, "message", "") or exc)
+        raise HTTPException(status_code=400, detail=f"Remboursement non enregistré : {message[:200]}")
+
+    outcome = result.data or {}
+
+    points_removed = 0
+    if not outcome.get("duplicate"):
+        try:
+            order_row = await sb_select_one("orders", "id", order_id)
+            points_removed = await _pos_reverse_loyalty(order_row or {"id": order_id}, amount)
+        except Exception:
+            logger.exception("Caisse : points fidélité non ajustés pour %s", order_id)
+        if outcome.get("full"):
+            try:
+                await _reverse_referral_for_order(order_id)
+            except Exception:
+                logger.exception("Caisse : parrainage non annulé pour %s", order_id)
+
+    refreshed = await _pos_refundable(order_id)
+    refreshed.pop("_payment_intent", None)
+    return {
+        "duplicate": bool(outcome.get("duplicate")),
+        "result": outcome,
+        "amount": float(amount),
+        "method": payload.method,
+        "stripe_refund_id": stripe_refund_id,
+        "points_removed": points_removed,
+        "refundable": refreshed,
+    }
 
 
 api_router.include_router(auth_router)
