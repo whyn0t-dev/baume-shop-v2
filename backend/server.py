@@ -8856,6 +8856,7 @@ async def pos_refund_order(
     refreshed.pop("_payment_intent", None)
     return {
         "duplicate": bool(outcome.get("duplicate")),
+        "pos_refund_id": outcome.get("pos_refund_id"),
         "result": outcome,
         "amount": float(amount),
         "method": payload.method,
@@ -9288,6 +9289,162 @@ async def pos_split_cancel(sale_id: str, profile=Depends(require_admin)):
         payment_status="refunded" if refund_id else "cancelled",
     )
     return {"cancelled": True, "card_refunded": bool(refund_id)}
+
+
+
+# ============================================================
+# BAUME — CAISSE : TICKETS DE REMBOURSEMENT (boutique uniquement)
+# Chaque ligne de pos_refunds est présentée comme un ticket :
+# numéro R-…, commande d'origine, compte client, articles
+# remboursés (et remis en stock ou non), mode, employée, session.
+# ============================================================
+
+
+async def _pos_refund_tickets(refunds: list) -> list:
+    if not refunds:
+        return []
+
+    order_ids = list({r["order_id"] for r in refunds if r.get("order_id")})
+    orders = {}
+    for start in range(0, len(order_ids), 80):
+        chunk = order_ids[start : start + 80]
+        result = await asyncio.to_thread(
+            lambda: supabase.table("orders")
+            .select(
+                "id,order_number,email,customer_id,shipping_address,total,status,"
+                "stripe_checkout_session_id,created_at,"
+                "order_items(id,product_title,variant_title,unit_price,quantity)"
+            )
+            .in_("id", chunk)
+            .execute()
+        )
+        for o in result.data or []:
+            orders[o["id"]] = o
+
+    customer_ids = list({o.get("customer_id") for o in orders.values() if o.get("customer_id")})
+    customers = {}
+    if customer_ids:
+        result = await asyncio.to_thread(
+            lambda: supabase.table("customers")
+            .select("id,profile_id,first_name,last_name,email")
+            .in_("id", customer_ids)
+            .execute()
+        )
+        customers = {c["id"]: c for c in result.data or []}
+
+    profile_ids = [c.get("profile_id") for c in customers.values() if c.get("profile_id")]
+    profiles = {}
+    if profile_ids:
+        result = await asyncio.to_thread(
+            lambda: supabase.table("profiles")
+            .select("id,first_name,last_name,email")
+            .in_("id", list(set(profile_ids)))
+            .execute()
+        )
+        profiles = {p["id"]: p for p in result.data or []}
+
+    session_ids = list({r.get("session_id") for r in refunds if r.get("session_id")})
+    sessions = {}
+    if session_ids:
+        result = await asyncio.to_thread(
+            lambda: supabase.table("pos_sessions")
+            .select("id,session_number")
+            .in_("id", session_ids)
+            .execute()
+        )
+        sessions = {s["id"]: s for s in result.data or []}
+
+    creators = await _pos_profile_names([r.get("created_by") for r in refunds])
+
+    tickets = []
+    for r in refunds:
+        order = orders.get(r.get("order_id")) or {}
+        items_by_id = {i["id"]: i for i in order.get("order_items") or []}
+
+        customer = customers.get(order.get("customer_id")) or {}
+        profile = profiles.get(customer.get("profile_id")) or {}
+        name = " ".join(
+            x for x in [profile.get("first_name") or customer.get("first_name"), profile.get("last_name") or customer.get("last_name")] if x
+        )
+        has_account = bool(profile)
+
+        items = []
+        for it in r.get("items") or []:
+            line = items_by_id.get(it.get("order_item_id")) or {}
+            qty = int(it.get("quantity") or 0)
+            unit = float(_money(line.get("unit_price")))
+            items.append(
+                {
+                    "order_item_id": it.get("order_item_id"),
+                    "product_title": line.get("product_title") or "Article",
+                    "variant_title": line.get("variant_title"),
+                    "quantity": qty,
+                    "restock": bool(it.get("restock", True)),
+                    "unit_price": unit,
+                    "total": float(_money(unit * qty)),
+                }
+            )
+
+        session = sessions.get(r.get("session_id")) or {}
+        tickets.append(
+            {
+                "id": r["id"],
+                "refund_number": r.get("refund_number"),
+                "created_at": r.get("created_at"),
+                "method": r.get("method"),
+                "amount": float(_money(r.get("amount"))),
+                "reason": r.get("reason"),
+                "stripe_refund_id": r.get("stripe_refund_id"),
+                "created_by_name": creators.get(r.get("created_by")),
+                "session": (
+                    {"id": session.get("id"), "session_number": session.get("session_number")}
+                    if session
+                    else None
+                ),
+                "order": {
+                    "id": order.get("id") or r.get("order_id"),
+                    "order_number": order.get("order_number"),
+                    "total": float(_money(order.get("total"))),
+                    "status": order.get("status"),
+                    "created_at": order.get("created_at"),
+                    "in_store": ((order.get("shipping_address") or {}).get("type") == "in_store"),
+                },
+                "customer": {
+                    "profile_id": profile.get("id"),
+                    "name": name or None,
+                    "email": profile.get("email") or customer.get("email") or order.get("email"),
+                    "has_account": has_account,
+                },
+                "items": items,
+                "items_count": sum(i["quantity"] for i in items),
+            }
+        )
+    return tickets
+
+
+@api_router.get("/pos/refunds")
+async def pos_refund_tickets(
+    order_id: Optional[str] = None,
+    limit: int = Query(100, gt=0, le=500),
+    profile=Depends(require_admin),
+):
+    def run():
+        q = supabase.table("pos_refunds").select("*")
+        if order_id:
+            q = q.eq("order_id", order_id)
+        return q.order("created_at", desc=True).limit(limit).execute()
+
+    result = await asyncio.to_thread(run)
+    return await _pos_refund_tickets(result.data or [])
+
+
+@api_router.get("/pos/refunds/{refund_id}")
+async def pos_refund_ticket(refund_id: str, profile=Depends(require_admin)):
+    row = await sb_select_one("pos_refunds", "id", refund_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Ticket de remboursement introuvable")
+    tickets = await _pos_refund_tickets([row])
+    return tickets[0]
 
 
 api_router.include_router(auth_router)
