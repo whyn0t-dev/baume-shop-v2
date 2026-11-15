@@ -54,14 +54,14 @@ function renderEmail(opts: {
 		.slice(0, 4)
 		.map((it) => {
 			const link = it.slug ? `${FRONTEND_URL}/produit/${it.slug}#avis-clients` : `${FRONTEND_URL}/avis`;
-			return `<tr><td style="padding:10px 0;border-bottom:1px solid #f0ece8;font-size:15px;color:#2C2C2C;">${escapeHtml(it.name)}</td>
-<td style="padding:10px 0;border-bottom:1px solid #f0ece8;text-align:right;"><a href="${link}" style="color:#3D2A2A;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;">Donner mon avis →</a></td></tr>`;
+			return `<tr><td style="padding:10px 0;border-bottom:1px solid #E7DDD3;font-size:15px;color:#111111;">${escapeHtml(it.name)}</td>
+<td style="padding:10px 0;border-bottom:1px solid #E7DDD3;text-align:right;"><a href="${link}" style="color:#3D2A2A;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;">Donner mon avis →</a></td></tr>`;
 		})
 		.join("");
 
 	return layout(`
 <p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#3D2A2A;">Un mois déjà</p>
-<h1 style="margin:0 0 16px;font-size:26px;font-weight:normal;color:#2C2C2C;">Merci ${escapeHtml(opts.firstName)}, comment ça se passe&nbsp;?</h1>
+<h1 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 16px;font-size:26px;font-weight:normal;color:#111111;">Merci ${escapeHtml(opts.firstName)}, comment ça se passe&nbsp;?</h1>
 <p style="margin:0 0 16px;">Cela fait un mois que vous avez reçu votre commande. Nous espérons que vos produits vous accompagnent en douceur au quotidien.</p>
 <p style="margin:0 0 8px;">Votre retour compte énormément : il aide d'autres femmes à choisir en confiance.</p>
 ${products ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 8px;">${products}</table>` : ""}

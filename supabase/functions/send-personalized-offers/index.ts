@@ -82,7 +82,7 @@ function renderEmail(opts: {
 	const cards = opts.suggestions
 		.map(
 			(p) => `<td width="33%" valign="top" style="padding:6px;">
-<a href="${FRONTEND_URL}/produit/${p.slug}" style="text-decoration:none;color:#2C2C2C;">
+<a href="${FRONTEND_URL}/produit/${p.slug}" style="text-decoration:none;color:#111111;">
 ${p.image ? `<img src="${escapeHtml(p.image)}" alt="" width="160" style="width:100%;max-width:160px;height:auto;border-radius:12px;display:block;margin:0 auto 8px;">` : ""}
 <p style="margin:0;font-size:14px;line-height:19px;">${escapeHtml(p.name)}</p>
 <p style="margin:4px 0 0;font-family:Arial,sans-serif;font-size:12px;color:#3D2A2A;">${chf(p.price)}</p>
@@ -92,7 +92,7 @@ ${p.image ? `<img src="${escapeHtml(p.image)}" alt="" width="160" style="width:1
 
 	return layout(`
 <p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#3D2A2A;">Offre personnelle</p>
-<h1 style="margin:0 0 16px;font-size:26px;font-weight:normal;color:#2C2C2C;">${copy.title}, ${escapeHtml(opts.firstName)}</h1>
+<h1 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 16px;font-size:26px;font-weight:normal;color:#111111;">${copy.title}, ${escapeHtml(opts.firstName)}</h1>
 <p style="margin:0 0 16px;">${copy.intro}</p>
 ${opts.message ? `<p style="margin:0 0 16px;font-style:italic;color:#3D2A2A;">${escapeHtml(opts.message)}</p>` : ""}
 ${promoBlock(opts.code, opts.percent, opts.endsAt)}

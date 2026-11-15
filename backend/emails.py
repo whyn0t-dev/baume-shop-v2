@@ -47,33 +47,29 @@ def _layout(body_html: str) -> str:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
 </head>
-<body style="margin:0;padding:0;background:#f5f0eb;font-family:Georgia,serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f0eb;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#F7F3EE;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3EE;padding:40px 20px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 
         <!-- Header -->
         <tr>
           <td style="background:#3D2A2A;padding:32px 40px;border-radius:16px 16px 0 0;text-align:center;">
-            <p style="margin:0 0 6px;font-size:11px;letter-spacing:3px;color:rgba(255,255,255,0.55);text-transform:uppercase;">
-              Baume
-            </p>
-            <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.55);letter-spacing:1px;">
-              Genève · Intimité &amp; bien-être féminin
-            </p>
+            <img src="{FRONTEND_URL}/email-logo-ivoire.png" width="150" height="31" alt="Baume." style="display:block;margin:0 auto 12px;border:0;outline:none;text-decoration:none;width:150px;height:31px;font-family:Georgia,'Times New Roman',serif;font-size:26px;color:#F7F3EE;">
+<p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#D3B1A0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">Bien-être féminin · Genève</p>
           </td>
         </tr>
 
         <!-- Body -->
         <tr>
-          <td style="background:#ffffff;padding:36px 40px;color:#2C2C2C;font-size:15px;line-height:26px;">
+          <td style="background:#ffffff;padding:36px 40px;color:#111111;font-size:15px;line-height:26px;">
             {body_html}
           </td>
         </tr>
 
         <!-- Footer -->
         <tr>
-          <td style="background:#faf7f4;padding:24px 40px;border-radius:0 0 16px 16px;border-top:1px solid #f0ece8;text-align:center;">
+          <td style="background:#F7F3EE;padding:24px 40px;border-radius:0 0 16px 16px;border-top:1px solid #E7DDD3;text-align:center;">
             <p style="margin:0 0 4px;font-size:12px;color:#aaa;">
               Une question ? Écrivez-nous à
               <a href="mailto:contact@baumeshop-v2.weblax.fr" style="color:#3D2A2A;">contact@baumeshop-v2.weblax.fr</a>
@@ -96,15 +92,15 @@ async def send_contact_notification(
     name: str, email: str, subject: str, topic: str, message: str
 ):
     body = f"""
-      <h1 style="margin:0 0 20px;font-size:24px;color:#3D2A2A;font-weight:400;">
+      <h1 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 20px;font-size:24px;color:#3D2A2A;font-weight:400;">
         Nouveau message reçu
       </h1>
 
-      <div style="background:#faf7f4;border:1px solid #f0ece8;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+      <div style="background:#F7F3EE;border:1px solid #E7DDD3;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="padding:6px 0;font-size:13px;color:#888;width:100px;">De</td>
-            <td style="padding:6px 0;font-size:14px;color:#2C2C2C;font-weight:600;">{name}</td>
+            <td style="padding:6px 0;font-size:14px;color:#111111;font-weight:600;">{name}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;font-size:13px;color:#888;">Email</td>
@@ -114,19 +110,19 @@ async def send_contact_notification(
           </tr>
           <tr>
             <td style="padding:6px 0;font-size:13px;color:#888;">Motif</td>
-            <td style="padding:6px 0;font-size:14px;color:#2C2C2C;">{topic or "Non précisé"}</td>
+            <td style="padding:6px 0;font-size:14px;color:#111111;">{topic or "Non précisé"}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;font-size:13px;color:#888;">Sujet</td>
-            <td style="padding:6px 0;font-size:14px;color:#2C2C2C;">{subject}</td>
+            <td style="padding:6px 0;font-size:14px;color:#111111;">{subject}</td>
           </tr>
         </table>
       </div>
 
-      <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#2C2C2C;text-transform:uppercase;letter-spacing:1px;">
+      <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#111111;text-transform:uppercase;letter-spacing:1px;">
         Message
       </p>
-      <div style="border-left:3px solid #3D2A2A;padding:12px 20px;background:#faf7f4;border-radius:0 8px 8px 0;font-size:14px;color:#444;line-height:22px;white-space:pre-wrap;">{message}</div>
+      <div style="border-left:3px solid #3D2A2A;padding:12px 20px;background:#F7F3EE;border-radius:0 8px 8px 0;font-size:14px;color:#444;line-height:22px;white-space:pre-wrap;">{message}</div>
 
       <div style="margin-top:28px;text-align:center;">
         <a href="mailto:{email}?subject=Re: {subject}"
@@ -144,7 +140,7 @@ async def send_contact_notification(
 
 async def send_contact_acknowledgement(to_email: str, name: str):
     body = f"""
-      <h1 style="margin:0 0 8px;font-size:28px;color:#3D2A2A;font-weight:400;">
+      <h1 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 8px;font-size:28px;color:#3D2A2A;font-weight:400;">
         Merci, {name}.
       </h1>
       <p style="margin:0 0 24px;font-size:15px;color:#888;">
@@ -166,12 +162,12 @@ async def send_contact_acknowledgement(to_email: str, name: str):
           Nos guides
         </a>
         <a href="{FRONTEND_URL}/shop/produit"
-           style="display:inline-block;padding:12px 24px;border:1px solid #e0d8d0;color:#3D2A2A;border-radius:99px;font-size:13px;font-weight:600;text-decoration:none;">
+           style="display:inline-block;padding:12px 24px;border:1px solid #E7DDD3;color:#3D2A2A;border-radius:99px;font-size:13px;font-weight:600;text-decoration:none;">
           La boutique
         </a>
       </div>
 
-      <div style="border-top:1px solid #f0ece8;padding-top:20px;">
+      <div style="border-top:1px solid #E7DDD3;padding-top:20px;">
         <p style="margin:0;font-size:13px;color:#aaa;">
           À très vite,<br/>
           <span style="color:#3D2A2A;font-weight:600;">L'équipe Baume</span>
@@ -190,14 +186,14 @@ async def send_order_confirmation(to_email: str, first_name: str, order: dict):
 
     items_html = "".join(f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #f0ece8;font-size:14px;color:#2C2C2C;">
+          <td style="padding:10px 0;border-bottom:1px solid #E7DDD3;font-size:14px;color:#111111;">
             {it.get("name") or it.get("product_title") or "Produit"}
             {"<br/><span style='font-size:12px;color:#888;'>" + " · ".join(filter(None, [it.get("size"), it.get("color")])) + "</span>" if it.get("size") or it.get("color") else ""}
           </td>
-          <td style="padding:10px 0;border-bottom:1px solid #f0ece8;font-size:14px;color:#888;text-align:center;">
+          <td style="padding:10px 0;border-bottom:1px solid #E7DDD3;font-size:14px;color:#888;text-align:center;">
             × {it.get("quantity", 1)}
           </td>
-          <td style="padding:10px 0;border-bottom:1px solid #f0ece8;font-size:14px;color:#2C2C2C;text-align:right;font-weight:600;">
+          <td style="padding:10px 0;border-bottom:1px solid #E7DDD3;font-size:14px;color:#111111;text-align:right;font-weight:600;">
             {float(it.get("subtotal") or it.get("total_price") or 0):.2f} {currency}
           </td>
         </tr>
@@ -211,7 +207,7 @@ async def send_order_confirmation(to_email: str, first_name: str, order: dict):
     discount_code = order.get("discount_code") or ""
 
     body = f"""
-      <h1 style="margin:0 0 8px;font-size:28px;color:#3D2A2A;font-weight:400;">
+      <h1 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 8px;font-size:28px;color:#3D2A2A;font-weight:400;">
         Merci, {first_name} ✦
       </h1>
       <p style="margin:0 0 24px;font-size:15px;color:#888;">
@@ -227,9 +223,9 @@ async def send_order_confirmation(to_email: str, first_name: str, order: dict):
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
         <thead>
           <tr>
-            <th style="text-align:left;font-size:12px;color:#888;font-weight:600;padding-bottom:8px;border-bottom:2px solid #f0ece8;text-transform:uppercase;letter-spacing:1px;">Article</th>
-            <th style="text-align:center;font-size:12px;color:#888;font-weight:600;padding-bottom:8px;border-bottom:2px solid #f0ece8;text-transform:uppercase;letter-spacing:1px;">Qté</th>
-            <th style="text-align:right;font-size:12px;color:#888;font-weight:600;padding-bottom:8px;border-bottom:2px solid #f0ece8;text-transform:uppercase;letter-spacing:1px;">Prix</th>
+            <th style="text-align:left;font-size:12px;color:#888;font-weight:600;padding-bottom:8px;border-bottom:2px solid #E7DDD3;text-transform:uppercase;letter-spacing:1px;">Article</th>
+            <th style="text-align:center;font-size:12px;color:#888;font-weight:600;padding-bottom:8px;border-bottom:2px solid #E7DDD3;text-transform:uppercase;letter-spacing:1px;">Qté</th>
+            <th style="text-align:right;font-size:12px;color:#888;font-weight:600;padding-bottom:8px;border-bottom:2px solid #E7DDD3;text-transform:uppercase;letter-spacing:1px;">Prix</th>
           </tr>
         </thead>
         <tbody>{items_html}</tbody>
@@ -248,8 +244,8 @@ async def send_order_confirmation(to_email: str, first_name: str, order: dict):
           </td>
         </tr>
         <tr>
-          <td style="padding:12px 0 0;font-size:15px;font-weight:600;color:#2C2C2C;border-top:2px solid #f0ece8;">Total</td>
-          <td style="padding:12px 0 0;font-size:18px;font-weight:600;color:#2C2C2C;text-align:right;border-top:2px solid #f0ece8;">
+          <td style="padding:12px 0 0;font-size:15px;font-weight:600;color:#111111;border-top:2px solid #E7DDD3;">Total</td>
+          <td style="padding:12px 0 0;font-size:18px;font-weight:600;color:#111111;text-align:right;border-top:2px solid #E7DDD3;">
             {total:.2f} {currency}
           </td>
         </tr>
@@ -262,7 +258,7 @@ async def send_order_confirmation(to_email: str, first_name: str, order: dict):
         </a>
       </div>
 
-      <div style="border-top:1px solid #f0ece8;padding-top:20px;">
+      <div style="border-top:1px solid #E7DDD3;padding-top:20px;">
         <p style="margin:0;font-size:13px;color:#aaa;line-height:20px;">
           Délai estimé : 2 à 5 jours ouvrés.<br/>
           Une question ? Répondez à cet email ou contactez-nous sur
@@ -294,7 +290,7 @@ def _row(label: str, value: str, strong: bool = False) -> str:
     return f"""
       <tr>
         <td style="padding:6px 0;color:#666;font-size:14px;">{label}</td>
-        <td style="padding:6px 0;text-align:right;font-size:14px;font-weight:{weight};color:#2C2C2C;">{value}</td>
+        <td style="padding:6px 0;text-align:right;font-size:14px;font-weight:{weight};color:#111111;">{value}</td>
       </tr>"""
 
 
@@ -327,7 +323,7 @@ async def send_pos_session_report(to: List[str], session: dict, report: dict) ->
     )
 
     body = f"""
-      <h1 style="margin:0 0 6px;font-size:22px;font-weight:normal;color:#3D2A2A;">Clôture de caisse</h1>
+      <h1 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 6px;font-size:22px;font-weight:normal;color:#3D2A2A;">Clôture de caisse</h1>
       <p style="margin:0 0 20px;color:#888;font-size:13px;">
         {register}{f" · session n° {number}" if number else ""}<br>
         Ouverture : {opened} UTC{f" · {opened_by}" if opened_by else ""}<br>
@@ -372,7 +368,7 @@ async def send_pos_session_report(to: List[str], session: dict, report: dict) ->
       {f'''<p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;color:#999;text-transform:uppercase;">Mouvements</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">{movements_html}</table>''' if movements_html else ""}
 
-      {f'<p style="margin:0;padding:12px;background:#faf7f4;border-radius:8px;font-size:14px;"><strong>Note :</strong> {note}</p>' if note else ""}
+      {f'<p style="margin:0;padding:12px;background:#F7F3EE;border-radius:8px;font-size:14px;"><strong>Note :</strong> {note}</p>' if note else ""}
     """
 
     subject = f"Clôture de caisse · {register}{f' n° {number}' if number else ''} · {_chf(report.get('net_total'))} · {diff_label}"

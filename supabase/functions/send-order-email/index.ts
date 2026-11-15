@@ -114,18 +114,16 @@ function baseLayout(content: string): string {
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Baume Shop</title>
 </head>
-<body style="margin:0;padding:0;background:#f5f0e8;font-family:Georgia,serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f0e8;padding:40px 16px;">
+<body style="margin:0;padding:0;background:#F7F3EE;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3EE;padding:40px 16px;">
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 
         <!-- Header -->
         <tr>
           <td style="padding-bottom:32px;text-align:center;">
-            <span style="font-size:28px;font-weight:bold;color:#2c1810;letter-spacing:2px;">BAUME</span>
-            <p style="margin:4px 0 0;font-size:12px;color:#8b6b5d;letter-spacing:3px;text-transform:uppercase;">
-              Bien-être féminin
-            </p>
+            <img src="${SHOP_URL}/email-logo-bordeaux.png" width="150" height="31" alt="Baume." style="display:block;margin:0 auto 10px;border:0;outline:none;text-decoration:none;width:150px;height:31px;font-family:Georgia,'Times New Roman',serif;font-size:26px;color:#3D2A2A;">
+<p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#6B5751;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">Bien-être féminin · Genève</p>
           </td>
         </tr>
 
@@ -139,9 +137,9 @@ function baseLayout(content: string): string {
         <!-- Footer -->
         <tr>
           <td style="padding-top:32px;text-align:center;">
-            <p style="margin:0;font-size:12px;color:#8b6b5d;">
+            <p style="margin:0;font-size:12px;color:#6B5751;">
               © 2026 Baume Shop · Rue du Rhône 15, Genève<br/>
-              <a href="${SHOP_URL}" style="color:#8b6b5d;">${SHOP_URL.replace("https://", "")}</a>
+              <a href="${SHOP_URL}" style="color:#6B5751;">${SHOP_URL.replace("https://", "")}</a>
             </p>
           </td>
         </tr>
@@ -156,30 +154,30 @@ function baseLayout(content: string): string {
 function orderItemsHtml(items: OrderItem[], currency: string): string {
   if (!items.length) return `
     <tr>
-      <td style="padding:16px 0;font-size:14px;color:#8b6b5d;text-align:center;">
+      <td style="padding:16px 0;font-size:14px;color:#6B5751;text-align:center;">
         Aucun article trouvé
       </td>
     </tr>`;
 
   return items.map((item) => `
     <tr>
-      <td style="padding:12px 0;border-bottom:1px solid #f0ebe3;">
+      <td style="padding:12px 0;border-bottom:1px solid #E7DDD3;">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td style="width:48px;vertical-align:top;">
-              <div style="width:40px;height:40px;background:#f5f0e8;border-radius:8px;"></div>
+              <div style="width:40px;height:40px;background:#F7F3EE;border-radius:8px;"></div>
             </td>
             <td style="padding-left:12px;vertical-align:top;">
-              <p style="margin:0;font-size:14px;font-weight:bold;color:#2c1810;">
+              <p style="margin:0;font-size:14px;font-weight:bold;color:#111111;">
                 ${item.product_title || item.name || "Produit"}
               </p>
               ${item.variant_title
-      ? `<p style="margin:2px 0 0;font-size:12px;color:#8b6b5d;">${item.variant_title}</p>`
+      ? `<p style="margin:2px 0 0;font-size:12px;color:#6B5751;">${item.variant_title}</p>`
       : ""}
-              <p style="margin:2px 0 0;font-size:12px;color:#8b6b5d;">Qté : ${item.quantity}</p>
+              <p style="margin:2px 0 0;font-size:12px;color:#6B5751;">Qté : ${item.quantity}</p>
             </td>
             <td style="text-align:right;vertical-align:top;">
-              <p style="margin:0;font-size:14px;font-weight:bold;color:#2c1810;">
+              <p style="margin:0;font-size:14px;font-weight:bold;color:#111111;">
                 ${formatPrice(itemTotal(item), currency)}
               </p>
             </td>
@@ -195,8 +193,8 @@ function totalsHtml(order: Order): string {
   return `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;">
       <tr>
-        <td style="padding:6px 0;font-size:14px;color:#8b6b5d;">Sous-total</td>
-        <td style="padding:6px 0;font-size:14px;color:#2c1810;text-align:right;">
+        <td style="padding:6px 0;font-size:14px;color:#6B5751;">Sous-total</td>
+        <td style="padding:6px 0;font-size:14px;color:#111111;text-align:right;">
           ${formatPrice(order.subtotal, currency)}
         </td>
       </tr>
@@ -211,16 +209,16 @@ function totalsHtml(order: Order): string {
       </tr>` : ""}
       ${inStore ? "" : `
       <tr>
-        <td style="padding:6px 0;font-size:14px;color:#8b6b5d;">Livraison</td>
-        <td style="padding:6px 0;font-size:14px;color:#2c1810;text-align:right;">
+        <td style="padding:6px 0;font-size:14px;color:#6B5751;">Livraison</td>
+        <td style="padding:6px 0;font-size:14px;color:#111111;text-align:right;">
           ${(order.shipping_total ?? 0) > 0 ? formatPrice(order.shipping_total, currency) : "Offerte"}
         </td>
       </tr>`}
       <tr>
-        <td style="padding:12px 0 0;font-size:16px;font-weight:bold;color:#2c1810;border-top:2px solid #f0ebe3;">
+        <td style="padding:12px 0 0;font-size:16px;font-weight:bold;color:#111111;border-top:2px solid #E7DDD3;">
           Total
         </td>
-        <td style="padding:12px 0 0;font-size:16px;font-weight:bold;color:#7c3d2f;text-align:right;border-top:2px solid #f0ebe3;">
+        <td style="padding:12px 0 0;font-size:16px;font-weight:bold;color:#3D2A2A;text-align:right;border-top:2px solid #E7DDD3;">
           ${formatPrice(order.total, currency)}
         </td>
       </tr>
@@ -233,11 +231,11 @@ function shippingHtml(order: Order): string {
 
   if (isInStore(order)) {
     return `
-    <div style="margin-top:24px;padding-top:24px;border-top:1px solid #f0ebe3;">
-      <p style="margin:0 0 8px;font-size:13px;color:#8b6b5d;letter-spacing:2px;text-transform:uppercase;">
+    <div style="margin-top:24px;padding-top:24px;border-top:1px solid #E7DDD3;">
+      <p style="margin:0 0 8px;font-size:13px;color:#6B5751;letter-spacing:2px;text-transform:uppercase;">
         Achat en boutique
       </p>
-      <p style="margin:0;font-size:14px;color:#2c1810;line-height:1.8;">
+      <p style="margin:0;font-size:14px;color:#111111;line-height:1.8;">
         Baume Genève · Rue du Rhône 15, 1204 Genève
       </p>
     </div>`;
@@ -251,11 +249,11 @@ function shippingHtml(order: Order): string {
     || "";
 
   return `
-    <div style="margin-top:24px;padding-top:24px;border-top:1px solid #f0ebe3;">
-      <p style="margin:0 0 8px;font-size:13px;color:#8b6b5d;letter-spacing:2px;text-transform:uppercase;">
+    <div style="margin-top:24px;padding-top:24px;border-top:1px solid #E7DDD3;">
+      <p style="margin:0 0 8px;font-size:13px;color:#6B5751;letter-spacing:2px;text-transform:uppercase;">
         Adresse de livraison
       </p>
-      <p style="margin:0;font-size:14px;color:#2c1810;line-height:1.8;">
+      <p style="margin:0;font-size:14px;color:#111111;line-height:1.8;">
         ${name ? `${name}<br/>` : ""}
         ${(shipping.address || shipping.line1 || "")}<br/>
         ${shipping.postal_code || ""} ${shipping.city || ""}<br/>
@@ -266,11 +264,11 @@ function shippingHtml(order: Order): string {
 
 function orderIdBadge(order: Order): string {
   return `
-    <div style="background:#f5f0e8;border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
-      <p style="margin:0;font-size:12px;color:#8b6b5d;letter-spacing:2px;text-transform:uppercase;">
+    <div style="background:#F7F3EE;border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0;font-size:12px;color:#6B5751;letter-spacing:2px;text-transform:uppercase;">
         Numéro de commande
       </p>
-      <p style="margin:4px 0 0;font-size:20px;font-weight:bold;color:#2c1810;font-family:monospace;">
+      <p style="margin:4px 0 0;font-size:20px;font-weight:bold;color:#111111;font-family:monospace;">
         #${orderLabel(order)}
       </p>
     </div>`;
@@ -279,14 +277,14 @@ function orderIdBadge(order: Order): string {
 function heroHtml(order: Order, title: string): string {
   const inStore = isInStore(order);
   return `
-    <div style="background:#7c3d2f;padding:40px 32px;text-align:center;">
-      <p style="margin:0;font-size:13px;color:#f5c4a8;letter-spacing:2px;text-transform:uppercase;">
+    <div style="background:#3D2A2A;padding:40px 32px;text-align:center;">
+      <p style="margin:0;font-size:13px;color:#D3B1A0;letter-spacing:2px;text-transform:uppercase;">
         ${inStore ? "Achat confirmé" : "Commande confirmée"}
       </p>
-      <h1 style="margin:12px 0 0;font-size:32px;color:#ffffff;font-weight:normal;">
+      <h1 style="font-family:Georgia,'Times New Roman',serif;margin:12px 0 0;font-size:32px;color:#ffffff;font-weight:normal;">
         ${title}
       </h1>
-      <p style="margin:8px 0 0;font-size:15px;color:#f5c4a8;">
+      <p style="margin:8px 0 0;font-size:15px;color:#D3B1A0;">
         ${inStore
       ? "Merci pour votre visite à la boutique. Voici le récapitulatif de votre achat."
       : "Votre commande est en cours de préparation."}
@@ -307,7 +305,7 @@ function buildConfirmationEmail(order: Order, firstName: string): string {
     <div style="padding:32px;">
       ${orderIdBadge(order)}
 
-      <p style="margin:0 0 16px;font-size:13px;color:#8b6b5d;letter-spacing:2px;text-transform:uppercase;">
+      <p style="margin:0 0 16px;font-size:13px;color:#6B5751;letter-spacing:2px;text-transform:uppercase;">
         ${inStore ? "Votre achat" : "Votre commande"}
       </p>
       <table width="100%" cellpadding="0" cellspacing="0">
@@ -319,14 +317,14 @@ function buildConfirmationEmail(order: Order, firstName: string): string {
 
       <div style="margin-top:32px;text-align:center;">
         <a href="${SHOP_URL}/compte"
-          style="display:inline-block;background:#7c3d2f;color:#ffffff;text-decoration:none;
+          style="display:inline-block;background:#3D2A2A;color:#ffffff;text-decoration:none;
                  padding:14px 32px;border-radius:50px;font-size:14px;font-weight:bold;">
           ${inStore ? "Voir mon compte et mes points" : "Suivre ma commande"}
         </a>
       </div>
 
-      <p style="margin:24px 0 0;font-size:13px;color:#8b6b5d;text-align:center;line-height:1.6;">
-        Des questions ? <a href="${SHOP_URL}/contact" style="color:#7c3d2f;">Contactez-nous</a>
+      <p style="margin:24px 0 0;font-size:13px;color:#6B5751;text-align:center;line-height:1.6;">
+        Des questions ? <a href="${SHOP_URL}/contact" style="color:#3D2A2A;">Contactez-nous</a>
       </p>
     </div>`;
 
@@ -353,7 +351,7 @@ function buildGuestConfirmationEmail(order: Order, welcomeCode: string | null): 
     <div style="padding:32px;">
       ${orderIdBadge(order)}
 
-      <p style="margin:0 0 16px;font-size:13px;color:#8b6b5d;letter-spacing:2px;text-transform:uppercase;">
+      <p style="margin:0 0 16px;font-size:13px;color:#6B5751;letter-spacing:2px;text-transform:uppercase;">
         ${inStore ? "Votre achat" : "Votre commande"}
       </p>
       <table width="100%" cellpadding="0" cellspacing="0">
@@ -364,47 +362,47 @@ function buildGuestConfirmationEmail(order: Order, welcomeCode: string | null): 
       ${shippingHtml(order)}
 
       <!-- Bloc invitation compte -->
-      <div style="margin-top:32px;background:#f5f0e8;border-radius:16px;padding:28px;text-align:center;">
-        <p style="margin:0;font-size:20px;color:#2c1810;font-weight:normal;">
+      <div style="margin-top:32px;background:#F7F3EE;border-radius:16px;padding:28px;text-align:center;">
+        <p style="margin:0;font-size:20px;color:#111111;font-weight:normal;">
           ✨ Rejoignez la communauté Baume
         </p>
-        <p style="margin:12px 0 0;font-size:14px;color:#8b6b5d;line-height:1.7;">
+        <p style="margin:12px 0 0;font-size:14px;color:#6B5751;line-height:1.7;">
           Créez votre compte gratuit et profitez de :
         </p>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;text-align:left;">
           ${perks.map(([icon, text]) => `
           <tr>
-            <td style="padding:6px 0;font-size:14px;color:#2c1810;">
+            <td style="padding:6px 0;font-size:14px;color:#111111;">
               <span style="margin-right:8px;">${icon}</span>${text}
             </td>
           </tr>`).join("")}
         </table>
 
         ${welcomeCode ? `
-        <div style="margin-top:20px;background:#ffffff;border:2px dashed #7c3d2f;
+        <div style="margin-top:20px;background:#ffffff;border:2px dashed #3D2A2A;
                     border-radius:12px;padding:16px;">
-          <p style="margin:0;font-size:12px;color:#8b6b5d;letter-spacing:2px;text-transform:uppercase;">
+          <p style="margin:0;font-size:12px;color:#6B5751;letter-spacing:2px;text-transform:uppercase;">
             Cadeau de bienvenue
           </p>
-          <p style="margin:8px 0;font-size:24px;font-weight:bold;color:#7c3d2f;
+          <p style="margin:8px 0;font-size:24px;font-weight:bold;color:#3D2A2A;
                     font-family:monospace;letter-spacing:4px;">
             ${welcomeCode}
           </p>
-          <p style="margin:0;font-size:13px;color:#8b6b5d;">
+          <p style="margin:0;font-size:13px;color:#6B5751;">
             10% de réduction sur votre prochaine commande
           </p>
         </div>` : ""}
 
         <a href="${SHOP_URL}/inscription"
-          style="display:inline-block;margin-top:20px;background:#7c3d2f;color:#ffffff;
+          style="display:inline-block;margin-top:20px;background:#3D2A2A;color:#ffffff;
                  text-decoration:none;padding:14px 32px;border-radius:50px;
                  font-size:14px;font-weight:bold;">
           Créer mon compte gratuitement
         </a>
       </div>
 
-      <p style="margin:24px 0 0;font-size:13px;color:#8b6b5d;text-align:center;line-height:1.6;">
-        Des questions ? <a href="${SHOP_URL}/contact" style="color:#7c3d2f;">Contactez-nous</a>
+      <p style="margin:24px 0 0;font-size:13px;color:#6B5751;text-align:center;line-height:1.6;">
+        Des questions ? <a href="${SHOP_URL}/contact" style="color:#3D2A2A;">Contactez-nous</a>
       </p>
     </div>`;
 

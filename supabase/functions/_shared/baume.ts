@@ -92,15 +92,15 @@ export function randomCode(prefix: string): string {
 export function layout(bodyHtml: string, width = 600): string {
 	return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f0eb;font-family:Georgia,serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f0eb;padding:40px 20px;"><tr><td align="center">
+<body style="margin:0;padding:0;background:#F7F3EE;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F7F3EE;padding:40px 20px;"><tr><td align="center">
 <table width="${width}" cellpadding="0" cellspacing="0" style="max-width:${width}px;width:100%;">
 <tr><td style="background:#3D2A2A;padding:32px 40px;border-radius:16px 16px 0 0;text-align:center;">
-<p style="margin:0 0 6px;font-size:11px;letter-spacing:3px;color:rgba(255,255,255,0.6);text-transform:uppercase;">Baume</p>
-<p style="margin:0;font-size:13px;color:rgba(255,255,255,0.6);letter-spacing:1px;">Genève · Intimité &amp; bien-être féminin</p>
+<img src="${FRONTEND_URL}/email-logo-ivoire.png" width="150" height="31" alt="Baume." style="display:block;margin:0 auto 12px;border:0;outline:none;text-decoration:none;width:150px;height:31px;font-family:Georgia,'Times New Roman',serif;font-size:26px;color:#F7F3EE;">
+<p style="margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#D3B1A0;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">Bien-être féminin · Genève</p>
 </td></tr>
-<tr><td style="background:#ffffff;padding:36px 40px;color:#2C2C2C;font-size:15px;line-height:26px;">${bodyHtml}</td></tr>
-<tr><td style="background:#faf7f4;padding:24px 40px;border-radius:0 0 16px 16px;border-top:1px solid #f0ece8;text-align:center;">
+<tr><td style="background:#ffffff;padding:36px 40px;color:#111111;font-size:15px;line-height:26px;">${bodyHtml}</td></tr>
+<tr><td style="background:#F7F3EE;padding:24px 40px;border-radius:0 0 16px 16px;border-top:1px solid #E7DDD3;text-align:center;">
 <p style="margin:0 0 4px;font-size:12px;color:#999;">Une question ? Écrivez-nous à <a href="mailto:${SENDER_EMAIL}" style="color:#3D2A2A;">${SENDER_EMAIL}</a></p>
 <p style="margin:4px 0 0;font-size:11px;color:#bbb;">Baume Sàrl · Rue du Rhône 15 · 1204 Genève</p>
 </td></tr>
@@ -109,7 +109,7 @@ export function layout(bodyHtml: string, width = 600): string {
 
 export function promoBlock(code: string, percent: number, endsAt: string): string {
 	return `<table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
-<tr><td style="border:1px dashed #D3B1A0;border-radius:16px;background:#FBF5E3;padding:24px;text-align:center;">
+<tr><td style="border:1px dashed #D3B1A0;border-radius:16px;background:#F7F3EE;padding:24px;text-align:center;">
 <p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#3D2A2A;">−${percent}&nbsp;% sur votre prochaine commande</p>
 <p style="margin:0;font-family:monospace;font-size:26px;font-weight:bold;color:#3D2A2A;letter-spacing:2px;">${escapeHtml(code)}</p>
 <p style="margin:10px 0 0;font-size:12px;color:#888;">Valable une seule fois, jusqu'au ${dateFr(endsAt)}.</p>

@@ -1,0 +1,41 @@
+# Réglages des Edge Functions (repris de la configuration en ligne).
+# Indispensable pour qu'un « supabase functions deploy » garde le bon contrôle JWT :
+# les webhooks et fonctions appelées par le cron/backend doivent rester sans JWT.
+project_id = "bniuqpunzhzyuoqgdazm"
+
+[functions.create-checkout-session]
+verify_jwt = false
+[functions.stripe-webhook]
+verify_jwt = false
+[functions.update-order-status]
+verify_jwt = true
+[functions.refund-order]
+verify_jwt = true
+[functions.update-order-item-status]
+verify_jwt = true
+[functions.send-order-email]
+verify_jwt = false
+[functions.keepalive]
+verify_jwt = false
+[functions.send-quiz-results]
+verify_jwt = false
+[functions.send-loyalty-code]
+verify_jwt = false
+[functions.send-order-status-email]
+verify_jwt = true
+[functions.send-preorder-available]
+verify_jwt = false
+[functions.send-return-status-email]
+verify_jwt = true
+[functions.send-welcome-email]
+verify_jwt = false
+[functions.send-newsletter-welcome]
+verify_jwt = true
+[functions.account-security]
+verify_jwt = true
+[functions.send-post-purchase-offer]
+verify_jwt = false
+[functions.send-personalized-offers]
+verify_jwt = false
+[functions.send-monthly-report]
+verify_jwt = false

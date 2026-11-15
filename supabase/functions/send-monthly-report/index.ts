@@ -27,7 +27,7 @@ type Row = Record<string, any>;
 const th = (label: string, right = false) =>
 	`<th style="padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#777;text-align:${right ? "right" : "left"};border-bottom:1px solid #EADBD2;">${label}</th>`;
 const td = (value: string, right = false) =>
-	`<td style="padding:8px 10px;font-size:13px;color:#2C2C2C;text-align:${right ? "right" : "left"};border-bottom:1px solid #f0ece8;">${value}</td>`;
+	`<td style="padding:8px 10px;font-size:13px;color:#111111;text-align:${right ? "right" : "left"};border-bottom:1px solid #E7DDD3;">${value}</td>`;
 
 function table(headers: [string, boolean][], rows: string[][]): string {
 	if (!rows.length)
@@ -39,13 +39,13 @@ ${rows.map((cells) => `<tr>${cells.map((c, i) => td(c, headers[i][1])).join("")}
 }
 
 function kpi(label: string, value: string): string {
-	return `<td width="50%" style="padding:6px;"><div style="border:1px solid #EADBD2;border-radius:14px;padding:16px;background:#FBF5E3;">
+	return `<td width="50%" style="padding:6px;"><div style="border:1px solid #EADBD2;border-radius:14px;padding:16px;background:#F7F3EE;">
 <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#777;">${label}</p>
 <p style="margin:6px 0 0;font-size:22px;color:#3D2A2A;">${value}</p></div></td>`;
 }
 
 function h2(title: string): string {
-	return `<h2 style="font-size:20px;font-weight:normal;color:#3D2A2A;margin:28px 0 4px;">${title}</h2>`;
+	return `<h2 style="font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:normal;color:#3D2A2A;margin:28px 0 4px;">${title}</h2>`;
 }
 
 function renderReport(r: Row): string {
@@ -90,7 +90,7 @@ function renderReport(r: Row): string {
 	return layout(
 		`
 <p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#3D2A2A;">Rapport mensuel</p>
-<h1 style="margin:0 0 8px;font-size:28px;font-weight:normal;color:#2C2C2C;">Bilan de ${escapeHtml(r.month_label)}</h1>
+<h1 style="font-family:Georgia,'Times New Roman',serif;margin:0 0 8px;font-size:28px;font-weight:normal;color:#111111;">Bilan de ${escapeHtml(r.month_label)}</h1>
 <p style="margin:0 0 20px;font-size:14px;color:#777;">Ventes, achats, marge brute et stocks du mois écoulé.</p>
 
 <table width="100%" cellpadding="0" cellspacing="0">
