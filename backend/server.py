@@ -7513,7 +7513,12 @@ async def pos_customers(
     return [_pos_public_profile(p) for p in result.data or []]
 
 
+_POS_PAID_STATUSES = {"paid", "processing", "shipped", "delivered"}
+
+
 async def _pos_customer_detail(p: dict) -> dict:
+    """Fiche client complète pour l'app : commandes, statistiques, produits préférés,
+    coupons utilisés, remboursements en boutique et fidélité."""
     loyalty = await sb_select_one("loyalty_points", "profile_id", p["id"]) or {}
 
     transactions = await asyncio.to_thread(
@@ -7521,7 +7526,7 @@ async def _pos_customer_detail(p: dict) -> dict:
         .select("*")
         .eq("profile_id", p["id"])
         .order("created_at", desc=True)
-        .limit(10)
+        .limit(50)
         .execute()
     )
 
@@ -7529,13 +7534,136 @@ async def _pos_customer_detail(p: dict) -> dict:
     if p.get("email"):
         orders_result = await asyncio.to_thread(
             lambda: supabase.table("orders")
-            .select("*")
+            .select("*, order_items(*)")
             .ilike("email", p["email"].replace("%", "").replace("_", "\\_"))
             .order("created_at", desc=True)
-            .limit(50)
+            .limit(100)
             .execute()
         )
         orders = orders_result.data or []
+
+    channels = (
+        await _pos_channels_for_sessions([o.get("stripe_checkout_session_id") for o in orders])
+        if orders
+        else {}
+    )
+    for o in orders:
+        o["channel"] = channels.get(o.get("stripe_checkout_session_id"), "online")
+        o["items"] = o.get("order_items") or []
+
+    def _num(v) -> float:
+        try:
+            return float(v or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    paid = [o for o in orders if o.get("status") in _POS_PAID_STATUSES]
+    store = [o for o in paid if o.get("channel") == "pos"]
+    online = [o for o in paid if o.get("channel") != "pos"]
+    total_spent = round(sum(_num(o.get("total")) for o in paid), 2)
+    dates = sorted(o.get("created_at") for o in paid if o.get("created_at"))
+
+    stats = {
+        "orders_count": len(paid),
+        "total_spent": total_spent,
+        "average_basket": round(total_spent / len(paid), 2) if paid else 0,
+        "items_count": sum(int(it.get("quantity") or 0) for o in paid for it in o["items"]),
+        "store_orders": len(store),
+        "store_spent": round(sum(_num(o.get("total")) for o in store), 2),
+        "online_orders": len(online),
+        "online_spent": round(sum(_num(o.get("total")) for o in online), 2),
+        "discount_total": round(sum(_num(o.get("discount_total")) for o in paid), 2),
+        "first_order_at": dates[0] if dates else None,
+        "last_order_at": dates[-1] if dates else None,
+    }
+
+    # Produits préférés : regroupés par produit sur les commandes payées.
+    agg: dict = {}
+    for o in paid:
+        for it in o["items"]:
+            key = it.get("product_id") or (it.get("product_title") or "").strip().lower()
+            if not key:
+                continue
+            a = agg.setdefault(
+                key,
+                {
+                    "product_id": it.get("product_id"),
+                    "title": it.get("product_title") or "Produit",
+                    "quantity": 0,
+                    "amount": 0.0,
+                    "order_ids": set(),
+                    "variants": {},
+                    "last_ordered_at": None,
+                },
+            )
+            qty = int(it.get("quantity") or 0)
+            a["quantity"] += qty
+            a["amount"] += _num(it.get("total_price"))
+            a["order_ids"].add(o["id"])
+            if it.get("variant_title"):
+                a["variants"][it["variant_title"]] = a["variants"].get(it["variant_title"], 0) + qty
+            if not a["last_ordered_at"] or (o.get("created_at") or "") > a["last_ordered_at"]:
+                a["last_ordered_at"] = o.get("created_at")
+
+    top = sorted(agg.values(), key=lambda a: (-a["quantity"], -a["amount"]))[:12]
+    product_ids = [a["product_id"] for a in top if a["product_id"]]
+    products = {}
+    if product_ids:
+        res = await asyncio.to_thread(
+            lambda: supabase.table("products").select("id, image, slug").in_("id", product_ids).execute()
+        )
+        products = {r["id"]: r for r in (res.data or [])}
+    top_products = [
+        {
+            "product_id": a["product_id"],
+            "title": a["title"],
+            "image": (products.get(a["product_id"]) or {}).get("image"),
+            "quantity": a["quantity"],
+            "amount": round(a["amount"], 2),
+            "orders_count": len(a["order_ids"]),
+            "favorite_variant": max(a["variants"], key=a["variants"].get) if a["variants"] else None,
+            "last_ordered_at": a["last_ordered_at"],
+        }
+        for a in top
+    ]
+
+    # Codes promo utilisés lors des commandes.
+    coupons_used = [
+        {
+            "code": o.get("discount_code"),
+            "amount": _num(o.get("discount_total")),
+            "order_id": o["id"],
+            "order_number": o.get("order_number"),
+            "channel": o.get("channel"),
+            "created_at": o.get("created_at"),
+        }
+        for o in orders
+        if o.get("discount_code")
+    ]
+
+    # Remboursements faits en boutique sur ses commandes.
+    refunds = []
+    order_ids = [o["id"] for o in orders]
+    if order_ids:
+        try:
+            res = await asyncio.to_thread(
+                lambda: supabase.table("pos_refunds")
+                .select("id, refund_number, order_id, amount, method, reason, items, created_at")
+                .in_("order_id", order_ids)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            numbers = {o["id"]: o.get("order_number") for o in orders}
+            for r in res.data or []:
+                items = r.pop("items", None) or []
+                r["items_count"] = sum(int(i.get("quantity") or 0) for i in items if isinstance(i, dict))
+                r["order_number"] = numbers.get(r.get("order_id"))
+                refunds.append(r)
+        except Exception as e:
+            logger.warning("Remboursements du client illisibles : %s", e)
+
+    for o in orders:
+        o.pop("order_items", None)
 
     return {
         **_pos_public_profile(p),
@@ -7547,6 +7675,10 @@ async def _pos_customer_detail(p: dict) -> dict:
         },
         "loyalty_transactions": transactions.data or [],
         "orders": orders,
+        "stats": stats,
+        "top_products": top_products,
+        "coupons_used": coupons_used,
+        "refunds": refunds,
     }
 
 
