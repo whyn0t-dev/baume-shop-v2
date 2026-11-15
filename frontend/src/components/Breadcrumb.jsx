@@ -4,7 +4,7 @@ import { ChevronRight, Home } from "lucide-react";
 
 export default function Breadcrumb({ items = [] }) {
   return (
-    <nav aria-label="Fil d'Ariane" className="text-[13px] text-baume-charcoal/60">
+    <nav aria-label="Fil d'Ariane" className="text-[13px] text-baume-muted">
       <ol className="flex items-center flex-wrap gap-1.5">
         <li>
           <Link to="/" className="inline-flex items-center gap-1 hover:text-baume-burgundy">

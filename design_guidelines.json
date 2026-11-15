@@ -10,18 +10,22 @@
     "carousels": "NO auto-carousels. All sliders must be user-initiated to respect user control and prevent CLS."
   },
   "color_tokens": {
-    "primary_burgundy": "#4D1E19",
+    "primary_burgundy": "#3D2A2A",
+    "burgundy_dark": "#2A1717",
+    "logo_black": "#1C1C1A",
     "text_charcoal": "#111111",
+    "text_muted": "#6B5751",
     "white": "#FFFFFF",
     "bg_ivory": "#F7F3EE",
-    "surface_taupe": "#C0B4A6",
+    "surface_taupe": "#D3B1A0",
+    "accent_taupe_warm": "#B5866B",
     "border_soft": "#E7DDD3"
   },
   "typography": {
     "fonts": {
-      "heading": "Cormorant Garamond",
+      "heading": "Fraunces",
       "body": "Inter",
-      "google_fonts_url": "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&display=swap"
+      "google_fonts_url": "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
     },
     "scale": {
       "h1": {
@@ -55,8 +59,28 @@
     }
   },
   "spacing": {
-    "px": [4, 8, 12, 16, 24, 32, 48, 64, 96],
-    "tailwind_classes": ["p-1", "p-2", "p-3", "p-4", "p-6", "p-8", "p-12", "p-16", "p-24"]
+    "px": [
+      4,
+      8,
+      12,
+      16,
+      24,
+      32,
+      48,
+      64,
+      96
+    ],
+    "tailwind_classes": [
+      "p-1",
+      "p-2",
+      "p-3",
+      "p-4",
+      "p-6",
+      "p-8",
+      "p-12",
+      "p-16",
+      "p-24"
+    ]
   },
   "grid": {
     "container": "w-full max-w-[1200px] mx-auto",
@@ -157,9 +181,34 @@
     }
   },
   "microcopy": {
-    "nav_main": ["Shop par besoin", "Shop par produit", "Guides & conseils", "Ateliers & experts", "Boutique Genève", "À propos", "FAQ", "Contact"],
-    "nav_besoins": ["Règles & cycle", "Intimité", "Sexualité", "Maternité & post-partum", "Péri-ménopause", "Ados & premiers cycles"],
-    "nav_produits": ["Culottes menstruelles", "Maillots menstruels", "Cups & disques", "Serviettes lavables", "Soins intimes", "Lubrifiants", "Compléments", "Accessoires & cadeaux"],
+    "nav_main": [
+      "Shop par besoin",
+      "Shop par produit",
+      "Guides & conseils",
+      "Ateliers & experts",
+      "Boutique Genève",
+      "À propos",
+      "FAQ",
+      "Contact"
+    ],
+    "nav_besoins": [
+      "Règles & cycle",
+      "Intimité",
+      "Sexualité",
+      "Maternité & post-partum",
+      "Péri-ménopause",
+      "Ados & premiers cycles"
+    ],
+    "nav_produits": [
+      "Culottes menstruelles",
+      "Maillots menstruels",
+      "Cups & disques",
+      "Serviettes lavables",
+      "Soins intimes",
+      "Lubrifiants",
+      "Compléments",
+      "Accessoires & cadeaux"
+    ],
     "ctas": {
       "hero_primary": "Découvrir ma routine",
       "hero_secondary": "Voir les best-sellers",
@@ -180,5 +229,14 @@
     "performance": "Target LCP < 2.5s, CLS < 0.1, INP < 200ms. Ensure AVIF/WebP formats and lazy-load non-critical imagery.",
     "testing": "CRITICAL: Add data-testid attributes to all interactive/key informational elements using kebab-case role-based names (e.g., data-testid='hero-primary-cta').",
     "styling": "Use standard html and Tailwind CSS for main layouts instead of rigidly relying on pre-built structural components when creative overlapping or spacing is needed."
+  },
+  "logo": {
+    "file": "frontend/public/baume-logo.svg",
+    "component": "frontend/src/components/BaumeLogo.jsx",
+    "header": "logo complet bordeaux #3D2A2A sur blanc",
+    "footer": "logo complet ivoire #F7F3EE sur bordeaux foncé #2A1717",
+    "favicon": "B seul ivoire sur bordeaux",
+    "receipt": "logo noir",
+    "min_width_px": 80
   }
 }

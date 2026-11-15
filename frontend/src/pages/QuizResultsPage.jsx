@@ -156,7 +156,7 @@ export default function QuizResultsPage() {
 											{info.emoji}
 										</span>
 										<div>
-											<p className="text-[11px] text-baume-charcoal/40 font-semibold uppercase tracking-wider">
+											<p className="text-[11px] text-baume-muted font-semibold uppercase tracking-wider">
 												Priorité {index + 1}
 											</p>
 											<p className="text-[14px] font-semibold text-baume-charcoal">
@@ -164,7 +164,7 @@ export default function QuizResultsPage() {
 											</p>
 										</div>
 									</div>
-									<p className="text-[13px] text-baume-charcoal/65 leading-[1.6]">
+									<p className="text-[13px] text-baume-muted leading-[1.6]">
 										{info.description}
 									</p>
 								</div>
@@ -191,7 +191,7 @@ export default function QuizResultsPage() {
 							<Loader2 className="h-7 w-7 animate-spin text-baume-burgundy" />
 						</div>
 					) : products.length === 0 ? (
-						<div className="py-16 text-center text-baume-charcoal/50">
+						<div className="py-16 text-center text-baume-muted">
 							<p>Aucun produit trouvé pour vos catégories.</p>
 							<Link
 								to="/shop/produit"
@@ -220,7 +220,7 @@ export default function QuizResultsPage() {
 					<h2 className="font-editorial text-[28px] text-baume-charcoal">
 						Envie d'affiner vos résultats ?
 					</h2>
-					<p className="mt-3 text-[15px] text-baume-charcoal/65">
+					<p className="mt-3 text-[15px] text-baume-muted">
 						Refaites le quiz à tout moment — vos besoins évoluent, vos
 						recommandations aussi.
 					</p>
@@ -274,7 +274,7 @@ function ProductCard({ product, onAddToCart }) {
 						{product.name}
 					</p>
 					{product.tagline && (
-						<p className="text-[12px] text-baume-charcoal/55 mt-1 line-clamp-2">
+						<p className="text-[12px] text-baume-muted mt-1 line-clamp-2">
 							{product.tagline}
 						</p>
 					)}

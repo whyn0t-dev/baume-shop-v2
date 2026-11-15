@@ -31,7 +31,7 @@ export default class ErrorBoundary extends React.Component {
 				this.props.fallback || (
 					<div className="min-h-[40vh] flex items-center justify-center text-center px-6">
 						<div>
-							<p className="font-editorial text-[24px] text-baume-charcoal/50 mb-3">
+							<p className="font-editorial text-[24px] text-baume-muted mb-3">
 								Une erreur est survenue
 							</p>
 							<button

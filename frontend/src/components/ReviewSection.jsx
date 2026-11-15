@@ -88,7 +88,7 @@ export default function ReviewSection({
 										}`}
 									/>
 								))}
-								<span className="text-[14px] text-baume-charcoal/60">
+								<span className="text-[14px] text-baume-muted">
 									{reviewStats.average}/5 · {reviewStats.count} avis
 								</span>
 							</div>
@@ -144,7 +144,7 @@ export default function ReviewSection({
 							<p className="font-editorial text-[22px] text-baume-charcoal mb-2">
 								Soyez la première à partager
 							</p>
-							<p className="text-[14px] text-baume-charcoal/60 leading-[22px]">
+							<p className="text-[14px] text-baume-muted leading-[22px]">
 								Votre retour d'expérience aide les autres à choisir en
 								confiance.
 							</p>
@@ -169,7 +169,7 @@ export default function ReviewSection({
 				{/* ── État vide (aucun avis, non connectée) ────────────────── */}
 				{allReviews.length === 0 && !canWrite && activeTab === "list" && (
 					<div className="rounded-3xl border border-baume-border bg-baume-ivory/50 p-10 text-center">
-						<p className="font-editorial text-[22px] text-baume-charcoal/60">
+						<p className="font-editorial text-[22px] text-baume-muted">
 							Aucun avis pour l'instant
 						</p>
 					</div>

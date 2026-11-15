@@ -100,7 +100,7 @@ export default function OrderItems() {
 	if (!order) {
 		return (
 			<div className="min-h-screen bg-baume-ivory p-8 text-center">
-				<p className="text-baume-charcoal/60">Commande introuvable.</p>
+				<p className="text-baume-muted">Commande introuvable.</p>
 				<Link
 					to="/admin"
 					className="mt-4 inline-block text-baume-burgundy text-[14px] font-semibold"
@@ -143,7 +143,7 @@ export default function OrderItems() {
 							</h1>
 							<StatusBadge status={currentStatus} />
 						</div>
-						<p className="text-[12px] text-baume-charcoal/50 mt-1">
+						<p className="text-[12px] text-baume-muted mt-1">
 							{order.created_at
 								? new Date(order.created_at).toLocaleString("fr-CH")
 								: "Date inconnue"}
@@ -179,7 +179,7 @@ export default function OrderItems() {
 
 						<div className="rounded-xl border border-baume-border overflow-hidden">
 							{items.length === 0 ? (
-								<div className="p-5 text-[13px] text-baume-charcoal/50 text-center">
+								<div className="p-5 text-[13px] text-baume-muted text-center">
 									Aucun article trouvé pour cette commande.
 								</div>
 							) : (
@@ -190,7 +190,7 @@ export default function OrderItems() {
 									>
 										{/* Icône produit */}
 										<div className="h-12 w-12 rounded-lg bg-baume-ivory border border-baume-border flex items-center justify-center shrink-0">
-											<Package className="h-5 w-5 text-baume-charcoal/40" />
+											<Package className="h-5 w-5 text-baume-muted" />
 										</div>
 
 										{/* Infos produit */}
@@ -199,19 +199,19 @@ export default function OrderItems() {
 												{item.product_title || "Produit"}
 											</p>
 											{item.variant_title && (
-												<p className="text-[12px] text-baume-charcoal/55">
+												<p className="text-[12px] text-baume-muted">
 													{item.variant_title}
 												</p>
 											)}
 											{item.sku && (
-												<p className="text-[11px] text-baume-charcoal/40">
+												<p className="text-[11px] text-baume-muted">
 													SKU : {item.sku}
 												</p>
 											)}
 										</div>
 
 										{/* Prix × quantité */}
-										<div className="text-[13px] text-baume-charcoal/70 whitespace-nowrap text-right">
+										<div className="text-[13px] text-baume-muted whitespace-nowrap text-right">
 											<p>
 												{Number(item.unit_price || 0).toFixed(2)} {currency} ×{" "}
 												{item.quantity || 1}
@@ -265,7 +265,7 @@ export default function OrderItems() {
 											disabled={item.fulfillment_status === "fulfilled"}
 											className={`h-8 px-3 rounded-lg text-[12px] font-semibold ml-2 shrink-0 transition-colors ${
 												item.fulfillment_status === "fulfilled"
-													? "bg-baume-ivory text-baume-charcoal/50 cursor-default border border-baume-border"
+													? "bg-baume-ivory text-baume-muted cursor-default border border-baume-border"
 													: "bg-baume-burgundy text-white hover:bg-baume-burgundyDark"
 											}`}
 										>
@@ -326,7 +326,7 @@ export default function OrderItems() {
 						</div>
 
 						{order.stripe_checkout_session_id && (
-							<p className="mt-3 text-[11px] text-baume-charcoal/40">
+							<p className="mt-3 text-[11px] text-baume-muted">
 								Session Stripe : {order.stripe_checkout_session_id}
 							</p>
 						)}
@@ -349,11 +349,11 @@ export default function OrderItems() {
 										.join(" ") ||
 									"Nom non renseigné"}
 							</p>
-							<p className="text-[13px] text-baume-charcoal/60">
+							<p className="text-[13px] text-baume-muted">
 								{order.email || "Email non renseigné"}
 							</p>
 							{shippingAddress.phone && (
-								<p className="text-[13px] text-baume-charcoal/60">
+								<p className="text-[13px] text-baume-muted">
 									{shippingAddress.phone}
 								</p>
 							)}
@@ -370,7 +370,7 @@ export default function OrderItems() {
 						</div>
 
 						{Object.keys(shippingAddress).length > 0 ? (
-							<div className="text-[13px] text-baume-charcoal/70 leading-6">
+							<div className="text-[13px] text-baume-muted leading-6">
 								<p>
 									{shippingAddress.name ||
 										[shippingAddress.first_name, shippingAddress.last_name]
@@ -386,7 +386,7 @@ export default function OrderItems() {
 								<p>{shippingAddress.country}</p>
 							</div>
 						) : (
-							<p className="text-[13px] text-baume-charcoal/50">
+							<p className="text-[13px] text-baume-muted">
 								Adresse non renseignée
 							</p>
 						)}
@@ -400,7 +400,7 @@ export default function OrderItems() {
 								Livraison
 							</h2>
 						</div>
-						<p className="text-[13px] text-baume-charcoal/70">
+						<p className="text-[13px] text-baume-muted">
 							{Number(order.shipping_total || 0) === 0
 								? "Offerte"
 								: `${Number(order.shipping_total || 0).toFixed(2)} ${currency}`}
@@ -440,18 +440,18 @@ function SummaryLine({ label, detail, value, strong = false, green = false }) {
 				className={
 					strong
 						? "font-semibold text-baume-charcoal"
-						: "text-baume-charcoal/70"
+						: "text-baume-muted"
 				}
 			>
 				{label}
 				{detail && (
-					<span className="ml-1 text-baume-charcoal/40 text-[11px]">
+					<span className="ml-1 text-baume-muted text-[11px]">
 						— {detail}
 					</span>
 				)}
 			</span>
 			<span
-				className={`text-right ${strong ? "font-semibold text-baume-charcoal" : green ? "text-emerald-600" : "text-baume-charcoal/70"}`}
+				className={`text-right ${strong ? "font-semibold text-baume-charcoal" : green ? "text-emerald-600" : "text-baume-muted"}`}
 			>
 				{value}
 			</span>
@@ -662,7 +662,7 @@ function TrackingForm({ order, onSaved }) {
 
 	return (
 		<div className="mt-4 pt-4 border-t border-baume-border space-y-3">
-			<p className="text-[12px] font-semibold text-baume-charcoal/60 uppercase tracking-[0.12em]">
+			<p className="text-[12px] font-semibold text-baume-muted uppercase tracking-[0.12em]">
 				Suivi colis
 			</p>
 

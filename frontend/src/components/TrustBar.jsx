@@ -20,7 +20,7 @@ export default function TrustBar() {
               </span>
               <div>
                 <p className="text-[14px] font-semibold text-baume-charcoal">{item.title}</p>
-                <p className="text-[13px] text-baume-charcoal/70 leading-[20px]">{item.desc}</p>
+                <p className="text-[13px] text-baume-muted leading-[20px]">{item.desc}</p>
               </div>
             </div>
           );

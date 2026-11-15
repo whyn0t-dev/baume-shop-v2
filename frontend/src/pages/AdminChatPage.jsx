@@ -236,7 +236,7 @@ export default function AdminChatPage() {
 								className={`flex-1 h-9 rounded-full text-[12px] font-semibold transition ${
 									filter === s
 										? "bg-baume-burgundy text-baume-white"
-										: "bg-baume-ivory text-baume-charcoal/60 border border-baume-border"
+										: "bg-baume-ivory text-baume-muted border border-baume-border"
 								}`}
 							>
 								{s === "open" ? "Ouvertes" : "Verrouillées"}
@@ -247,7 +247,7 @@ export default function AdminChatPage() {
 					{/* Liste conversations */}
 					<div className="flex-1 overflow-y-auto divide-y divide-baume-border">
 						{conversations.length === 0 ? (
-							<div className="p-6 text-center text-[13px] text-baume-charcoal/50">
+							<div className="p-6 text-center text-[13px] text-baume-muted">
 								Aucune conversation
 							</div>
 						) : (
@@ -264,10 +264,10 @@ export default function AdminChatPage() {
 											{conv.email || "Client anonyme"}
 										</p>
 										{conv.status === "locked" && (
-											<Lock className="h-3.5 w-3.5 text-baume-charcoal/40 shrink-0" />
+											<Lock className="h-3.5 w-3.5 text-baume-muted shrink-0" />
 										)}
 									</div>
-									<p className="text-[11px] text-baume-charcoal/50">
+									<p className="text-[11px] text-baume-muted">
 										{new Date(conv.last_message_at).toLocaleString("fr-CH", {
 											day: "numeric",
 											month: "short",
@@ -287,7 +287,7 @@ export default function AdminChatPage() {
 						<div className="flex-1 flex items-center justify-center text-center">
 							<div>
 								<MessageCircle className="h-10 w-10 text-baume-charcoal/20 mx-auto mb-3" />
-								<p className="text-[14px] text-baume-charcoal/40">
+								<p className="text-[14px] text-baume-muted">
 									Sélectionnez une conversation
 								</p>
 							</div>
@@ -300,7 +300,7 @@ export default function AdminChatPage() {
 									<p className="text-[14px] font-semibold text-baume-charcoal">
 										{selected.email || "Client anonyme"}
 									</p>
-									<p className="text-[12px] text-baume-charcoal/50">
+									<p className="text-[12px] text-baume-muted">
 										{selected.status === "locked"
 											? "🔒 Verrouillée"
 											: "🟢 Ouverte"}{" "}
@@ -321,7 +321,7 @@ export default function AdminChatPage() {
 									) : (
 										<button
 											onClick={() => handleLock(selected)}
-											className="h-9 px-4 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/70 text-[12px] font-semibold hover:bg-baume-charcoal/5 transition inline-flex items-center gap-1.5"
+											className="h-9 px-4 rounded-full bg-baume-ivory border border-baume-border text-baume-muted text-[12px] font-semibold hover:bg-baume-charcoal/5 transition inline-flex items-center gap-1.5"
 										>
 											<Lock className="h-3.5 w-3.5" />
 											Verrouiller
@@ -370,7 +370,7 @@ export default function AdminChatPage() {
 												className={`text-[10px] mt-1 ${
 													msg.sender_role === "admin"
 														? "text-baume-white/60"
-														: "text-baume-charcoal/40"
+														: "text-baume-muted"
 												}`}
 											>
 												{new Date(msg.created_at).toLocaleTimeString("fr-CH", {
@@ -412,8 +412,8 @@ export default function AdminChatPage() {
 							{/* Input admin */}
 							{selected.status === "locked" ? (
 								<div className="px-5 py-4 border-t border-baume-border bg-baume-ivory/50 flex items-center gap-2 shrink-0">
-									<Lock className="h-4 w-4 text-baume-charcoal/40" />
-									<p className="text-[12px] text-baume-charcoal/50">
+									<Lock className="h-4 w-4 text-baume-muted" />
+									<p className="text-[12px] text-baume-muted">
 										Conversation verrouillée — déverrouillez pour répondre.
 									</p>
 								</div>

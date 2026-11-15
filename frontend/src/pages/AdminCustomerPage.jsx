@@ -83,19 +83,19 @@ function Card({ title, icon: Icon, children, action, className = "" }) {
 function Kpi({ label, value, sub }) {
 	return (
 		<div className="rounded-2xl border border-baume-border bg-baume-white p-4">
-			<p className="text-[10px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+			<p className="text-[10px] uppercase tracking-[0.18em] text-baume-muted font-semibold">
 				{label}
 			</p>
 			<p className="mt-1 font-editorial text-[24px] text-baume-charcoal leading-tight">
 				{value}
 			</p>
-			{sub && <p className="text-[11px] text-baume-charcoal/50 mt-0.5">{sub}</p>}
+			{sub && <p className="text-[11px] text-baume-muted mt-0.5">{sub}</p>}
 		</div>
 	);
 }
 
 function Empty({ children }) {
-	return <p className="text-[13px] text-baume-charcoal/50">{children}</p>;
+	return <p className="text-[13px] text-baume-muted">{children}</p>;
 }
 
 function Bars({ items, labelMap = {} }) {
@@ -107,7 +107,7 @@ function Bars({ items, labelMap = {} }) {
 				<li key={i.key}>
 					<div className="flex justify-between text-[12px] mb-1">
 						<span className="text-baume-charcoal">{labelMap[i.key] || i.key}</span>
-						<span className="text-baume-charcoal/50 tabular-nums">{i.quantity}</span>
+						<span className="text-baume-muted tabular-nums">{i.quantity}</span>
 					</div>
 					<div className="h-1.5 rounded-full bg-baume-ivory overflow-hidden">
 						<div
@@ -281,13 +281,13 @@ export default function AdminCustomerPage() {
 							{(data.customer?.tags || []).map((t) => (
 								<span
 									key={t}
-									className="inline-flex px-2.5 py-1 rounded-full border border-baume-border text-[11px] text-baume-charcoal/70"
+									className="inline-flex px-2.5 py-1 rounded-full border border-baume-border text-[11px] text-baume-muted"
 								>
 									{t}
 								</span>
 							))}
 						</div>
-						<div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-baume-charcoal/65">
+						<div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-baume-muted">
 							<span className="inline-flex items-center gap-1.5">
 								<Mail className="h-3.5 w-3.5" /> {profile.email}
 							</span>
@@ -354,25 +354,25 @@ export default function AdminCustomerPage() {
 						<Card title="Habitudes d'achat" icon={Sparkles}>
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 								<div>
-									<p className="text-[11px] uppercase tracking-[0.16em] text-baume-charcoal/50 font-semibold mb-3">
+									<p className="text-[11px] uppercase tracking-[0.16em] text-baume-muted font-semibold mb-3">
 										Catégories préférées
 									</p>
 									<Bars items={habits.categories} labelMap={categories} />
 								</div>
 								<div>
-									<p className="text-[11px] uppercase tracking-[0.16em] text-baume-charcoal/50 font-semibold mb-3">
+									<p className="text-[11px] uppercase tracking-[0.16em] text-baume-muted font-semibold mb-3">
 										Marques
 									</p>
 									<Bars items={habits.brands} />
 								</div>
 								<div>
-									<p className="text-[11px] uppercase tracking-[0.16em] text-baume-charcoal/50 font-semibold mb-3">
+									<p className="text-[11px] uppercase tracking-[0.16em] text-baume-muted font-semibold mb-3">
 										Tailles achetées
 									</p>
 									<Bars items={habits.sizes} />
 								</div>
 							</div>
-							<p className="text-[11px] uppercase tracking-[0.16em] text-baume-charcoal/50 font-semibold mt-6 mb-3">
+							<p className="text-[11px] uppercase tracking-[0.16em] text-baume-muted font-semibold mt-6 mb-3">
 								Produits les plus achetés
 							</p>
 							{habits.top_products?.length ? (
@@ -395,7 +395,7 @@ export default function AdminCustomerPage() {
 												<p className="text-[13px] font-semibold text-baume-charcoal truncate">
 													{p.name}
 												</p>
-												<p className="text-[11px] text-baume-charcoal/50">
+												<p className="text-[11px] text-baume-muted">
 													{p.quantity} unité(s) · {p.orders} commande(s) · dernier
 													achat {dateFr(p.last_bought_at)}
 												</p>
@@ -415,7 +415,7 @@ export default function AdminCustomerPage() {
 							{data.orders?.length ? (
 								<div className="overflow-x-auto -mx-5">
 									<table className="w-full text-[13px]">
-										<thead className="text-baume-charcoal/50">
+										<thead className="text-baume-muted">
 											<tr>
 												<th className="px-5 py-2 text-left font-semibold">Date</th>
 												<th className="px-5 py-2 text-left font-semibold">Commande</th>
@@ -444,7 +444,7 @@ export default function AdminCustomerPage() {
 																</span>
 															)}
 														</td>
-														<td className="px-5 py-3 text-baume-charcoal/70">
+														<td className="px-5 py-3 text-baume-muted">
 															{(o.order_items || [])
 																.map((i) => `${i.quantity}× ${i.product_title || i.name || "article"}`)
 																.join(", ")
@@ -488,7 +488,7 @@ export default function AdminCustomerPage() {
 													{OFFER_LABELS[o.kind] || o.kind}
 													{o.percent ? ` · −${o.percent} %` : ""}
 												</p>
-												<p className="text-[11px] text-baume-charcoal/50">
+												<p className="text-[11px] text-baume-muted">
 													{dateFr(o.date)}
 													{o.code && (
 														<>
@@ -549,7 +549,7 @@ export default function AdminCustomerPage() {
 												<span className="truncate">
 													{"★".repeat(Math.round(r.rating))} {r.title}
 												</span>
-												<span className="text-baume-charcoal/50 shrink-0">{r.status}</span>
+												<span className="text-baume-muted shrink-0">{r.status}</span>
 											</li>
 										))}
 									</ul>
@@ -563,13 +563,13 @@ export default function AdminCustomerPage() {
 					{/* ── Colonne latérale ── */}
 					<div className="space-y-6">
 						<Card title="Envoyer une offre personnalisée" icon={Send}>
-							<p className="text-[12px] text-baume-charcoal/60 mb-4">
+							<p className="text-[12px] text-baume-muted mb-4">
 								Code personnel à usage unique + 3 produits de sa catégorie
 								préférée qu'elle n'a pas encore achetés.
 							</p>
 							<div className="grid grid-cols-2 gap-3">
 								<label className="block">
-									<span className="text-[11px] font-semibold text-baume-charcoal/60">
+									<span className="text-[11px] font-semibold text-baume-muted">
 										Réduction
 									</span>
 									<select
@@ -585,7 +585,7 @@ export default function AdminCustomerPage() {
 									</select>
 								</label>
 								<label className="block">
-									<span className="text-[11px] font-semibold text-baume-charcoal/60">
+									<span className="text-[11px] font-semibold text-baume-muted">
 										Validité
 									</span>
 									<select
@@ -620,7 +620,7 @@ export default function AdminCustomerPage() {
 						</Card>
 
 						<Card title="Notes internes" icon={Tag}>
-							<label className="block text-[11px] font-semibold text-baume-charcoal/60">
+							<label className="block text-[11px] font-semibold text-baume-muted">
 								Étiquettes (séparées par des virgules)
 							</label>
 							<input
@@ -662,7 +662,7 @@ export default function AdminCustomerPage() {
 							<ul className="mt-3 space-y-1.5 max-h-56 overflow-y-auto text-[12px]">
 								{(loyalty.transactions || []).map((t) => (
 									<li key={t.id} className="flex justify-between gap-2">
-										<span className="truncate text-baume-charcoal/70">
+										<span className="truncate text-baume-muted">
 											{dateFr(t.created_at)} · {t.reason}
 										</span>
 										<span
@@ -720,7 +720,7 @@ export default function AdminCustomerPage() {
 								{data.workshops?.length || 0} réservation(s) d'atelier
 							</p>
 							{data.quiz?.[0]?.recommended_categories?.length > 0 && (
-								<p className="mt-2 text-[12px] text-baume-charcoal/60">
+								<p className="mt-2 text-[12px] text-baume-muted">
 									Dernier quiz :{" "}
 									{data.quiz[0].recommended_categories
 										.map((c) => categories[c] || c)

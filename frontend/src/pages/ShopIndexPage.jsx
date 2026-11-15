@@ -166,7 +166,7 @@ export default function ShopIndexPage({ kind }) {
 							<div className="flex items-center justify-between gap-4 mb-6">
 								<div className="flex items-center gap-3">
 									{/* Bouton filtre mobile (rendu par Filters mais on affiche le compte ici) */}
-									<p className="text-[13px] text-baume-charcoal/60">
+									<p className="text-[13px] text-baume-muted">
 										<span className="font-semibold text-baume-charcoal">
 											{filtered.length}
 										</span>{" "}
@@ -200,7 +200,7 @@ export default function ShopIndexPage({ kind }) {
 								</div>
 							) : filtered.length === 0 ? (
 								<div className="rounded-3xl border border-baume-border bg-baume-white p-16 text-center">
-									<p className="font-editorial text-[28px] text-baume-charcoal/50">
+									<p className="font-editorial text-[28px] text-baume-muted">
 										Aucun produit trouvé
 									</p>
 									<button

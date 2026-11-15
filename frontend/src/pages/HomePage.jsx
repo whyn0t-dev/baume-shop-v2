@@ -148,7 +148,7 @@ export default function HomePage() {
 							<p className="font-editorial text-[32px] leading-none text-baume-charcoal">
 								{value}
 							</p>
-							<p className="text-[12px] text-baume-charcoal/50 uppercase tracking-wider font-medium">
+							<p className="text-[12px] text-baume-muted uppercase tracking-wider font-medium">
 								{label}
 							</p>
 						</div>
@@ -168,7 +168,7 @@ export default function HomePage() {
 							<p className="font-editorial text-[22px] text-baume-charcoal">
 								Je cherche une solution
 							</p>
-							<p className="text-[14px] text-baume-charcoal/65 mt-1">
+							<p className="text-[14px] text-baume-muted mt-1">
 								Règles, ménopause, intimité, post-partum…
 							</p>
 						</div>
@@ -184,7 +184,7 @@ export default function HomePage() {
 							<p className="font-editorial text-[22px] text-baume-charcoal">
 								Je veux voir les produits
 							</p>
-							<p className="text-[14px] text-baume-charcoal/65 mt-1">
+							<p className="text-[14px] text-baume-muted mt-1">
 								Culottes, cups, soins, accessoires…
 							</p>
 						</div>
@@ -218,7 +218,7 @@ export default function HomePage() {
 						<h2 className="font-editorial text-[32px] md:text-[44px] leading-[1.1] text-baume-charcoal max-w-[560px]">
 							Commencez simplement par ce que vous ressentez
 						</h2>
-						<p className="mt-3 text-[16px] text-baume-charcoal/65 max-w-[560px]">
+						<p className="mt-3 text-[16px] text-baume-muted max-w-[560px]">
 							Une navigation guidée pour trouver rapidement les produits adaptés
 							à votre situation.
 						</p>
@@ -245,7 +245,7 @@ export default function HomePage() {
 							<h2 className="font-editorial text-[32px] md:text-[44px] leading-[1.1] text-baume-charcoal">
 								Les essentiels les plus appréciés
 							</h2>
-							<p className="mt-3 text-[16px] text-baume-charcoal/65 max-w-[620px]">
+							<p className="mt-3 text-[16px] text-baume-muted max-w-[620px]">
 								Des produits choisis pour leur confort, leur efficacité et leur
 								douceur au quotidien.
 							</p>
@@ -337,7 +337,7 @@ export default function HomePage() {
 								<h3 className="font-editorial text-[20px] text-baume-charcoal leading-tight">
 									{titre}
 								</h3>
-								<p className="text-[14px] leading-[22px] text-baume-charcoal/65">
+								<p className="text-[14px] leading-[22px] text-baume-muted">
 									{texte}
 								</p>
 							</div>
@@ -358,7 +358,7 @@ export default function HomePage() {
 							<span className="italic text-baume-burgundy">féministe</span>,
 							concret.
 						</h2>
-						<p className="mt-4 text-[16px] leading-[26px] text-baume-charcoal/65">
+						<p className="mt-4 text-[16px] leading-[26px] text-baume-muted">
 							Baume ne vend pas de honte. Nous vendons des solutions — choisies,
 							testées et recommandées par des femmes pour des femmes.
 						</p>
@@ -376,7 +376,7 @@ export default function HomePage() {
 									<p className="font-semibold text-[17px] text-baume-charcoal mb-2">
 										{v.titre}
 									</p>
-									<p className="text-[14px] leading-[23px] text-baume-charcoal/65">
+									<p className="text-[14px] leading-[23px] text-baume-muted">
 										{v.texte}
 									</p>
 								</div>
@@ -398,7 +398,7 @@ export default function HomePage() {
 								Des repères clairs pour{" "}
 								<span className="italic text-baume-burgundy">bien choisir</span>
 							</h2>
-							<p className="mt-5 text-[17px] md:text-[18px] leading-[28px] text-baume-charcoal/75">
+							<p className="mt-5 text-[17px] md:text-[18px] leading-[28px] text-baume-muted">
 								Guides rédigés avec nos expertes : sage-femmes, conseillères,
 								gynécologue partenaire. Une ressource précise et non
 								médicalisante, pour avancer en confiance.
@@ -472,7 +472,7 @@ export default function HomePage() {
 							<h2 className="font-editorial text-[32px] md:text-[44px] leading-[1.1] text-baume-charcoal max-w-[560px]">
 								Être accompagnée par des expertes de confiance
 							</h2>
-							<p className="mt-3 text-[16px] text-baume-charcoal/65 max-w-[600px]">
+							<p className="mt-3 text-[16px] text-baume-muted max-w-[600px]">
 								Ateliers, conseils et accompagnement autour du cycle, de
 								l'intimité et du bien-être.
 							</p>
@@ -578,7 +578,7 @@ export default function HomePage() {
 					<div className="relative bg-baume-white rounded-[32px] border border-baume-border p-8 md:p-10 max-w-[480px] w-full text-center shadow-2xl">
 						<button
 							onClick={dismissPopup}
-							className="absolute top-4 right-4 h-8 w-8 rounded-full bg-baume-ivory text-baume-charcoal/50 hover:text-baume-charcoal inline-flex items-center justify-center transition-colors"
+							className="absolute top-4 right-4 h-8 w-8 rounded-full bg-baume-ivory text-baume-muted hover:text-baume-charcoal inline-flex items-center justify-center transition-colors"
 						>
 							✕
 						</button>
@@ -586,7 +586,7 @@ export default function HomePage() {
 						<h2 className="font-editorial text-[28px] text-baume-charcoal mt-4 leading-[1.2]">
 							Trouvez votre routine idéale
 						</h2>
-						<p className="mt-3 text-[14px] text-baume-charcoal/65 leading-[1.7]">
+						<p className="mt-3 text-[14px] text-baume-muted leading-[1.7]">
 							Répondez à 10 questions et recevez une sélection de produits
 							personnalisée — gratuitement et en 2 minutes.
 						</p>
@@ -600,7 +600,7 @@ export default function HomePage() {
 							</Link>
 							<button
 								onClick={dismissPopup}
-								className="text-[13px] text-baume-charcoal/50 hover:text-baume-charcoal underline underline-offset-2 transition-colors"
+								className="text-[13px] text-baume-muted hover:text-baume-charcoal underline underline-offset-2 transition-colors"
 							>
 								Non merci, je continue ma visite
 							</button>

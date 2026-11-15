@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { formatChf } from "../../lib/posApi";
+import { BaumeLogo } from "../BaumeLogo";
 
 // Coordonnées imprimées en tête du ticket.
 export const STORE_INFO = {
@@ -57,7 +58,7 @@ export default function Receipt({ receipt }) {
 				}}
 			>
 				<div style={{ textAlign: "center", marginBottom: 8 }}>
-					<div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 4 }}>{STORE_INFO.name}</div>
+					<BaumeLogo title={STORE_INFO.name} style={{ display: "block", width: "44mm", height: "auto", margin: "0 auto 6px", color: "#000" }} />
 					{STORE_INFO.lines.map((l) => (
 						<div key={l}>{l}</div>
 					))}

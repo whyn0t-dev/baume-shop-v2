@@ -99,7 +99,7 @@ export default function ContactPage() {
 									<p className="font-semibold text-baume-charcoal">
 										Boutique Genève
 									</p>
-									<p className="text-baume-charcoal/70">
+									<p className="text-baume-muted">
 										Rue du Rhône 15, 1204 Genève
 									</p>
 								</div>
@@ -108,10 +108,10 @@ export default function ContactPage() {
 								<Clock className="h-5 w-5 text-baume-burgundy shrink-0 mt-0.5" />
 								<div>
 									<p className="font-semibold text-baume-charcoal">Horaires</p>
-									<p className="text-baume-charcoal/70">
+									<p className="text-baume-muted">
 										Mardi – Samedi · 10h – 19h
 									</p>
-									<p className="text-baume-charcoal/70">
+									<p className="text-baume-muted">
 										Dimanche & Lundi · fermé
 									</p>
 								</div>
@@ -132,7 +132,7 @@ export default function ContactPage() {
 								<Phone className="h-5 w-5 text-baume-burgundy shrink-0 mt-0.5" />
 								<div>
 									<p className="font-semibold text-baume-charcoal">Téléphone</p>
-									<p className="text-baume-charcoal/70">+41 22 000 00 00</p>
+									<p className="text-baume-muted">+41 22 000 00 00</p>
 								</div>
 							</li>
 						</ul>
@@ -154,7 +154,7 @@ export default function ContactPage() {
 								<p className="text-[14px] font-semibold text-baume-charcoal">
 									Carte non disponible
 								</p>
-								<p className="text-[13px] text-baume-charcoal/55 max-w-[240px]">
+								<p className="text-[13px] text-baume-muted max-w-[240px]">
 									Acceptez les cookies fonctionnels pour afficher la carte
 									Google Maps.
 								</p>
@@ -258,7 +258,7 @@ export default function ContactPage() {
 							{loading && <Loader2 className="h-4 w-4 animate-spin" />} Envoyer
 							le message
 						</button>
-						<p className="text-[12px] text-baume-charcoal/60">
+						<p className="text-[12px] text-baume-muted">
 							Nous vous répondons sous 24 h ouvrées.
 						</p>
 					</form>

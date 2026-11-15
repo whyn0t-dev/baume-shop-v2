@@ -32,7 +32,7 @@ export default function NewsletterUnsubscribePage() {
 				{status === "loading" && (
 					<>
 						<Loader2 className="h-8 w-8 animate-spin text-baume-burgundy mx-auto mb-4" />
-						<p className="text-[15px] text-baume-charcoal/60">
+						<p className="text-[15px] text-baume-muted">
 							Traitement en cours…
 						</p>
 					</>
@@ -49,7 +49,7 @@ export default function NewsletterUnsubscribePage() {
 						<h1 className="font-editorial text-[32px] text-baume-charcoal mb-4">
 							Vous êtes désabonnée
 						</h1>
-						<p className="text-[14px] text-baume-charcoal/65 leading-relaxed mb-8">
+						<p className="text-[14px] text-baume-muted leading-relaxed mb-8">
 							Vous ne recevrez plus nos emails newsletter. Vous pouvez vous
 							réinscrire à tout moment depuis le bas de notre site.
 						</p>
@@ -70,7 +70,7 @@ export default function NewsletterUnsubscribePage() {
 						<h1 className="font-editorial text-[32px] text-baume-charcoal mb-4">
 							Déjà désabonnée
 						</h1>
-						<p className="text-[14px] text-baume-charcoal/65 leading-relaxed mb-8">
+						<p className="text-[14px] text-baume-muted leading-relaxed mb-8">
 							Vous étiez déjà désabonnée de notre newsletter.
 						</p>
 						<Link
@@ -90,7 +90,7 @@ export default function NewsletterUnsubscribePage() {
 						<h1 className="font-editorial text-[32px] text-baume-charcoal mb-4">
 							Lien invalide
 						</h1>
-						<p className="text-[14px] text-baume-charcoal/65 leading-relaxed mb-8">
+						<p className="text-[14px] text-baume-muted leading-relaxed mb-8">
 							Ce lien de désabonnement est invalide ou a déjà été utilisé.
 							Contactez-nous si vous souhaitez vous désabonner.
 						</p>

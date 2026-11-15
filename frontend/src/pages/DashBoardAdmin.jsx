@@ -125,7 +125,7 @@ export default function DashBoardAdmin() {
 				<h1 className="font-editorial text-[42px] text-baume-charcoal">
 					Accès réservé
 				</h1>
-				<p className="mt-3 text-baume-charcoal/70">
+				<p className="mt-3 text-baume-muted">
 					Cette page est réservée aux administrateurs.
 				</p>
 			</div>
@@ -144,7 +144,7 @@ export default function DashBoardAdmin() {
 						<h1 className="font-editorial text-[42px] md:text-[56px] text-baume-charcoal leading-none">
 							Dashboard
 						</h1>
-						<p className="mt-3 text-baume-charcoal/65">
+						<p className="mt-3 text-baume-muted">
 							Connecté en tant que {user.first_name || user.email}
 						</p>
 					</div>
@@ -204,7 +204,7 @@ export default function DashBoardAdmin() {
 									active !== "chat" &&
 									active !== "profiles" &&
 									active !== "returns" && (
-										<span className="text-[13px] text-baume-charcoal/60">
+										<span className="text-[13px] text-baume-muted">
 											{rows.length} élément{rows.length > 1 ? "s" : ""}
 										</span>
 									)}
@@ -223,7 +223,7 @@ export default function DashBoardAdmin() {
 												onClick={() => setProductSearch("")}
 												className="absolute right-3 top-1/2 -translate-y-1/2"
 											>
-												<X className="h-3.5 w-3.5 text-baume-charcoal/40" />
+												<X className="h-3.5 w-3.5 text-baume-muted" />
 											</button>
 										)}
 									</div>
@@ -258,7 +258,7 @@ export default function DashBoardAdmin() {
 						  active !== "chat" &&
 						  active !== "profiles" &&
 						  active !== "returns" ? (
-							<div className="p-10 text-center text-baume-charcoal/65">
+							<div className="p-10 text-center text-baume-muted">
 								Aucun élément trouvé.
 							</div>
 						) : (
@@ -320,7 +320,7 @@ function AdminTable({ table, rows, onDelete, onRefresh, productSearch = "" }) {
 							</span>
 						),
 					}[p.status] || (
-						<span className="text-[12px] text-baume-charcoal/40">
+						<span className="text-[12px] text-baume-muted">
 							{p.status || "—"}
 						</span>
 					),
@@ -587,7 +587,7 @@ function ReviewsSection({ rows, onDelete }) {
 						key={stat.label}
 						className={`rounded-2xl border p-4 ${stat.highlight ? "border-baume-burgundy/30 bg-baume-burgundy/5" : "border-baume-border bg-baume-ivory/50"}`}
 					>
-						<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
+						<p className="text-[11px] uppercase tracking-wider text-baume-muted font-semibold">
 							{stat.label}
 						</p>
 						<p
@@ -631,7 +631,7 @@ function ReviewsSection({ rows, onDelete }) {
 
 			{/* Liste */}
 			{filtered.length === 0 ? (
-				<p className="text-center text-baume-charcoal/50 py-10">
+				<p className="text-center text-baume-muted py-10">
 					Aucun avis pour ce filtre.
 				</p>
 			) : (
@@ -705,7 +705,7 @@ function ReviewAdminCard({ review: r, onDelete }) {
 						<p className="font-semibold text-baume-charcoal text-[14px]">
 							{r.title}
 						</p>
-						<p className="text-[12px] text-baume-charcoal/50 mt-0.5">
+						<p className="text-[12px] text-baume-muted mt-0.5">
 							{r.author} ·{" "}
 							{r.created_at
 								? new Date(r.created_at).toLocaleDateString("fr-CH")
@@ -717,11 +717,11 @@ function ReviewAdminCard({ review: r, onDelete }) {
 							)}
 						</p>
 					</div>
-					<p className="text-[11px] text-baume-charcoal/40 font-mono shrink-0">
+					<p className="text-[11px] text-baume-muted font-mono shrink-0">
 						{String(r.product_id).slice(0, 8)}…
 					</p>
 				</div>
-				<p className="mt-2 text-[13px] leading-[21px] text-baume-charcoal/70">
+				<p className="mt-2 text-[13px] leading-[21px] text-baume-muted">
 					{r.body}
 				</p>
 			</div>
@@ -756,7 +756,7 @@ function Table({ columns, rows }) {
 	return (
 		<div className="overflow-x-auto">
 			<table className="w-full text-left text-[14px]">
-				<thead className="bg-baume-ivory text-baume-charcoal/70">
+				<thead className="bg-baume-ivory text-baume-muted">
 					<tr>
 						{columns.map((c) => (
 							<th key={c} className="px-5 py-3 font-semibold whitespace-nowrap">
@@ -867,7 +867,7 @@ function DiscountsSection({ rows, onDelete, onRefresh }) {
 						key={s.label}
 						className="rounded-2xl border border-baume-border bg-baume-ivory/50 p-4"
 					>
-						<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
+						<p className="text-[11px] uppercase tracking-wider text-baume-muted font-semibold">
 							{s.label}
 						</p>
 						<p className="text-[28px] font-editorial mt-1 text-baume-charcoal">
@@ -895,7 +895,7 @@ function DiscountsSection({ rows, onDelete, onRefresh }) {
 			)}
 
 			{rows.length === 0 ? (
-				<p className="text-center text-baume-charcoal/50 py-10">
+				<p className="text-center text-baume-muted py-10">
 					Aucun code promo créé.
 				</p>
 			) : (
@@ -922,7 +922,7 @@ function DiscountCard({ discount: d, onEdit, onDelete }) {
 	const statusLabel = !d.active
 		? {
 				label: "Inactif",
-				cls: "bg-baume-border/50 text-baume-charcoal/50 border-baume-border",
+				cls: "bg-baume-border/50 text-baume-muted border-baume-border",
 			}
 		: isExpired
 			? { label: "Expiré", cls: "bg-red-100 text-red-700 border-red-200" }
@@ -959,7 +959,7 @@ function DiscountCard({ discount: d, onEdit, onDelete }) {
 							: `−${Number(d.value).toFixed(2)} CHF`}
 					</span>
 				</div>
-				<div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-baume-charcoal/55">
+				<div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-baume-muted">
 					<span>
 						Utilisations :{" "}
 						<strong className="text-baume-charcoal">{d.used_count || 0}</strong>
@@ -1078,7 +1078,7 @@ function DiscountForm({ discount, onSaved, onCancel }) {
 				<button
 					type="button"
 					onClick={onCancel}
-					className="h-8 w-8 rounded-full border border-baume-border inline-flex items-center justify-center text-baume-charcoal/50 hover:bg-baume-ivory"
+					className="h-8 w-8 rounded-full border border-baume-border inline-flex items-center justify-center text-baume-muted hover:bg-baume-ivory"
 				>
 					<X className="h-4 w-4" />
 				</button>
@@ -1136,7 +1136,7 @@ function DiscountForm({ discount, onSaved, onCancel }) {
 						onChange={(e) => set("starts_at", e.target.value)}
 						className="discount-input"
 					/>
-					<p className="text-[11px] text-baume-charcoal/45 mt-1">
+					<p className="text-[11px] text-baume-muted mt-1">
 						Laisser vide = actif immédiatement
 					</p>
 				</DiscountField>
@@ -1147,14 +1147,14 @@ function DiscountForm({ discount, onSaved, onCancel }) {
 						onChange={(e) => set("ends_at", e.target.value)}
 						className="discount-input"
 					/>
-					<p className="text-[11px] text-baume-charcoal/45 mt-1">
+					<p className="text-[11px] text-baume-muted mt-1">
 						Laisser vide = pas d'expiration
 					</p>
 				</DiscountField>
 			</div>
 
 			<div className="rounded-2xl border border-baume-border bg-baume-ivory/40 p-4 space-y-4">
-				<p className="text-[12px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+				<p className="text-[12px] uppercase tracking-[0.18em] text-baume-muted font-semibold">
 					Conditions d'application
 				</p>
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1168,7 +1168,7 @@ function DiscountForm({ discount, onSaved, onCancel }) {
 							step="1"
 							className="discount-input"
 						/>
-						<p className="text-[11px] text-baume-charcoal/45 mt-1">
+						<p className="text-[11px] text-baume-muted mt-1">
 							Nombre max d'utilisations
 						</p>
 					</DiscountField>
@@ -1182,7 +1182,7 @@ function DiscountForm({ discount, onSaved, onCancel }) {
 							step="0.01"
 							className="discount-input"
 						/>
-						<p className="text-[11px] text-baume-charcoal/45 mt-1">
+						<p className="text-[11px] text-baume-muted mt-1">
 							Laisser vide = aucun minimum
 						</p>
 					</DiscountField>
@@ -1214,7 +1214,7 @@ function DiscountForm({ discount, onSaved, onCancel }) {
 			</label>
 
 			{form.code && form.value && Number(form.value) > 0 && (
-				<div className="rounded-xl bg-baume-ivory border border-baume-border p-4 text-[13px] text-baume-charcoal/70">
+				<div className="rounded-xl bg-baume-ivory border border-baume-border p-4 text-[13px] text-baume-muted">
 					<p className="font-semibold text-baume-charcoal mb-1">Aperçu</p>
 					<p>
 						Le code{" "}
@@ -1263,7 +1263,7 @@ function DiscountForm({ discount, onSaved, onCancel }) {
 function DiscountField({ label, children }) {
 	return (
 		<div className="flex flex-col gap-1.5">
-			<label className="text-[12px] font-semibold text-baume-charcoal/70 uppercase tracking-[0.12em]">
+			<label className="text-[12px] font-semibold text-baume-muted uppercase tracking-[0.12em]">
 				{label}
 			</label>
 			{children}

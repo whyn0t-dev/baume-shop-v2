@@ -24,7 +24,7 @@ export default function ArticleCard({ guide, featured = false }) {
 					<span className="text-[11px] uppercase tracking-[0.2em] text-baume-burgundy font-semibold">
 						{guide.category}
 					</span>
-					<span className="text-[12px] text-baume-charcoal/50">
+					<span className="text-[12px] text-baume-muted">
 						{guide.read_time}
 					</span>
 				</div>
@@ -33,7 +33,7 @@ export default function ArticleCard({ guide, featured = false }) {
 				>
 					{guide.title}
 				</h3>
-				<p className="text-[14px] leading-[22px] text-baume-charcoal/70">
+				<p className="text-[14px] leading-[22px] text-baume-muted">
 					{guide.excerpt}
 				</p>
 				<span className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-baume-burgundy group-hover:gap-2 transition-all">

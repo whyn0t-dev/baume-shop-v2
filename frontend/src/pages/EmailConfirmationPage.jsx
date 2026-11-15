@@ -68,7 +68,7 @@ export default function EmailConfirmationPage() {
 				{status === "loading" && (
 					<>
 						<Loader2 className="h-8 w-8 animate-spin text-baume-burgundy mx-auto mb-4" />
-						<p className="text-[15px] text-baume-charcoal/70">
+						<p className="text-[15px] text-baume-muted">
 							Validation en cours…
 						</p>
 					</>
@@ -78,7 +78,7 @@ export default function EmailConfirmationPage() {
 						<div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
 							<span className="text-2xl">✕</span>
 						</div>
-						<p className="text-[15px] text-baume-charcoal/70">
+						<p className="text-[15px] text-baume-muted">
 							Lien expiré — redirection en cours…
 						</p>
 					</>
@@ -88,7 +88,7 @@ export default function EmailConfirmationPage() {
 						<div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
 							<span className="text-2xl">✓</span>
 						</div>
-						<p className="text-[15px] text-baume-charcoal/70">
+						<p className="text-[15px] text-baume-muted">
 							Compte validé — redirection en cours…
 						</p>
 					</>

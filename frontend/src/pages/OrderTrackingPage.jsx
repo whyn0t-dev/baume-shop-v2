@@ -155,7 +155,7 @@ function Timeline({ status }) {
 						>
 							<p
 								className={`text-[14px] font-semibold ${
-									isDone ? "text-baume-charcoal" : "text-baume-charcoal/40"
+									isDone ? "text-baume-charcoal" : "text-baume-muted"
 								}`}
 							>
 								{step.label}
@@ -167,7 +167,7 @@ function Timeline({ status }) {
 							</p>
 							<p
 								className={`text-[12px] mt-0.5 ${
-									isDone ? "text-baume-charcoal/55" : "text-baume-charcoal/30"
+									isDone ? "text-baume-muted" : "text-baume-charcoal/30"
 								}`}
 							>
 								{step.sub}
@@ -231,7 +231,7 @@ function AdminStatusPanel({ order, onStatusUpdate }) {
 			<div className="p-5 space-y-4">
 				{/* Statut actuel */}
 				<div className="flex items-center justify-between">
-					<span className="text-[13px] text-baume-charcoal/60">
+					<span className="text-[13px] text-baume-muted">
 						Statut actuel
 					</span>
 					<span
@@ -339,7 +339,7 @@ function AdminStatusPanel({ order, onStatusUpdate }) {
 					<div className="space-y-2">
 						{isFinalStatus ? (
 							/* État terminal : commande verrouillée */
-							<div className="flex items-center gap-2.5 text-[13px] text-baume-charcoal/50 bg-baume-ivory rounded-xl px-4 py-3">
+							<div className="flex items-center gap-2.5 text-[13px] text-baume-muted bg-baume-ivory rounded-xl px-4 py-3">
 								<Lock className="h-4 w-4 shrink-0" />
 								<span>
 									{currentStatus === "delivered"
@@ -420,7 +420,7 @@ export default function OrderTrackingPage() {
 					<h1 className="font-editorial text-[32px] text-baume-charcoal mt-4">
 						Commande introuvable
 					</h1>
-					<p className="mt-3 text-[15px] text-baume-charcoal/65">
+					<p className="mt-3 text-[15px] text-baume-muted">
 						Vérifiez le lien ou contactez-nous si vous pensez qu'il y a une
 						erreur.
 					</p>
@@ -500,7 +500,7 @@ export default function OrderTrackingPage() {
 										<p className="text-[13px] font-semibold text-baume-charcoal">
 											{carrierInfo?.label}
 										</p>
-										<p className="text-[12px] text-baume-charcoal/55 font-mono mt-0.5">
+										<p className="text-[12px] text-baume-muted font-mono mt-0.5">
 											{order.tracking_number}
 										</p>
 									</div>
@@ -524,7 +524,7 @@ export default function OrderTrackingPage() {
 								</h2>
 							</div>
 							{items.length === 0 ? (
-								<div className="p-5 text-[13px] text-baume-charcoal/50 text-center">
+								<div className="p-5 text-[13px] text-baume-muted text-center">
 									Aucun article trouvé
 								</div>
 							) : (
@@ -542,13 +542,13 @@ export default function OrderTrackingPage() {
 													{item.product_title || item.name || "Produit"}
 												</p>
 												{item.variant_title && (
-													<p className="text-[12px] text-baume-charcoal/55">
+													<p className="text-[12px] text-baume-muted">
 														{item.variant_title}
 													</p>
 												)}
 											</div>
 											<div className="text-right shrink-0">
-												<p className="text-[13px] text-baume-charcoal/60">
+												<p className="text-[13px] text-baume-muted">
 													× {item.quantity || 1}
 												</p>
 												<p className="text-[13px] font-semibold text-baume-charcoal">
@@ -590,7 +590,7 @@ export default function OrderTrackingPage() {
 										Adresse de livraison
 									</h3>
 								</div>
-								<div className="text-[13px] text-baume-charcoal/70 leading-6">
+								<div className="text-[13px] text-baume-muted leading-6">
 									<p>
 										{shippingAddress.name ||
 											[shippingAddress.first_name, shippingAddress.last_name]
@@ -614,7 +614,7 @@ export default function OrderTrackingPage() {
 								Récapitulatif
 							</h3>
 							<div className="space-y-2 text-[13px]">
-								<div className="flex justify-between text-baume-charcoal/70">
+								<div className="flex justify-between text-baume-muted">
 									<span>Sous-total</span>
 									<span>
 										{Number(order.subtotal || 0).toFixed(2)} {currency}
@@ -631,7 +631,7 @@ export default function OrderTrackingPage() {
 										</span>
 									</div>
 								)}
-								<div className="flex justify-between text-baume-charcoal/70">
+								<div className="flex justify-between text-baume-muted">
 									<span>Livraison</span>
 									<span>
 										{Number(order.shipping_total || 0) === 0
@@ -656,7 +656,7 @@ export default function OrderTrackingPage() {
 									Besoin d'aide ?
 								</h3>
 							</div>
-							<p className="text-[13px] text-baume-charcoal/65 mb-3">
+							<p className="text-[13px] text-baume-muted mb-3">
 								Notre équipe répond sous 24h ouvrées.
 							</p>
 							<Link

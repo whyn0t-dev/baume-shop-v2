@@ -98,7 +98,7 @@ export default function StorePage() {
 							<Info icon={Clock} title="Horaires">
 								<span>Mardi – Vendredi · 10h – 19h</span>
 								<span>Samedi · 10h – 18h</span>
-								<span className="text-baume-charcoal/40">
+								<span className="text-baume-muted">
 									Dimanche & Lundi · fermé
 								</span>
 							</Info>
@@ -132,7 +132,7 @@ export default function StorePage() {
 								<p className="text-[14px] font-semibold text-baume-charcoal">
 									Carte non disponible
 								</p>
-								<p className="text-[13px] text-baume-charcoal/55 max-w-[240px]">
+								<p className="text-[13px] text-baume-muted max-w-[240px]">
 									Acceptez les cookies fonctionnels pour afficher la carte
 									Google Maps.
 								</p>
@@ -159,7 +159,7 @@ export default function StorePage() {
 							<h2 className="font-editorial text-[30px] md:text-[40px] leading-[1.1] text-baume-charcoal">
 								Une expérience calme, intime et experte.
 							</h2>
-							<p className="mt-5 text-[15px] leading-[26px] text-baume-charcoal/70">
+							<p className="mt-5 text-[15px] leading-[26px] text-baume-muted">
 								Nous avons pensé la boutique comme un lieu de dialogue : pas de
 								jargon, pas de pression de vente. Une conseillère prend le
 								temps, seule avec vous, pour comprendre votre besoin et trouver
@@ -227,7 +227,7 @@ function Info({ icon: Icon, title, children }) {
 			</span>
 			<div>
 				<p className="font-semibold text-baume-charcoal text-[14px]">{title}</p>
-				<div className="mt-1 flex flex-col text-baume-charcoal/65 text-[13px] leading-[22px]">
+				<div className="mt-1 flex flex-col text-baume-muted text-[13px] leading-[22px]">
 					{children}
 				</div>
 			</div>

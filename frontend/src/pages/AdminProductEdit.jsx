@@ -36,7 +36,7 @@ function PreorderSubscriberCount({ productId }) {
 
 	return (
 		<div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-baume-white border border-baume-border">
-			<span className="text-[13px] text-baume-charcoal/60 font-semibold">
+			<span className="text-[13px] text-baume-muted font-semibold">
 				Clients ayant précommandé
 			</span>
 			<span className="ml-auto text-[18px] font-editorial text-baume-burgundy">
@@ -334,7 +334,7 @@ export default function AdminProductEdit() {
 												className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
 											/>
 										) : (
-											<div className="h-full w-full flex items-center justify-center text-[13px] text-baume-charcoal/45">
+											<div className="h-full w-full flex items-center justify-center text-[13px] text-baume-muted">
 												Image vide
 											</div>
 										)}
@@ -456,7 +456,7 @@ export default function AdminProductEdit() {
 					</div>
 
 					{variants.length === 0 ? (
-						<p className="text-[13px] text-baume-charcoal/50 text-center py-6">
+						<p className="text-[13px] text-baume-muted text-center py-6">
 							Aucune variante — cliquez sur "Ajouter une variante" pour créer
 							une variante par défaut.
 						</p>
@@ -469,7 +469,7 @@ export default function AdminProductEdit() {
 								>
 									{/* Titre */}
 									<label className="block">
-										<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+										<span className="block mb-1 text-[11px] font-semibold text-baume-muted uppercase tracking-wider">
 											Variante
 										</span>
 										<input
@@ -487,7 +487,7 @@ export default function AdminProductEdit() {
 
 									{/* SKU */}
 									<label className="block">
-										<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+										<span className="block mb-1 text-[11px] font-semibold text-baume-muted uppercase tracking-wider">
 											SKU
 										</span>
 										<input
@@ -505,7 +505,7 @@ export default function AdminProductEdit() {
 
 									{/* Stock */}
 									<label className="block">
-										<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+										<span className="block mb-1 text-[11px] font-semibold text-baume-muted uppercase tracking-wider">
 											Stock
 										</span>
 										<input
@@ -528,7 +528,7 @@ export default function AdminProductEdit() {
 									{/* Prix + Actif + Supprimer */}
 									<div className="flex flex-col gap-2">
 										<label className="block">
-											<span className="block mb-1 text-[11px] font-semibold text-baume-charcoal/60 uppercase tracking-wider">
+											<span className="block mb-1 text-[11px] font-semibold text-baume-muted uppercase tracking-wider">
 												Prix (CHF)
 											</span>
 											<input
@@ -557,7 +557,7 @@ export default function AdminProductEdit() {
 													}}
 													className="h-4 w-4"
 												/>
-												<span className="text-[12px] text-baume-charcoal/70">
+												<span className="text-[12px] text-baume-muted">
 													Actif
 												</span>
 											</label>
@@ -581,7 +581,7 @@ export default function AdminProductEdit() {
 					{/* Stock total calculé */}
 					{variants.length > 0 && (
 						<div className="mt-4 flex items-center justify-between px-4 py-3 rounded-xl bg-baume-ivory border border-baume-border">
-							<span className="text-[13px] text-baume-charcoal/60 font-semibold">
+							<span className="text-[13px] text-baume-muted font-semibold">
 								Stock total (calculé automatiquement)
 							</span>
 							<span className="text-[18px] font-editorial text-baume-charcoal">
@@ -624,7 +624,7 @@ export default function AdminProductEdit() {
 						onChange={(v) => setProduct({ ...product, image: v })}
 					/>
 					<label className="block">
-						<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+						<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 							Statut
 						</span>
 						<select
@@ -656,7 +656,7 @@ export default function AdminProductEdit() {
 					<h2 className="mt-1 text-[24px] font-semibold text-baume-burgundy">
 						Informations produit
 					</h2>
-					<p className="mt-2 mb-6 text-[13px] text-baume-charcoal/60">
+					<p className="mt-2 mb-6 text-[13px] text-baume-muted">
 						Affichées sur la fiche produit, sous « Laisser un avis » : un
 						résumé « L'essentiel » puis le détail en accordéons.
 					</p>
@@ -771,7 +771,7 @@ export default function AdminProductEdit() {
 							<>
 								{/* Date d'expédition estimée */}
 								<label className="block">
-									<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+									<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 										Date d'expédition estimée
 									</span>
 									<input
@@ -789,7 +789,7 @@ export default function AdminProductEdit() {
 
 								{/* Message pré-commande */}
 								<label className="block">
-									<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+									<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 										Message affiché sur la page produit
 									</span>
 									<textarea
@@ -830,7 +830,7 @@ export default function AdminProductEdit() {
 function Input({ label, value, onChange, type = "text", className = "" }) {
 	return (
 		<label className={`block ${className}`}>
-			<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+			<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 				{label}
 			</span>
 			<input
@@ -846,7 +846,7 @@ function Input({ label, value, onChange, type = "text", className = "" }) {
 function Textarea({ label, value, onChange, className = "" }) {
 	return (
 		<label className={`block ${className}`}>
-			<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+			<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 				{label}
 			</span>
 			<textarea

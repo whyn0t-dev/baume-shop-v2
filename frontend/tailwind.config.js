@@ -5,7 +5,8 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        editorial: ["Inter", "ui-sans-serif", "system-ui"],
+        editorial: ["Fraunces", "Georgia", "serif"],
+        display: ["Fraunces", "Georgia", "serif"],
         sans: ["Inter", "ui-sans-serif", "system-ui"],
       },
       colors: {
@@ -26,10 +27,12 @@ module.exports = {
           burgundyDark: "#2A1717",
           charcoal: "#111111",
           white: "#FFFFFF",
-          ivory: "#F3E3AC",
+          ivory: "#F7F3EE",
+          muted: "#6B5751",
+          noir: "#1C1C1A",
           taupe: "#D3B1A0",
           taupeWarm: "#B5866B",
-          border: "#D3B1A0",
+          border: "#E7DDD3",
         },
       },
       borderRadius: {

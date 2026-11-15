@@ -106,7 +106,7 @@ export default function RegisterPage() {
 					<h1 className="font-editorial text-[36px] md:text-[44px] leading-[1.1] text-baume-charcoal">
 						Un email vous attend
 					</h1>
-					<p className="mt-4 text-[15px] text-baume-charcoal/70 leading-[1.7]">
+					<p className="mt-4 text-[15px] text-baume-muted leading-[1.7]">
 						Nous avons envoyé un lien de confirmation à{" "}
 						<span className="font-semibold text-baume-charcoal">
 							{form.email}
@@ -120,7 +120,7 @@ export default function RegisterPage() {
 						<p className="text-[13px] font-semibold text-baume-charcoal">
 							Vous ne trouvez pas l'email ?
 						</p>
-						<div className="space-y-2 text-[13px] text-baume-charcoal/65">
+						<div className="space-y-2 text-[13px] text-baume-muted">
 							<div className="flex items-start gap-2">
 								<span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
 								<span>Vérifiez vos spams ou courriers indésirables</span>
@@ -139,7 +139,7 @@ export default function RegisterPage() {
 						</div>
 					</div>
 
-					<p className="mt-6 text-[13px] text-baume-charcoal/55">
+					<p className="mt-6 text-[13px] text-baume-muted">
 						Mauvaise adresse ?{" "}
 						<button
 							onClick={() => setEmailSent(false)}
@@ -162,7 +162,7 @@ export default function RegisterPage() {
 				<h1 className="font-editorial text-[36px] md:text-[44px] leading-[1.1] text-baume-charcoal">
 					Rejoindre Baume
 				</h1>
-				<p className="mt-3 text-[15px] text-baume-charcoal/70">
+				<p className="mt-3 text-[15px] text-baume-muted">
 					Suivez vos commandes, enregistrez vos adresses, recevez nos conseils.
 				</p>
 
@@ -233,7 +233,7 @@ export default function RegisterPage() {
 							minLength={8}
 							className="mt-1.5 h-12 rounded-lg border-baume-border"
 						/>
-						<p className="mt-1 text-[11px] text-baume-charcoal/60">
+						<p className="mt-1 text-[11px] text-baume-muted">
 							8 caractères minimum.
 						</p>
 					</div>
@@ -292,13 +292,13 @@ export default function RegisterPage() {
 						{loading && <Loader2 className="h-4 w-4 animate-spin" />} Créer mon
 						compte
 					</button>
-					<p className="text-[11px] text-baume-charcoal/60">
+					<p className="text-[11px] text-baume-muted">
 						En créant un compte vous acceptez nos conditions générales et notre
 						politique de confidentialité.
 					</p>
 				</form>
 
-				<p className="mt-6 text-center text-[14px] text-baume-charcoal/75">
+				<p className="mt-6 text-center text-[14px] text-baume-muted">
 					Déjà un compte ?{" "}
 					<Link
 						to="/connexion"

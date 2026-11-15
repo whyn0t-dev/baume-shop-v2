@@ -30,13 +30,13 @@ export default function FaqPage() {
 				<h1 className="font-editorial text-[40px] md:text-[56px] leading-[1.05] text-baume-charcoal">
 					Questions fréquentes
 				</h1>
-				<p className="mt-5 text-[17px] leading-[28px] text-baume-charcoal/70">
+				<p className="mt-5 text-[17px] leading-[28px] text-baume-muted">
 					Livraison, retours, retrait, ateliers — toutes les réponses
 					essentielles.
 				</p>
 
 				<div className="relative mt-10">
-					<Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-baume-charcoal/50" />
+					<Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-baume-muted" />
 					<Input
 						data-testid="faq-search"
 						value={query}
@@ -64,7 +64,7 @@ export default function FaqPage() {
 					))}
 					{filtered.length === 0 && (
 						<div className="rounded-2xl border border-baume-border bg-baume-white p-8 text-center">
-							<p className="text-[15px] text-baume-charcoal/70">
+							<p className="text-[15px] text-baume-muted">
 								Aucune question trouvée. Essayez un autre mot-clé.
 							</p>
 						</div>

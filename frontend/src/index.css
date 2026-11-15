@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -9,10 +9,12 @@
     --baume-burgundy-dark: #2a1717;
     --baume-charcoal: #111111;
     --baume-white: #ffffff;
-    --baume-ivory: #f3e3ac;
+    --baume-ivory: #f7f3ee;
+    --baume-muted: #6b5751;
+    --baume-noir: #1c1c1a;
     --baume-taupe: #d3b1a0;
     --baume-taupe-warm: #b5866b;
-    --baume-border: #d3b1a0;
+    --baume-border: #e7ddd3;
 }
 
 @layer base {
@@ -20,25 +22,25 @@
         @apply font-sans;
     }
     :root {
-        --background: 36 30% 95%;
+        --background: 33 36% 95%;
         --foreground: 0 0% 7%;
         --card: 0 0% 100%;
         --card-foreground: 0 0% 7%;
         --popover: 0 0% 100%;
         --popover-foreground: 0 0% 7%;
-        --primary: 6 54% 20%;
+        --primary: 0 18% 20%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 30 18% 70%;
+        --secondary: 20 37% 73%;
         --secondary-foreground: 0 0% 7%;
         --muted: 32 24% 92%;
-        --muted-foreground: 0 0% 36%;
+        --muted-foreground: 14 14% 37%;
         --accent: 32 24% 88%;
         --accent-foreground: 0 0% 7%;
         --destructive: 0 72% 45%;
         --destructive-foreground: 0 0% 100%;
-        --border: 30 28% 86%;
-        --input: 30 28% 86%;
-        --ring: 6 54% 20%;
+        --border: 30 29% 87%;
+        --input: 30 29% 87%;
+        --ring: 0 18% 20%;
         --radius: 0.75rem;
     }
 }
@@ -63,10 +65,16 @@ body {
     line-height: 1.6;
 }
 
+/* Titres : serif d'affichage, dans l'esprit du logo Baume. */
 h1,
 h2,
-h3,
-.font-editorial {
+.font-editorial,
+.font-display {
+    font-family: "Fraunces", Georgia, "Times New Roman", serif;
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+}
+h3 {
     font-family: inherit;
 }
 
@@ -76,7 +84,7 @@ h3,
 
 /* Focus states */
 *:focus-visible {
-    outline: 2px solid var(--baume-burgundy);
+    outline: 2px solid var(--baume-taupe-warm);
     outline-offset: 2px;
     border-radius: 4px;
 }

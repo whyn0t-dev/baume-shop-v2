@@ -31,12 +31,12 @@ export default function CartDrawer() {
         </SheetHeader>
         <div className="px-6 py-5 border-b border-baume-border flex items-center justify-between">
           <p className="font-editorial text-[24px] text-baume-burgundy">Mon panier</p>
-          <span className="text-[13px] text-baume-charcoal/60">{items.length} article{items.length > 1 ? "s" : ""}</span>
+          <span className="text-[13px] text-baume-muted">{items.length} article{items.length > 1 ? "s" : ""}</span>
         </div>
 
         {!empty && (
           <div className="px-6 pt-4 pb-2">
-            <p className="text-[13px] text-baume-charcoal/75">
+            <p className="text-[13px] text-baume-muted">
               {remaining > 0
                 ? <>Encore <strong className="text-baume-burgundy">{remaining.toFixed(2)} CHF</strong> pour la livraison offerte</>
                 : <>🌿 Livraison offerte !</>}
@@ -49,7 +49,7 @@ export default function CartDrawer() {
           {empty ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-4 py-16">
               <p className="font-editorial text-[22px] text-baume-charcoal">Votre panier est vide</p>
-              <p className="text-[14px] text-baume-charcoal/60 max-w-[240px]">
+              <p className="text-[14px] text-baume-muted max-w-[240px]">
                 Découvrez nos sélections par besoin, par produit ou nos best-sellers.
               </p>
               <Link
@@ -71,7 +71,7 @@ export default function CartDrawer() {
                   <img src={it.image} alt={it.name} className="h-20 w-16 object-cover rounded-lg bg-baume-white" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-medium text-baume-charcoal truncate">{it.name}</p>
-                    <p className="text-[12px] text-baume-charcoal/60">
+                    <p className="text-[12px] text-baume-muted">
                       {[it.size, it.color].filter(Boolean).join(" · ") || "Taille unique"}
                     </p>
                     <div className="mt-2 flex items-center justify-between gap-2">
@@ -100,7 +100,7 @@ export default function CartDrawer() {
                   <button
                     aria-label="Retirer"
                     onClick={() => handleRemoveClick(it.key)}
-                    className="h-8 w-8 text-baume-charcoal/40 hover:text-baume-burgundy"
+                    className="h-8 w-8 text-baume-muted hover:text-baume-burgundy"
                     data-testid={`cart-remove-${it.slug}`}
                   >
                     <X className="h-4 w-4" />
@@ -114,10 +114,10 @@ export default function CartDrawer() {
         {!empty && (
           <div className="border-t border-baume-border p-6 space-y-4 bg-baume-white">
             <div className="flex items-center justify-between">
-              <span className="text-[14px] text-baume-charcoal/70">Sous-total</span>
+              <span className="text-[14px] text-baume-muted">Sous-total</span>
               <span className="font-medium text-[18px] text-baume-charcoal">{subtotal.toFixed(2)} CHF</span>
             </div>
-            <p className="text-[12px] text-baume-charcoal/55">TVA incluse. Frais de port calculés à l'étape suivante.</p>
+            <p className="text-[12px] text-baume-muted">TVA incluse. Frais de port calculés à l'étape suivante.</p>
             <Link
               to="/checkout"
               onClick={() => setOpen(false)}

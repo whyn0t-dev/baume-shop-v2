@@ -47,7 +47,7 @@ export default function LoginPage() {
 				<h1 className="font-editorial text-[36px] md:text-[44px] leading-[1.1] text-baume-charcoal">
 					Se connecter
 				</h1>
-				<p className="mt-3 text-[15px] text-baume-charcoal/70">
+				<p className="mt-3 text-[15px] text-baume-muted">
 					Retrouvez votre historique de commandes et vos informations.
 				</p>
 
@@ -90,7 +90,7 @@ export default function LoginPage() {
 							<button
 								type="button"
 								onClick={() => setShowPassword((v) => !v)}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-baume-charcoal/40 hover:text-baume-charcoal transition-colors"
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-baume-muted hover:text-baume-charcoal transition-colors"
 								tabIndex={-1}
 							>
 								{showPassword ? (
@@ -122,7 +122,7 @@ export default function LoginPage() {
 					</button>
 				</form>
 
-				<p className="mt-6 text-center text-[14px] text-baume-charcoal/75">
+				<p className="mt-6 text-center text-[14px] text-baume-muted">
 					Pas encore de compte ?{" "}
 					<Link
 						to="/inscription"

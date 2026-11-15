@@ -59,7 +59,7 @@ export default function CarteFidelitePage() {
 					<p className="text-4xl font-semibold text-baume-burgundy mb-4">
 						Baume.
 					</p>
-					<p className="text-baume-charcoal/60 mb-8">
+					<p className="text-baume-muted mb-8">
 						Connectez-vous pour accéder à votre carte de fidélité
 					</p>
 
@@ -242,7 +242,7 @@ export default function CarteFidelitePage() {
 									>
 										{t.label}
 									</p>
-									<p className="text-[11px] text-baume-charcoal/50 mt-0.5">
+									<p className="text-[11px] text-baume-muted mt-0.5">
 										{t.points} pts
 									</p>
 									{canConvert && (
@@ -274,7 +274,7 @@ export default function CarteFidelitePage() {
 									<p className="font-bold text-baume-burgundy tracking-widest text-[14px]">
 										{c.code}
 									</p>
-									<p className="text-[11px] text-baume-charcoal/40 mt-0.5">
+									<p className="text-[11px] text-baume-muted mt-0.5">
 										{new Date(c.created_at).toLocaleDateString("fr-CH", {
 											day: "numeric",
 											month: "long",
@@ -306,7 +306,7 @@ export default function CarteFidelitePage() {
 									<p className="text-[13px] font-medium text-baume-charcoal">
 										{tx.reason}
 									</p>
-									<p className="text-[11px] text-baume-charcoal/40 mt-0.5">
+									<p className="text-[11px] text-baume-muted mt-0.5">
 										{new Date(tx.created_at).toLocaleDateString("fr-CH", {
 											day: "numeric",
 											month: "long",

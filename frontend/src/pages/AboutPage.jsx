@@ -63,7 +63,7 @@ export default function AboutPage() {
 						<span className="italic text-baume-burgundy">avec douceur</span>.
 					</h1>
 
-					<p className="mt-6 text-[18px] leading-[30px] text-baume-charcoal/75 max-w-[620px]">
+					<p className="mt-6 text-[18px] leading-[30px] text-baume-muted max-w-[620px]">
 						Baume est née à Genève d’une envie simple : réunir des produits
 						intimes, menstruels et bien-être soigneusement sélectionnés, avec un
 						vrai conseil humain. Ici, on prend le temps d’écouter, d’expliquer
@@ -153,7 +153,7 @@ export default function AboutPage() {
 						<h2 className="font-editorial text-[34px] md:text-[46px] leading-[1.08] text-baume-charcoal">
 							Des valeurs simples, tenues au quotidien.
 						</h2>
-						<p className="mt-4 text-[17px] leading-[28px] text-baume-charcoal/70">
+						<p className="mt-4 text-[17px] leading-[28px] text-baume-muted">
 							Nous voulons rendre le choix plus clair, plus humain et plus
 							rassurant, surtout sur des sujets parfois intimes ou mal
 							expliqués.
@@ -174,7 +174,7 @@ export default function AboutPage() {
 									<h3 className="font-editorial text-[24px] text-baume-charcoal">
 										{v.title}
 									</h3>
-									<p className="mt-2 text-[15px] leading-[24px] text-baume-charcoal/75">
+									<p className="mt-2 text-[15px] leading-[24px] text-baume-muted">
 										{v.desc}
 									</p>
 								</div>
@@ -194,7 +194,7 @@ export default function AboutPage() {
 						<h2 className="font-editorial text-[34px] md:text-[46px] leading-[1.08] text-baume-charcoal max-w-[640px]">
 							Des expertes qui accompagnent avec clarté et bienveillance.
 						</h2>
-						<p className="mt-4 text-[16px] leading-[26px] text-baume-charcoal/70 max-w-[640px]">
+						<p className="mt-4 text-[16px] leading-[26px] text-baume-muted max-w-[640px]">
 							Des profils complémentaires pour répondre aux questions liées au
 							cycle, à l’intimité, à la maternité et au bien-être.
 						</p>

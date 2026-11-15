@@ -13,6 +13,7 @@ import { resetConsent } from "../lib/consent";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 
+import { BaumeLogo } from "./BaumeLogo";
 function NewsletterForm() {
 	const [email, setEmail] = useState("");
 	const [loading, setLoading] = useState(false);
@@ -79,7 +80,7 @@ export default function Footer() {
 	return (
 		<footer
 			data-testid="site-footer"
-			className="mt-24 w-full bg-baume-burgundy text-baume-white"
+			className="mt-24 w-full bg-baume-burgundyDark text-baume-white"
 		>
 			<div className="w-full px-6 lg:px-10 py-14 md:py-20">
 				{/* Newsletter */}
@@ -109,11 +110,11 @@ export default function Footer() {
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12">
 					<div className="lg:col-span-4">
-						<Link
-							to="/"
-							className="inline-block text-[34px] font-semibold leading-none"
-						>
-							Baume
+						<Link to="/" className="inline-flex flex-col items-start gap-3">
+							<BaumeLogo className="block h-[40px] w-auto text-baume-ivory" />
+							<span className="text-[11px] uppercase tracking-[0.3em] text-baume-taupe">
+								Bien-être féminin
+							</span>
 						</Link>
 						<p className="mt-5 text-[14px] leading-[23px] text-baume-white/72 max-w-[340px]">
 							Une boutique douce et guidée pour choisir des produits intimes,
@@ -252,7 +253,7 @@ function FooterLink({ to, children }) {
 		<li>
 			<Link
 				to={to}
-				className="text-baume-white/72 hover:text-baume-white transition-colors"
+				className="text-baume-taupe hover:text-baume-white transition-colors"
 			>
 				{children}
 			</Link>

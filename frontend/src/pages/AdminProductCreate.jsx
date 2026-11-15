@@ -712,7 +712,7 @@ function Input({
 }) {
 	return (
 		<label className={`block ${className}`}>
-			<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+			<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 				{label}
 			</span>
 			<input
@@ -730,7 +730,7 @@ function Input({
 function Textarea({ label, value, onChange, className = "" }) {
 	return (
 		<label className={`block ${className}`}>
-			<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+			<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 				{label}
 			</span>
 			<textarea
@@ -746,7 +746,7 @@ function Textarea({ label, value, onChange, className = "" }) {
 function Select({ label, value, onChange, options }) {
 	return (
 		<label className="block">
-			<span className="block mb-2 text-[13px] font-semibold text-baume-charcoal/70">
+			<span className="block mb-2 text-[13px] font-semibold text-baume-muted">
 				{label}
 			</span>
 			<select
@@ -772,7 +772,7 @@ function Checkbox({ label, checked, onChange }) {
 				checked={checked}
 				onChange={(e) => onChange(e.target.checked)}
 			/>
-			<span className="text-[14px] font-semibold text-baume-charcoal/70">
+			<span className="text-[14px] font-semibold text-baume-muted">
 				{label}
 			</span>
 		</label>

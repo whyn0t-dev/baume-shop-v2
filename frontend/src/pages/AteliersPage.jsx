@@ -103,7 +103,7 @@ export default function AteliersPage() {
 					Nos expertes vous répondent,{" "}
 					<span className="italic">en boutique</span>.
 				</h1>
-				<p className="mt-5 text-[17px] leading-[28px] text-baume-charcoal/70 max-w-[640px]">
+				<p className="mt-5 text-[17px] leading-[28px] text-baume-muted max-w-[640px]">
 					Ateliers petits groupes, conversations honnêtes, experts disponibles.
 					Réservation requise.
 				</p>
@@ -115,7 +115,7 @@ export default function AteliersPage() {
 				</h2>
 
 				{workshops.length === 0 ? (
-					<p className="text-baume-charcoal/60">
+					<p className="text-baume-muted">
 						Aucun atelier disponible pour le moment.
 					</p>
 				) : (
@@ -142,11 +142,11 @@ export default function AteliersPage() {
 										{w.title}
 									</h3>
 
-									<p className="text-[14px] leading-[22px] text-baume-charcoal/75">
+									<p className="text-[14px] leading-[22px] text-baume-muted">
 										{w.description}
 									</p>
 
-									<div className="mt-auto pt-3 text-[13px] text-baume-charcoal/70 border-t border-baume-border space-y-1.5">
+									<div className="mt-auto pt-3 text-[13px] text-baume-muted border-t border-baume-border space-y-1.5">
 										<p className="inline-flex items-center gap-1.5">
 											<Calendar className="h-4 w-4 text-baume-burgundy" />
 											{w.starts_at
@@ -166,7 +166,7 @@ export default function AteliersPage() {
 												: "Complet"}
 										</p>
 
-										<p className="text-baume-charcoal/60">
+										<p className="text-baume-muted">
 											Animé par {w.expert_name || "l’équipe Baume"}
 										</p>
 									</div>
@@ -178,7 +178,7 @@ export default function AteliersPage() {
 										className={`h-10 px-5 inline-flex items-center justify-center rounded-full text-[13px] font-semibold ${
 											spotsLeft > 0
 												? "bg-baume-burgundy text-baume-white"
-												: "bg-baume-border text-baume-charcoal/50 cursor-not-allowed"
+												: "bg-baume-border text-baume-muted cursor-not-allowed"
 										}`}
 									>
 										{spotsLeft > 0 ? "Réserver ma place" : "Complet"}
@@ -223,7 +223,7 @@ function PaymentStatusModal({ popup, onClose }) {
 					{popup.title}
 				</h2>
 
-				<p className="mt-3 text-[15px] leading-6 text-baume-charcoal/70">
+				<p className="mt-3 text-[15px] leading-6 text-baume-muted">
 					{popup.message}
 				</p>
 
@@ -302,7 +302,7 @@ function WorkshopBookingModal({ workshop, onClose }) {
 				<button
 					type="button"
 					onClick={onClose}
-					className="absolute right-5 top-5 text-baume-charcoal/50 hover:text-baume-charcoal"
+					className="absolute right-5 top-5 text-baume-muted hover:text-baume-charcoal"
 				>
 					✕
 				</button>
@@ -315,7 +315,7 @@ function WorkshopBookingModal({ workshop, onClose }) {
 					{workshop.title}
 				</h2>
 
-				<div className="mt-4 text-[14px] text-baume-charcoal/70 space-y-1">
+				<div className="mt-4 text-[14px] text-baume-muted space-y-1">
 					<p>{price}</p>
 					<p>
 						{workshop.starts_at

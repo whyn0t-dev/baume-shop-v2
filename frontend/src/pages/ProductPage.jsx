@@ -50,7 +50,7 @@ const CUSTOM_SECTIONS = [
 				title: "Quel flux pour cette culotte ?",
 				content: (
 					<div className="space-y-3">
-						<p className="text-[13px] leading-[22px] text-baume-charcoal/70">
+						<p className="text-[13px] leading-[22px] text-baume-muted">
 							Chaque culotte est conçue pour un niveau d'absorption précis.
 							Voici comment choisir selon votre flux :
 						</p>
@@ -65,7 +65,7 @@ const CUSTOM_SECTIONS = [
 									className={`rounded-xl p-3 text-center border text-[12px] ${
 										f.active
 											? "bg-baume-burgundy/10 border-baume-burgundy text-baume-burgundy"
-											: "bg-baume-ivory border-baume-border text-baume-charcoal/60"
+											: "bg-baume-ivory border-baume-border text-baume-muted"
 									}`}
 								>
 									<p className="font-semibold">{f.label}</p>
@@ -95,7 +95,7 @@ const CUSTOM_SECTIONS = [
 						].map((item, i) => (
 							<div
 								key={i}
-								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+								className="flex items-start gap-2 text-[13px] text-baume-muted"
 							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
@@ -117,7 +117,7 @@ const CUSTOM_SECTIONS = [
 						].map((c) => (
 							<span
 								key={c}
-								className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/70 font-medium"
+								className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-muted font-medium"
 							>
 								{c}
 							</span>
@@ -137,7 +137,7 @@ const CUSTOM_SECTIONS = [
 				title: "Cup ou disque — quelle différence ?",
 				content: (
 					<div className="rounded-2xl overflow-hidden border border-baume-border text-[12px]">
-						<div className="grid grid-cols-3 bg-baume-ivory text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
+						<div className="grid grid-cols-3 bg-baume-ivory text-[11px] uppercase tracking-wider text-baume-muted font-semibold">
 							<div className="p-2.5" />
 							<div className="p-2.5 border-l border-baume-border text-center">
 								Cup
@@ -156,7 +156,7 @@ const CUSTOM_SECTIONS = [
 								key={i}
 								className={`grid grid-cols-3 border-t border-baume-border ${i % 2 === 0 ? "bg-white" : "bg-baume-ivory/50"}`}
 							>
-								<div className="p-2.5 text-baume-charcoal/60">{row.label}</div>
+								<div className="p-2.5 text-baume-muted">{row.label}</div>
 								<div className="p-2.5 border-l border-baume-border text-center text-baume-charcoal/80">
 									{row.cup}
 								</div>
@@ -184,7 +184,7 @@ const CUSTOM_SECTIONS = [
 						].map((item, i) => (
 							<div
 								key={i}
-								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+								className="flex items-start gap-2 text-[13px] text-baume-muted"
 							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
@@ -204,7 +204,7 @@ const CUSTOM_SECTIONS = [
 				id: "maillot-fonctionnement",
 				title: "Comment ça fonctionne ?",
 				content: (
-					<div className="space-y-3 text-[13px] leading-[21px] text-baume-charcoal/75">
+					<div className="space-y-3 text-[13px] leading-[21px] text-baume-muted">
 						<p>
 							La doublure intégrée absorbe les flux légers directement dans le
 							maillot — sans tampon, sans serviette.
@@ -243,7 +243,7 @@ const CUSTOM_SECTIONS = [
 						].map((item, i) => (
 							<div
 								key={i}
-								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+								className="flex items-start gap-2 text-[13px] text-baume-muted"
 							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
@@ -263,7 +263,7 @@ const CUSTOM_SECTIONS = [
 				id: "sl-guide",
 				title: "Guide d'utilisation",
 				content: (
-					<div className="space-y-3 text-[13px] text-baume-charcoal/75">
+					<div className="space-y-3 text-[13px] text-baume-muted">
 						<div className="grid grid-cols-3 gap-2 text-center">
 							{[
 								{
@@ -312,7 +312,7 @@ const CUSTOM_SECTIONS = [
 				id: "aroma-precautions",
 				title: "Précautions d'usage",
 				content: (
-					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-charcoal/75">
+					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-muted">
 						<p className="font-semibold text-baume-charcoal">
 							⚠️ À lire avant utilisation
 						</p>
@@ -374,7 +374,7 @@ const CUSTOM_SECTIONS = [
 									key={item.label}
 									className="rounded-xl bg-baume-ivory border border-baume-border p-3"
 								>
-									<p className="text-baume-charcoal/50 text-[11px] uppercase tracking-wider mb-1">
+									<p className="text-baume-muted text-[11px] uppercase tracking-wider mb-1">
 										{item.label}
 									</p>
 									<p className="font-semibold text-baume-charcoal">
@@ -383,7 +383,7 @@ const CUSTOM_SECTIONS = [
 								</div>
 							))}
 						</div>
-						<p className="text-[12px] text-baume-charcoal/55 leading-[18px]">
+						<p className="text-[12px] text-baume-muted leading-[18px]">
 							Résultats visibles généralement à partir de 3 à 4 semaines. Nous
 							recommandons 2 à 3 cures par an.
 						</p>
@@ -394,7 +394,7 @@ const CUSTOM_SECTIONS = [
 				id: "compl-precautions",
 				title: "Précautions",
 				content: (
-					<div className="space-y-1.5 text-[13px] text-baume-charcoal/70">
+					<div className="space-y-1.5 text-[13px] text-baume-muted">
 						{[
 							"Compléments alimentaires — ne pas dépasser la dose recommandée",
 							"Ne remplace pas une alimentation variée et équilibrée",
@@ -440,7 +440,7 @@ const CUSTOM_SECTIONS = [
 								key={item.label}
 								className="flex items-center justify-between rounded-xl bg-baume-ivory border border-baume-border px-3 py-2 gap-2"
 							>
-								<span className="text-baume-charcoal/65">{item.label}</span>
+								<span className="text-baume-muted">{item.label}</span>
 								<span className="font-semibold text-baume-charcoal shrink-0">
 									{item.value}
 								</span>
@@ -457,7 +457,7 @@ const CUSTOM_SECTIONS = [
 						<p className="font-editorial italic text-[16px] text-baume-burgundy mb-1">
 							"Moins c'est plus."
 						</p>
-						<p className="text-[13px] leading-[21px] text-baume-charcoal/70">
+						<p className="text-[13px] leading-[21px] text-baume-muted">
 							Commencez par une petite quantité et ajustez selon vos besoins. La
 							plupart de nos soins sont concentrés — quelques gouttes suffisent
 							pour un effet optimal.
@@ -476,7 +476,7 @@ const CUSTOM_SECTIONS = [
 				id: "coffret-contenu",
 				title: "Ce qui est inclus",
 				content: (
-					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-charcoal/75">
+					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-muted">
 						<p className="text-[11px] uppercase tracking-wider text-baume-burgundy font-semibold mb-3">
 							Contenu du coffret
 						</p>
@@ -498,7 +498,7 @@ const CUSTOM_SECTIONS = [
 				id: "coffret-cadeau",
 				title: "Offrir ce coffret",
 				content: (
-					<div className="space-y-2 text-[13px] text-baume-charcoal/70">
+					<div className="space-y-2 text-[13px] text-baume-muted">
 						<p>
 							Chaque coffret est expédié dans un emballage cadeau prêt à offrir.
 							Vous pouvez y ajouter un message personnalisé lors du passage en
@@ -513,7 +513,7 @@ const CUSTOM_SECTIONS = [
 							].map((o) => (
 								<span
 									key={o}
-									className="text-[11px] px-2.5 py-1 rounded-full bg-baume-taupe/30 border border-baume-border text-baume-charcoal/70"
+									className="text-[11px] px-2.5 py-1 rounded-full bg-baume-taupe/30 border border-baume-border text-baume-muted"
 								>
 									{o}
 								</span>
@@ -533,7 +533,7 @@ const CUSTOM_SECTIONS = [
 				id: "acc-matiere",
 				title: "Matières & traçabilité",
 				content: (
-					<div className="space-y-2 text-[13px] text-baume-charcoal/75">
+					<div className="space-y-2 text-[13px] text-baume-muted">
 						<p>
 							Nos accessoires sont fabriqués avec des matières certifiées et
 							traçables, sélectionnées pour leur douceur et leur impact réduit
@@ -548,7 +548,7 @@ const CUSTOM_SECTIONS = [
 							].map((c) => (
 								<span
 									key={c}
-									className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/65"
+									className="text-[11px] px-2.5 py-1 rounded-full bg-baume-ivory border border-baume-border text-baume-muted"
 								>
 									{c}
 								</span>
@@ -568,7 +568,7 @@ const CUSTOM_SECTIONS = [
 				id: "rituel-utilisation",
 				title: "Comment utiliser votre bouillotte ?",
 				content: (
-					<div className="space-y-2 text-[13px] text-baume-charcoal/75">
+					<div className="space-y-2 text-[13px] text-baume-muted">
 						{[
 							"Remplir avec de l’eau chaude (non bouillante)",
 							"Refermer soigneusement le bouchon",
@@ -587,7 +587,7 @@ const CUSTOM_SECTIONS = [
 				id: "rituel-bienfaits",
 				title: "Bienfaits de la chaleur",
 				content: (
-					<div className="space-y-2 text-[13px] text-baume-charcoal/75">
+					<div className="space-y-2 text-[13px] text-baume-muted">
 						{[
 							"Soulage les douleurs menstruelles",
 							"Détend les muscles et réduit les tensions",
@@ -606,7 +606,7 @@ const CUSTOM_SECTIONS = [
 				id: "rituel-securite",
 				title: "Précautions d’usage",
 				content: (
-					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-charcoal/75">
+					<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 space-y-2 text-[13px] text-baume-muted">
 						<p className="font-semibold text-baume-charcoal">
 							⚠️ À utiliser en toute sécurité
 						</p>
@@ -656,7 +656,7 @@ const CUSTOM_SECTIONS = [
 						].map((item, i) => (
 							<div
 								key={i}
-								className="flex items-start gap-2 text-[13px] text-baume-charcoal/75"
+								className="flex items-start gap-2 text-[13px] text-baume-muted"
 							>
 								<span className="shrink-0">{item.icon}</span>
 								<span>{item.text}</span>
@@ -670,7 +670,7 @@ const CUSTOM_SECTIONS = [
 				title: "Guide des tailles",
 				content: (
 					<div className="rounded-2xl overflow-hidden border border-baume-border text-[12px]">
-						<div className="grid grid-cols-4 bg-baume-ivory text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
+						<div className="grid grid-cols-4 bg-baume-ivory text-[11px] uppercase tracking-wider text-baume-muted font-semibold">
 							{["Taille", "Tour de taille", "Tour de hanches", "Bonnet"].map(
 								(h) => (
 									<div
@@ -1056,7 +1056,7 @@ export default function ProductPage() {
 											Disponible
 										</span>
 									) : (
-										<span className="inline-block text-[11px] font-semibold uppercase tracking-wider bg-baume-ivory text-baume-charcoal/60 px-3 py-1 rounded-full border border-baume-border">
+										<span className="inline-block text-[11px] font-semibold uppercase tracking-wider bg-baume-ivory text-baume-muted px-3 py-1 rounded-full border border-baume-border">
 											Indisponible
 										</span>
 									)}
@@ -1066,7 +1066,7 @@ export default function ProductPage() {
 									{product.name}
 								</h1>
 
-								<p className="mt-3 text-[17px] leading-[27px] text-baume-charcoal/70">
+								<p className="mt-3 text-[17px] leading-[27px] text-baume-muted">
 									{product.tagline}
 								</p>
 
@@ -1083,7 +1083,7 @@ export default function ProductPage() {
 											/>
 										))}
 									</div>
-									<span className="text-baume-charcoal/60">
+									<span className="text-baume-muted">
 										{reviewStats.average > 0 ? `${reviewStats.average}/5` : "—"}{" "}
 										· {reviewStats.count} avis
 									</span>
@@ -1097,7 +1097,7 @@ export default function ProductPage() {
 										{displayPrice.toFixed(2)} CHF
 									</span>
 									{product.compare_price && (
-										<span className="text-[16px] text-baume-charcoal/40 line-through">
+										<span className="text-[16px] text-baume-muted line-through">
 											{product.compare_price.toFixed(2)} CHF
 										</span>
 									)}
@@ -1193,7 +1193,7 @@ export default function ProductPage() {
 										<p className="text-[13px] font-semibold text-baume-burgundy mb-1">
 											🕐 Produit en pré-commande
 										</p>
-										<p className="text-[12px] text-baume-charcoal/65 leading-[1.6]">
+										<p className="text-[12px] text-baume-muted leading-[1.6]">
 											{product.preorder_message ||
 												"Ce produit est disponible en pré-commande. Votre commande sera expédiée dès réception du stock."}
 										</p>
@@ -1276,7 +1276,7 @@ export default function ProductPage() {
 													<p className="text-[13px] font-semibold text-baume-charcoal leading-tight truncate group-hover:text-baume-burgundy transition-colors">
 														{p.name}
 													</p>
-													<p className="text-[12px] text-baume-charcoal/55 mt-0.5">
+													<p className="text-[12px] text-baume-muted mt-0.5">
 														{p.price.toFixed(2)} CHF
 													</p>
 												</div>
@@ -1334,7 +1334,7 @@ export default function ProductPage() {
 									<p className="font-editorial italic text-[19px] text-baume-burgundy">
 										Besoin d'aide pour choisir ?
 									</p>
-									<p className="text-[13px] leading-[21px] text-baume-charcoal/70">
+									<p className="text-[13px] leading-[21px] text-baume-muted">
 										Nos expertes vous répondent avec douceur et précision.{" "}
 										<Link to="/contact" className="baume-link">
 											Parlez-nous
@@ -1349,7 +1349,7 @@ export default function ProductPage() {
 									<p className="text-[13px] font-semibold text-baume-charcoal">
 										Vous avez essayé ce produit ?
 									</p>
-									<p className="text-[12px] text-baume-charcoal/55 mt-0.5">
+									<p className="text-[12px] text-baume-muted mt-0.5">
 										Partagez votre expérience avec la communauté.
 									</p>
 								</div>
@@ -1419,7 +1419,7 @@ export default function ProductPage() {
 									>
 										<AccordionTrigger className="py-4 hover:no-underline group [&>svg]:hidden">
 											<span className="flex items-center gap-3 flex-1">
-												<span className="text-baume-charcoal/50 shrink-0">
+												<span className="text-baume-muted shrink-0">
 													{icon}
 												</span>
 												<span className="font-editorial text-[17px] text-baume-charcoal group-data-[state=open]:text-baume-burgundy transition-colors">
@@ -1428,7 +1428,7 @@ export default function ProductPage() {
 											</span>
 											<PlusMinusIcon />
 										</AccordionTrigger>
-										<AccordionContent className="text-[13px] leading-[22px] text-baume-charcoal/65 pb-4 pl-7 whitespace-pre-line">
+										<AccordionContent className="text-[13px] leading-[22px] text-baume-muted pb-4 pl-7 whitespace-pre-line">
 											{content}
 										</AccordionContent>
 									</AccordionItem>
@@ -1463,7 +1463,7 @@ export default function ProductPage() {
 							<h2 className="font-editorial text-[32px] md:text-[42px] text-baume-charcoal leading-tight">
 								Tout savoir sur ce produit
 							</h2>
-							<p className="mt-4 text-[15px] text-baume-charcoal/65 leading-[24px]">
+							<p className="mt-4 text-[15px] text-baume-muted leading-[24px]">
 								Nos expertes vous guident pour tirer le meilleur de votre
 								produit, avec des conseils d’utilisation, d’entretien et de
 								choix adaptés à votre routine.
@@ -1505,7 +1505,7 @@ export default function ProductPage() {
 								<p className="font-semibold text-baume-charcoal text-[14px] mb-2">
 									💡 Astuce
 								</p>
-								<p className="text-[13px] text-baume-charcoal/65 leading-[22px]">
+								<p className="text-[13px] text-baume-muted leading-[22px]">
 									Pour des résultats optimaux, utilisez ce produit régulièrement
 									et intégrez-le dans une routine cohérente adaptée à votre
 									corps.
@@ -1516,7 +1516,7 @@ export default function ProductPage() {
 								<p className="font-semibold text-baume-charcoal text-[14px] mb-2">
 									🌿 Philosophie
 								</p>
-								<p className="text-[13px] text-baume-charcoal/65 leading-[22px]">
+								<p className="text-[13px] text-baume-muted leading-[22px]">
 									Nos produits privilégient des ingrédients sûrs, traçables et
 									respectueux de votre équilibre intime.
 								</p>
@@ -1526,7 +1526,7 @@ export default function ProductPage() {
 								<p className="font-semibold text-baume-charcoal text-[14px] mb-2">
 									🔁 Routine
 								</p>
-								<p className="text-[13px] text-baume-charcoal/65 leading-[22px]">
+								<p className="text-[13px] text-baume-muted leading-[22px]">
 									Associez ce produit avec d'autres essentiels pour créer une
 									routine bien-être complète et durable.
 								</p>
@@ -1577,7 +1577,7 @@ export default function ProductPage() {
 			{/* ── Sticky mobile ── */}
 			<div className="lg:hidden sticky bottom-0 z-30 bg-baume-white border-t border-baume-border p-3 flex items-center gap-3">
 				<div className="min-w-0">
-					<p className="text-[11px] text-baume-charcoal/60 leading-none truncate max-w-[140px]">
+					<p className="text-[11px] text-baume-muted leading-none truncate max-w-[140px]">
 						{product.name}
 					</p>
 					<p className="text-[16px] font-semibold text-baume-charcoal mt-1">
@@ -1611,7 +1611,7 @@ function InfoChip({ icon: Icon, title, sub }) {
 			<p className="text-[12px] font-semibold text-baume-charcoal leading-tight">
 				{title}
 			</p>
-			<p className="text-[11px] text-baume-charcoal/55">{sub}</p>
+			<p className="text-[11px] text-baume-muted">{sub}</p>
 		</div>
 	);
 }
@@ -1707,7 +1707,7 @@ function InfoIcon() {
 function PlusMinusIcon() {
 	return (
 		<>
-			<span className="ml-auto shrink-0 text-baume-charcoal/40 group-data-[state=open]:hidden">
+			<span className="ml-auto shrink-0 text-baume-muted group-data-[state=open]:hidden">
 				<svg
 					width="13"
 					height="13"
@@ -1747,7 +1747,7 @@ export function InfoLine({ icon: Icon, title, text }) {
 			</span>
 			<div>
 				<p className="text-[14px] font-semibold text-baume-charcoal">{title}</p>
-				<p className="text-[12px] text-baume-charcoal/65">{text}</p>
+				<p className="text-[12px] text-baume-muted">{text}</p>
 			</div>
 		</div>
 	);
@@ -1849,7 +1849,7 @@ function ProductEssentials({ product }) {
 								i === arr.length - 1 && arr.length % 2 === 1 ? "col-span-2" : ""
 							}`}
 						>
-							<dt className="text-[10px] uppercase tracking-[0.16em] text-baume-charcoal/45 font-semibold">
+							<dt className="text-[10px] uppercase tracking-[0.16em] text-baume-muted font-semibold">
 								{s.label}
 							</dt>
 							<dd className="mt-0.5 text-[13px] text-baume-charcoal font-medium">
@@ -1871,7 +1871,7 @@ function ProductEssentials({ product }) {
 								<p className="text-[12px] font-semibold text-baume-charcoal">
 									{label}
 								</p>
-								<p className="text-[12px] leading-[19px] text-baume-charcoal/60">
+								<p className="text-[12px] leading-[19px] text-baume-muted">
 									{excerpt(text)}
 								</p>
 							</div>
@@ -1880,7 +1880,7 @@ function ProductEssentials({ product }) {
 				</ul>
 			)}
 
-			<p className="mt-4 text-[11px] text-baume-charcoal/45">
+			<p className="mt-4 text-[11px] text-baume-muted">
 				Tous les détails sont à retrouver ci-dessous.
 			</p>
 		</div>

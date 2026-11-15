@@ -30,6 +30,7 @@ import {
 	SheetDescription,
 } from "./ui/sheet";
 
+import { BaumeLogo } from "./BaumeLogo";
 const MENU_COLUMNS = [
 	{
 		title: "Cycle menstruel",
@@ -239,9 +240,7 @@ export default function Header() {
 					</div>
 
 					<Link to="/" className="shrink-0">
-						<span className="text-[42px] md:text-[52px] font-semibold leading-none text-baume-burgundy tracking-tight">
-							Baume.
-						</span>
+						<BaumeLogo className="block h-[28px] md:h-[38px] w-auto text-baume-burgundy" />
 					</Link>
 
 					<nav className="hidden lg:flex items-center justify-center gap-4 flex-1">
@@ -348,7 +347,7 @@ export default function Header() {
 							{searchLoading ? (
 								<Loader2 className="h-5 w-5 text-baume-burgundy animate-spin shrink-0" />
 							) : (
-								<Search className="h-5 w-5 text-baume-charcoal/40 shrink-0" />
+								<Search className="h-5 w-5 text-baume-muted shrink-0" />
 							)}
 							<input
 								ref={searchRef}
@@ -375,7 +374,7 @@ export default function Header() {
 									}}
 									className="h-8 w-8 rounded-full bg-baume-ivory border border-baume-border flex items-center justify-center hover:bg-baume-border transition shrink-0"
 								>
-									<X className="h-3.5 w-3.5 text-baume-charcoal/60" />
+									<X className="h-3.5 w-3.5 text-baume-muted" />
 								</button>
 							)}
 							<button
@@ -393,7 +392,7 @@ export default function Header() {
 						<div className="w-full max-w-5xl mx-auto px-6 lg:px-10">
 							{!searchQuery.trim() ? (
 								<div className="py-6">
-									<p className="text-[11px] uppercase tracking-[0.2em] text-baume-charcoal/40 font-semibold mb-4">
+									<p className="text-[11px] uppercase tracking-[0.2em] text-baume-muted font-semibold mb-4">
 										Suggestions
 									</p>
 									<div className="flex flex-wrap gap-2">
@@ -410,7 +409,7 @@ export default function Header() {
 								</div>
 							) : searchResults.length === 0 && !searchLoading ? (
 								<div className="py-10 text-center">
-									<p className="text-[15px] text-baume-charcoal/50">
+									<p className="text-[15px] text-baume-muted">
 										Aucun résultat pour{" "}
 										<span className="font-semibold text-baume-charcoal">
 											«&nbsp;{searchQuery}&nbsp;»
@@ -442,7 +441,7 @@ export default function Header() {
 													<p className="text-[14px] font-semibold text-baume-charcoal truncate">
 														{p.name}
 													</p>
-													<p className="text-[12px] text-baume-charcoal/50 truncate mt-0.5">
+													<p className="text-[12px] text-baume-muted truncate mt-0.5">
 														{p.tagline}
 													</p>
 												</div>
@@ -591,7 +590,7 @@ function MobileDrawer({ onNavigate }) {
 				>
 					Baume.
 				</Link>
-				<p className="mt-3 text-[14px] text-baume-charcoal/60">
+				<p className="mt-3 text-[14px] text-baume-muted">
 					Choisir simplement, sans pression.
 				</p>
 			</div>
@@ -644,7 +643,7 @@ function MobileDrawer({ onNavigate }) {
 					<p className="text-[13px] font-semibold text-baume-burgundy uppercase tracking-[0.16em]">
 						Besoin d’aide ?
 					</p>
-					<p className="mt-2 text-[14px] text-baume-charcoal/65">
+					<p className="mt-2 text-[14px] text-baume-muted">
 						Une question sur un produit ou un besoin intime ?
 					</p>
 					<Link

@@ -79,7 +79,7 @@ function StatCard({
 				<Icon className="h-5 w-5" />
 			</div>
 			<div className="flex-1 min-w-0">
-				<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+				<p className="text-[11px] uppercase tracking-[0.18em] text-baume-muted font-semibold">
 					{label}
 				</p>
 				{loading ? (
@@ -90,7 +90,7 @@ function StatCard({
 					</p>
 				)}
 				{sub && (
-					<p className="mt-0.5 text-[12px] text-baume-charcoal/50">{sub}</p>
+					<p className="mt-0.5 text-[12px] text-baume-muted">{sub}</p>
 				)}
 			</div>
 		</div>
@@ -325,7 +325,7 @@ export default function HomeSection() {
 						<Activity className="h-5 w-5 text-emerald-700" />
 					</div>
 					<div className="flex-1">
-						<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+						<p className="text-[11px] uppercase tracking-[0.18em] text-baume-muted font-semibold">
 							En ligne maintenant
 						</p>
 						{posthogLoading ? (
@@ -340,7 +340,7 @@ export default function HomeSection() {
 								)}
 							</div>
 						)}
-						<p className="mt-0.5 text-[12px] text-baume-charcoal/50">
+						<p className="mt-0.5 text-[12px] text-baume-muted">
 							5 dernières minutes
 						</p>
 					</div>
@@ -358,7 +358,7 @@ export default function HomeSection() {
 							<h3 className="font-semibold text-[15px] text-baume-charcoal">
 								Bannières promotionnelles · CTR
 							</h3>
-							<p className="text-[12px] text-baume-charcoal/50">
+							<p className="text-[12px] text-baume-muted">
 								Taux de clic = clics / affichages (visiteurs uniques) ·{" "}
 								{selectedPeriod.label.toLowerCase()}
 							</p>
@@ -366,7 +366,7 @@ export default function HomeSection() {
 					</div>
 					<div className="flex items-center gap-6 text-right">
 						<div>
-							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-muted font-semibold">
 								Affichages
 							</p>
 							<p className="font-editorial text-[22px] text-baume-charcoal">
@@ -374,7 +374,7 @@ export default function HomeSection() {
 							</p>
 						</div>
 						<div>
-							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-muted font-semibold">
 								Clics
 							</p>
 							<p className="font-editorial text-[22px] text-baume-charcoal">
@@ -382,7 +382,7 @@ export default function HomeSection() {
 							</p>
 						</div>
 						<div>
-							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold">
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-muted font-semibold">
 								CTR global
 							</p>
 							<p className="font-editorial text-[22px] text-baume-burgundy">
@@ -400,14 +400,14 @@ export default function HomeSection() {
 						<Loader2 className="h-5 w-5 animate-spin text-baume-burgundy" />
 					</div>
 				) : !ctr?.banners?.length ? (
-					<p className="p-6 text-center text-[13px] text-baume-charcoal/50">
+					<p className="p-6 text-center text-[13px] text-baume-muted">
 						Aucune donnée pour l'instant — les affichages et clics apparaîtront
 						dès les premières visites.
 					</p>
 				) : (
 					<div className="overflow-x-auto">
 						<table className="w-full text-[13px]">
-							<thead className="bg-baume-ivory/60 text-baume-charcoal/60">
+							<thead className="bg-baume-ivory/60 text-baume-muted">
 								<tr>
 									<th className="px-5 py-3 text-left font-semibold">Bannière</th>
 									<th className="px-5 py-3 text-right font-semibold">Affichages</th>
@@ -423,7 +423,7 @@ export default function HomeSection() {
 									<tr key={b.banner_id}>
 										<td className="px-5 py-3">
 											<p className="font-medium text-baume-charcoal">{b.label}</p>
-											<p className="text-[11px] text-baume-charcoal/40 font-mono">
+											<p className="text-[11px] text-baume-muted font-mono">
 												{b.banner_id}
 											</p>
 										</td>
@@ -474,7 +474,7 @@ export default function HomeSection() {
 						<Loader2 className="h-6 w-6 animate-spin text-baume-burgundy" />
 					</div>
 				) : recentOrders.length === 0 ? (
-					<div className="py-12 text-center text-baume-charcoal/50 text-[13px]">
+					<div className="py-12 text-center text-baume-muted text-[13px]">
 						Aucune commande pour l'instant
 					</div>
 				) : (
@@ -495,7 +495,7 @@ export default function HomeSection() {
 										</span>
 										<StatusBadge status={o.status} />
 									</div>
-									<p className="text-[12px] text-baume-charcoal/55 mt-0.5 truncate">
+									<p className="text-[12px] text-baume-muted mt-0.5 truncate">
 										{o.email || "—"} ·{" "}
 										{o.created_at
 											? new Date(o.created_at).toLocaleDateString("fr-CH", {
@@ -552,7 +552,7 @@ export default function HomeSection() {
 												: `−${Number(d.value).toFixed(2)} CHF`}
 										</span>
 									</div>
-									<span className="text-[12px] text-baume-charcoal/50">
+									<span className="text-[12px] text-baume-muted">
 										{d.used_count || 0} utilisation
 										{(d.used_count || 0) > 1 ? "s" : ""}
 										{d.usage_limit ? ` / ${d.usage_limit}` : ""}

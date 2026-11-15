@@ -169,7 +169,7 @@ export default function AdminReturnsPage() {
 							}`}
 							onClick={() => stat.filter && setFilter(stat.filter)}
 						>
-							<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold">
+							<p className="text-[11px] uppercase tracking-wider text-baume-muted font-semibold">
 								{stat.label}
 							</p>
 							<p
@@ -194,7 +194,7 @@ export default function AdminReturnsPage() {
 							className={`h-9 px-4 rounded-full text-[12px] font-semibold transition ${
 								filter === s
 									? "bg-baume-burgundy text-baume-white"
-									: "bg-baume-white border border-baume-border text-baume-charcoal/70 hover:border-baume-burgundy"
+									: "bg-baume-white border border-baume-border text-baume-muted hover:border-baume-burgundy"
 							}`}
 						>
 							{STATUS_MAP[s].label}
@@ -210,7 +210,7 @@ export default function AdminReturnsPage() {
 				) : returns.length === 0 ? (
 					<div className="rounded-3xl border border-baume-border bg-baume-white p-12 text-center">
 						<Package className="h-10 w-10 text-baume-charcoal/20 mx-auto mb-3" />
-						<p className="text-[14px] text-baume-charcoal/50">
+						<p className="text-[14px] text-baume-muted">
 							Aucune demande de retour
 						</p>
 					</div>
@@ -254,7 +254,7 @@ export default function AdminReturnsPage() {
 								? "Approuver la demande"
 								: "Refuser la demande"}
 						</h2>
-						<p className="text-[13px] text-baume-charcoal/60 mb-5">
+						<p className="text-[13px] text-baume-muted mb-5">
 							{reviewModal.action === "approved"
 								? "Ajoutez un message optionnel pour le client."
 								: "Indiquez la raison du refus — elle sera envoyée au client."}
@@ -342,11 +342,11 @@ function ReturnCard({
 						<span className="text-[13px] font-semibold text-baume-charcoal">
 							Commande {orderRef}
 						</span>
-						<span className="text-[12px] text-baume-charcoal/50">
+						<span className="text-[12px] text-baume-muted">
 							{REASON_LABELS[req.reason]}
 						</span>
 					</div>
-					<div className="flex items-center gap-4 text-[12px] text-baume-charcoal/50">
+					<div className="flex items-center gap-4 text-[12px] text-baume-muted">
 						<span>{req.email}</span>
 						<span>·</span>
 						<span>{new Date(req.created_at).toLocaleDateString("fr-CH")}</span>
@@ -370,9 +370,9 @@ function ReturnCard({
 					</div>
 				</div>
 				{expanded ? (
-					<ChevronUp className="h-4 w-4 text-baume-charcoal/40 shrink-0" />
+					<ChevronUp className="h-4 w-4 text-baume-muted shrink-0" />
 				) : (
-					<ChevronDown className="h-4 w-4 text-baume-charcoal/40 shrink-0" />
+					<ChevronDown className="h-4 w-4 text-baume-muted shrink-0" />
 				)}
 			</div>
 
@@ -382,7 +382,7 @@ function ReturnCard({
 					{/* Articles */}
 					{order?.order_items?.length > 0 && (
 						<div>
-							<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold mb-3">
+							<p className="text-[11px] uppercase tracking-wider text-baume-muted font-semibold mb-3">
 								Articles commandés
 							</p>
 							<div className="space-y-2">
@@ -396,12 +396,12 @@ function ReturnCard({
 												{item.product_title}
 											</span>
 											{item.variant_title && (
-												<span className="text-baume-charcoal/50 ml-1">
+												<span className="text-baume-muted ml-1">
 													— {item.variant_title}
 												</span>
 											)}
 										</div>
-										<span className="text-baume-charcoal/70 shrink-0">
+										<span className="text-baume-muted shrink-0">
 											×{item.quantity} · {Number(item.total_price).toFixed(2)}{" "}
 											CHF
 										</span>
@@ -413,7 +413,7 @@ function ReturnCard({
 
 					{/* Message client */}
 					<div>
-						<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold mb-2">
+						<p className="text-[11px] uppercase tracking-wider text-baume-muted font-semibold mb-2">
 							Message du client
 						</p>
 						<p className="text-[14px] text-baume-charcoal/80 leading-relaxed bg-baume-ivory rounded-2xl px-4 py-3">
@@ -424,7 +424,7 @@ function ReturnCard({
 					{/* Photos */}
 					{req.images?.length > 0 && (
 						<div>
-							<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold mb-3">
+							<p className="text-[11px] uppercase tracking-wider text-baume-muted font-semibold mb-3">
 								Photos jointes
 							</p>
 							<div className="flex flex-wrap gap-3">
@@ -444,10 +444,10 @@ function ReturnCard({
 					{/* Note admin existante */}
 					{req.admin_note && (
 						<div>
-							<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 font-semibold mb-2">
+							<p className="text-[11px] uppercase tracking-wider text-baume-muted font-semibold mb-2">
 								Note admin
 							</p>
-							<p className="text-[13px] text-baume-charcoal/70 bg-baume-ivory rounded-2xl px-4 py-3">
+							<p className="text-[13px] text-baume-muted bg-baume-ivory rounded-2xl px-4 py-3">
 								{req.admin_note}
 							</p>
 						</div>

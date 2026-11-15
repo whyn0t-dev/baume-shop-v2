@@ -44,7 +44,7 @@ export default function ProductCard({ product, onQuickAdd }) {
 						{product.name}
 					</h3>
 
-					<p className="mt-1 text-[13px] leading-[20px] text-baume-charcoal/65 line-clamp-2">
+					<p className="mt-1 text-[13px] leading-[20px] text-baume-muted line-clamp-2">
 						{product.tagline}
 					</p>
 
@@ -54,7 +54,7 @@ export default function ProductCard({ product, onQuickAdd }) {
 							{product.benefits.slice(0, 3).map((benefit, idx) => (
 								<span
 									key={idx}
-									className="text-[11px] px-2 py-0.5 rounded-full border border-baume-border text-baume-charcoal/70"
+									className="text-[11px] px-2 py-0.5 rounded-full border border-baume-border text-baume-muted"
 								>
 									{benefit}
 								</span>
@@ -64,7 +64,7 @@ export default function ProductCard({ product, onQuickAdd }) {
 
 					{/* COMPOSITION */}
 					{product.composition && (
-						<p className="mt-2 text-[11px] text-baume-charcoal/50 line-clamp-1">
+						<p className="mt-2 text-[11px] text-baume-muted line-clamp-1">
 							{product.composition}
 						</p>
 					)}
@@ -79,7 +79,7 @@ export default function ProductCard({ product, onQuickAdd }) {
 							</span>
 
 							{hasDiscount && (
-								<span className="text-[13px] text-baume-charcoal/40 line-through">
+								<span className="text-[13px] text-baume-muted line-through">
 									{product.compare_price.toFixed(2)}
 								</span>
 							)}

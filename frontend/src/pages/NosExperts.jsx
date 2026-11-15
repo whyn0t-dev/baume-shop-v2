@@ -36,7 +36,7 @@ export default function NosExperts() {
 							Un accompagnement ancré dans votre réalité.
 						</h1>
 
-						<p className="mt-4 max-w-2xl text-[17px] md:text-[19px] leading-[30px] text-baume-charcoal/70">
+						<p className="mt-4 max-w-2xl text-[17px] md:text-[19px] leading-[30px] text-baume-muted">
 							Des experts qui vous ressemblent, choisis pour leur écoute, leur
 							douceur et leur capacité à accompagner les transitions du corps
 							avec justesse.
@@ -83,7 +83,7 @@ export default function NosExperts() {
 													{expert.name}
 												</h2>
 
-												<p className="mt-2 text-[16px] leading-[25px] text-baume-charcoal/65 max-w-2xl">
+												<p className="mt-2 text-[16px] leading-[25px] text-baume-muted max-w-2xl">
 													{expert.role}
 												</p>
 											</div>
@@ -114,7 +114,7 @@ export default function NosExperts() {
 													<h3 className="text-[22px] font-semibold text-baume-burgundy">
 														{expert.offer}
 													</h3>
-													<p className="mt-2 text-[15px] leading-[24px] text-baume-charcoal/70">
+													<p className="mt-2 text-[15px] leading-[24px] text-baume-muted">
 														{expert.description}
 													</p>
 												</div>
@@ -151,7 +151,7 @@ export default function NosExperts() {
 
 														{isOpen && (
 															<div className="px-5 pb-5">
-																<p className="text-[14px] leading-[24px] text-baume-charcoal/70">
+																<p className="text-[14px] leading-[24px] text-baume-muted">
 																	{section.text}
 																</p>
 															</div>

@@ -99,7 +99,7 @@ export default function CustomersSection() {
 					<h2 className="font-editorial text-[28px] text-baume-charcoal mt-1">
 						Clientes
 					</h2>
-					<p className="text-[13px] text-baume-charcoal/60 mt-1">
+					<p className="text-[13px] text-baume-muted mt-1">
 						{rows.length} compte(s) · {totals.clients} cliente(s) ayant
 						commandé · {totals.vip} fidèle(s)/VIP · {chf(totals.revenue)} de
 						dépenses nettes
@@ -107,7 +107,7 @@ export default function CustomersSection() {
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					<div className="relative">
-						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-baume-charcoal/40" />
+						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-baume-muted" />
 						<input
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
@@ -120,7 +120,7 @@ export default function CustomersSection() {
 								className="absolute right-3 top-1/2 -translate-y-1/2"
 								aria-label="Effacer"
 							>
-								<X className="h-3.5 w-3.5 text-baume-charcoal/40" />
+								<X className="h-3.5 w-3.5 text-baume-muted" />
 							</button>
 						)}
 					</div>
@@ -157,13 +157,13 @@ export default function CustomersSection() {
 			) : error ? (
 				<p className="p-8 text-center text-red-600 text-[14px]">{error}</p>
 			) : visible.length === 0 ? (
-				<p className="p-8 text-center text-baume-charcoal/60 text-[14px]">
+				<p className="p-8 text-center text-baume-muted text-[14px]">
 					Aucune cliente trouvée.
 				</p>
 			) : (
 				<div className="overflow-x-auto rounded-2xl border border-baume-border bg-baume-white">
 					<table className="w-full text-[13px]">
-						<thead className="bg-baume-ivory/60 text-baume-charcoal/60">
+						<thead className="bg-baume-ivory/60 text-baume-muted">
 							<tr>
 								<th className="px-5 py-3 text-left font-semibold">Cliente</th>
 								<th className="px-5 py-3 text-left font-semibold">Statut</th>
@@ -187,7 +187,7 @@ export default function CustomersSection() {
 												</span>
 											)}
 										</p>
-										<p className="text-[12px] text-baume-charcoal/50">{r.email}</p>
+										<p className="text-[12px] text-baume-muted">{r.email}</p>
 									</td>
 									<td className="px-5 py-3">
 										<span

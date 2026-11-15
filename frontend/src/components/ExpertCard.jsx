@@ -12,7 +12,7 @@ export default function ExpertCard({ expert }) {
       <div className="p-5 flex-1 flex flex-col gap-2">
         <p className="text-[12px] uppercase tracking-[0.18em] text-baume-burgundy">{expert.role}</p>
         <h3 className="font-editorial text-[24px] leading-[30px] text-baume-charcoal">{expert.name}</h3>
-        <p className="text-[13px] leading-[20px] text-baume-charcoal/70">{expert.bio}</p>
+        <p className="text-[13px] leading-[20px] text-baume-muted">{expert.bio}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {expert.specialties?.map((s) => (
             <span

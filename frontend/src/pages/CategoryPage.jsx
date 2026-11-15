@@ -110,7 +110,7 @@ export default function CategoryPage({ kind }) {
 								{tagline}
 							</p>
 
-							<p className="mt-5 text-[16px] md:text-[18px] leading-[29px] text-baume-charcoal/70 max-w-[720px]">
+							<p className="mt-5 text-[16px] md:text-[18px] leading-[29px] text-baume-muted max-w-[720px]">
 								{description}
 							</p>
 						</div>
@@ -159,7 +159,7 @@ export default function CategoryPage({ kind }) {
 								<p className="font-editorial italic text-[20px] text-baume-burgundy">
 									Besoin d’aide pour choisir ?
 								</p>
-								<p className="text-[14px] text-baume-charcoal/70">
+								<p className="text-[14px] text-baume-muted">
 									Consultez notre guide, ou contactez une experte — conseil
 									gratuit et discret.
 								</p>
@@ -175,7 +175,7 @@ export default function CategoryPage({ kind }) {
 
 						<div className="mb-6 flex items-center justify-between gap-4">
 							<p
-								className="text-[14px] text-baume-charcoal/70"
+								className="text-[14px] text-baume-muted"
 								data-testid="results-count"
 							>
 								{loading
@@ -210,7 +210,7 @@ export default function CategoryPage({ kind }) {
 									<p className="font-editorial text-[28px] text-baume-charcoal">
 										Aucun produit ne correspond à ces filtres.
 									</p>
-									<p className="mt-3 text-[15px] text-baume-charcoal/70">
+									<p className="mt-3 text-[15px] text-baume-muted">
 										Essayez de réinitialiser ou modifier vos critères.
 									</p>
 

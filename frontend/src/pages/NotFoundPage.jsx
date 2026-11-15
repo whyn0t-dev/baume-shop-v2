@@ -18,7 +18,7 @@ export default function NotFoundPage() {
 					<h1 className="font-editorial text-[36px] md:text-[48px] leading-[1.1] text-baume-charcoal">
 						Cette page n'existe pas
 					</h1>
-					<p className="mt-4 text-[15px] leading-[26px] text-baume-charcoal/60 max-w-[420px] mx-auto">
+					<p className="mt-4 text-[15px] leading-[26px] text-baume-muted max-w-[420px] mx-auto">
 						La page que vous cherchez a peut-être été déplacée, supprimée ou n'a
 						jamais existé. Pas de panique — voici quelques pistes.
 					</p>
@@ -44,7 +44,7 @@ export default function NotFoundPage() {
 
 				{/* Liens rapides */}
 				<div className="mt-12 pt-8 border-t border-baume-border">
-					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-charcoal/40 font-semibold mb-5">
+					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-muted font-semibold mb-5">
 						Pages populaires
 					</p>
 					<div className="flex flex-wrap justify-center gap-3">
@@ -59,7 +59,7 @@ export default function NotFoundPage() {
 							<Link
 								key={link.to}
 								to={link.to}
-								className="h-9 px-4 rounded-full border border-baume-border bg-baume-white text-baume-charcoal/70 text-[13px] font-medium hover:border-baume-burgundy hover:text-baume-burgundy transition"
+								className="h-9 px-4 rounded-full border border-baume-border bg-baume-white text-baume-muted text-[13px] font-medium hover:border-baume-burgundy hover:text-baume-burgundy transition"
 							>
 								{link.label}
 							</Link>

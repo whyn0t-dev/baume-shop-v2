@@ -410,12 +410,12 @@ export default function QuizPage() {
 					<h1 className="font-editorial text-[42px] md:text-[56px] text-baume-charcoal leading-[1.05]">
 						Trouvez votre routine idéale
 					</h1>
-					<p className="mt-5 text-[16px] md:text-[18px] text-baume-charcoal/65 leading-[1.7]">
+					<p className="mt-5 text-[16px] md:text-[18px] text-baume-muted leading-[1.7]">
 						10 questions pour découvrir les produits Baume faits pour vous.
 						Résultats personnalisés et envoyés par email.
 					</p>
 
-					<div className="mt-8 flex flex-wrap justify-center gap-4 text-[13px] text-baume-charcoal/55">
+					<div className="mt-8 flex flex-wrap justify-center gap-4 text-[13px] text-baume-muted">
 						<span className="flex items-center gap-1.5">
 							<span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy" />
 							10 questions
@@ -451,13 +451,13 @@ export default function QuizPage() {
 						<h2 className="font-editorial text-[32px] text-baume-charcoal mt-4">
 							Où envoyer vos résultats ?
 						</h2>
-						<p className="mt-3 text-[15px] text-baume-charcoal/65 leading-[1.7]">
+						<p className="mt-3 text-[15px] text-baume-muted leading-[1.7]">
 							Recevez vos recommandations personnalisées par email — et
 							gardez-les pour votre prochaine commande.
 						</p>
 
 						<div className="mt-6 text-left">
-							<label className="block text-[13px] font-semibold text-baume-charcoal/70 mb-2">
+							<label className="block text-[13px] font-semibold text-baume-muted mb-2">
 								Votre email
 							</label>
 							<input
@@ -490,7 +490,7 @@ export default function QuizPage() {
 									state: { answers, recommendedCategories, email: "" },
 								});
 							}}
-							className="mt-3 text-[13px] text-baume-charcoal/50 hover:text-baume-charcoal underline underline-offset-2"
+							className="mt-3 text-[13px] text-baume-muted hover:text-baume-charcoal underline underline-offset-2"
 						>
 							Voir les résultats sans email
 						</button>
@@ -515,12 +515,12 @@ export default function QuizPage() {
 					<div className="flex items-center justify-between mb-2">
 						<button
 							onClick={() => setStep((s) => Math.max(0, s - 1))}
-							className="inline-flex items-center gap-1 text-[13px] text-baume-charcoal/50 hover:text-baume-charcoal transition-colors"
+							className="inline-flex items-center gap-1 text-[13px] text-baume-muted hover:text-baume-charcoal transition-colors"
 						>
 							<ArrowLeft className="h-4 w-4" />
 							Retour
 						</button>
-						<span className="text-[13px] text-baume-charcoal/50 font-medium">
+						<span className="text-[13px] text-baume-muted font-medium">
 							{step} / {QUESTIONS.length}
 						</span>
 					</div>
@@ -543,7 +543,7 @@ export default function QuizPage() {
 					</h2>
 
 					{q.type === "multi" && (
-						<p className="text-[13px] text-baume-charcoal/50 mb-4">
+						<p className="text-[13px] text-baume-muted mb-4">
 							Plusieurs réponses possibles
 						</p>
 					)}
@@ -575,7 +575,7 @@ export default function QuizPage() {
 												{opt.label}
 											</p>
 											{opt.sub && (
-												<p className="text-[12px] text-baume-charcoal/50 mt-0.5">
+												<p className="text-[12px] text-baume-muted mt-0.5">
 													{opt.sub}
 												</p>
 											)}

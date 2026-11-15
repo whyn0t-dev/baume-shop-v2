@@ -31,7 +31,7 @@ export default function ReviewCard({ review }) {
           </div>
 
           {review.verified_purchase && (
-            <span className="flex items-center gap-1 text-[11px] font-medium text-baume-charcoal/50">
+            <span className="flex items-center gap-1 text-[11px] font-medium text-baume-muted">
               <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
               Achat vérifié
             </span>
@@ -46,7 +46,7 @@ export default function ReviewCard({ review }) {
         )}
 
         {/* ── Corps ── */}
-        <p className="text-[14px] leading-[22px] text-baume-charcoal/75 flex-1">
+        <p className="text-[14px] leading-[22px] text-baume-muted flex-1">
           {text}
         </p>
 
@@ -70,7 +70,7 @@ export default function ReviewCard({ review }) {
         )}
 
         {/* ── Auteur / date ── */}
-        <p className="pt-3 text-[13px] text-baume-charcoal/55 font-medium border-t border-baume-border/60">
+        <p className="pt-3 text-[13px] text-baume-muted font-medium border-t border-baume-border/60">
           {review.author}
           {date && (
             <>

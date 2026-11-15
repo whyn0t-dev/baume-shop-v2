@@ -188,7 +188,7 @@ export default function BarcodeScanner({ onScan, onError, active = true }) {
 			{/* Sélecteur de caméra */}
 			{cameras.length > 1 && (
 				<div className="mt-3 flex items-center gap-2">
-					<Camera className="h-4 w-4 text-baume-charcoal/50 shrink-0" />
+					<Camera className="h-4 w-4 text-baume-muted shrink-0" />
 					<select
 						value={selectedCamera || ""}
 						onChange={(e) => setSelectedCamera(e.target.value)}

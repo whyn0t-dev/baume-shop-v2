@@ -34,7 +34,7 @@ export default function ReviewForm({
 				<p className="font-editorial text-[22px] text-baume-charcoal mb-2">
 					Vous souhaitez laisser un avis ?
 				</p>
-				<p className="text-[14px] text-baume-charcoal/60">
+				<p className="text-[14px] text-baume-muted">
 					Connectez-vous pour partager votre expérience.
 				</p>
 			</div>
@@ -116,7 +116,7 @@ export default function ReviewForm({
 					<p className="font-editorial text-[26px] text-baume-charcoal">
 						Merci pour votre avis
 					</p>
-					<p className="text-[14px] text-baume-charcoal/60 mt-1">
+					<p className="text-[14px] text-baume-muted mt-1">
 						Il sera publié après validation par notre équipe.
 					</p>
 				</div>
@@ -148,7 +148,7 @@ export default function ReviewForm({
 				</div>
 				{/* Acheteur vérifié (affiché uniquement si la personne a commandé) */}
 				{order && (
-				<span className="shrink-0 text-[11px] font-medium text-baume-charcoal/50 border border-baume-border px-2.5 py-1 rounded-full hidden sm:inline">
+				<span className="shrink-0 text-[11px] font-medium text-baume-muted border border-baume-border px-2.5 py-1 rounded-full hidden sm:inline">
 					Achat vérifié
 				</span>
 				)}
@@ -183,7 +183,7 @@ export default function ReviewForm({
 							</button>
 						))}
 						{displayRating > 0 && (
-							<span className="ml-2 text-[13px] text-baume-charcoal/60">
+							<span className="ml-2 text-[13px] text-baume-muted">
 								{
 									["", "Décevant", "Moyen", "Bien", "Très bien", "Excellent"][
 										displayRating
@@ -245,7 +245,7 @@ export default function ReviewForm({
 							className={`text-[11px] shrink-0 ${
 								body.length < 20
 									? "text-baume-charcoal/35"
-									: "text-baume-charcoal/55"
+									: "text-baume-muted"
 							}`}
 						>
 							{body.length} / 800
@@ -257,7 +257,7 @@ export default function ReviewForm({
 				<div>
 					<label className="text-[12px] uppercase tracking-[0.15em] font-semibold text-baume-charcoal block mb-3">
 						Photos{" "}
-						<span className="normal-case font-normal text-baume-charcoal/45">
+						<span className="normal-case font-normal text-baume-muted">
 							(optionnel, max 4)
 						</span>
 					</label>
@@ -334,7 +334,7 @@ export default function ReviewForm({
 								? "Mettre à jour"
 								: "Publier mon avis"}
 					</button>
-					<p className="text-[11px] text-baume-charcoal/40 leading-[16px] max-w-[140px] hidden md:block">
+					<p className="text-[11px] text-baume-muted leading-[16px] max-w-[140px] hidden md:block">
 						Votre avis sera vérifié avant publication.
 					</p>
 				</div>

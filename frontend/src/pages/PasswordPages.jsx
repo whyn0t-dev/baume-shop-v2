@@ -38,7 +38,7 @@ export function ForgotPasswordPage() {
 						<p className="font-editorial text-[22px] text-baume-charcoal">
 							Vérifiez votre boîte mail
 						</p>
-						<p className="mt-2 text-[14px] text-baume-charcoal/75">
+						<p className="mt-2 text-[14px] text-baume-muted">
 							Si un compte existe pour <strong>{email}</strong>, un email avec
 							les instructions vous a été envoyé.
 						</p>
@@ -54,7 +54,7 @@ export function ForgotPasswordPage() {
 						onSubmit={submit}
 						className="mt-10 bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4"
 					>
-						<p className="text-[14px] text-baume-charcoal/75">
+						<p className="text-[14px] text-baume-muted">
 							Entrez votre email, nous vous enverrons un lien pour choisir un
 							nouveau mot de passe.
 						</p>
@@ -134,7 +134,7 @@ export function ResetPasswordPage() {
 							minLength={8}
 							className="mt-1.5 h-12 rounded-lg border-baume-border"
 						/>
-						<p className="mt-1 text-[11px] text-baume-charcoal/60">
+						<p className="mt-1 text-[11px] text-baume-muted">
 							8 caractères minimum.
 						</p>
 					</div>

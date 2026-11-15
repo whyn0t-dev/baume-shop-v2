@@ -36,7 +36,7 @@ export function GuidesIndexPage() {
 								.
 							</h1>
 
-							<p className="mt-5 text-[17px] leading-[29px] text-baume-charcoal/70 max-w-[700px]">
+							<p className="mt-5 text-[17px] leading-[29px] text-baume-muted max-w-[700px]">
 								Rédigés avec nos expertes, revus par notre gynécologue
 								partenaire. Tout ce qu'il faut savoir, sans jargon.
 							</p>
@@ -83,7 +83,7 @@ export function GuideDetailPage() {
 
 	if (!guide) {
 		return (
-			<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-24 text-center text-baume-charcoal/60">
+			<div className="w-full px-5 md:px-8 lg:px-12 xl:px-16 2xl:px-20 py-24 text-center text-baume-muted">
 				Chargement…
 			</div>
 		);
@@ -107,7 +107,7 @@ export function GuideDetailPage() {
 						{guide.title}
 					</h1>
 
-					<p className="mt-4 text-[14px] text-baume-charcoal/60">
+					<p className="mt-4 text-[14px] text-baume-muted">
 						{guide.read_time} de lecture
 					</p>
 
@@ -136,7 +136,7 @@ export function GuideDetailPage() {
 							<p className="font-editorial text-[24px] italic text-baume-burgundy">
 								Besoin d'un conseil personnalisé ?
 							</p>
-							<p className="mt-2 text-[15px] text-baume-charcoal/75">
+							<p className="mt-2 text-[15px] text-baume-muted">
 								Nos expertes vous répondent avec douceur et précision, en
 								boutique ou à distance.
 							</p>

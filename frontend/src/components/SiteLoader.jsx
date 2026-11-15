@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { BaumeLogo } from "./BaumeLogo";
 
 export default function SiteLoader() {
 	const [leaving, setLeaving] = useState(false);
@@ -27,7 +28,7 @@ export default function SiteLoader() {
 
 	return (
 		<div
-			className={`fixed inset-0 z-[9999] overflow-hidden bg-[#2a0d0b] flex items-center justify-center transition-opacity duration-700 ${
+			className={`fixed inset-0 z-[9999] overflow-hidden bg-baume-burgundyDark flex items-center justify-center transition-opacity duration-700 ${
 				leaving ? "opacity-0" : "opacity-100"
 			}`}
 		>
@@ -40,16 +41,14 @@ export default function SiteLoader() {
 					Bienvenue
 				</p>
 
-				<h1 className="text-baume-white text-[42px] md:text-[64px] font-semibold tracking-[0.22em] uppercase leading-none">
-					Baume
-				</h1>
+				<BaumeLogo className="block h-[52px] md:h-[72px] w-auto text-baume-ivory" />
 
 				<p className="mt-4 text-baume-white/55 text-[13px] tracking-[0.12em]">
-					E-commerce naturel
+					Bien-être féminin
 				</p>
 
 				<div className="mt-8 h-1.5 w-56 rounded-full bg-baume-white/15 overflow-hidden">
-					<div className="h-full bg-[#c0b4a6] origin-left animate-loader-bar" />
+					<div className="h-full bg-baume-taupe origin-left animate-loader-bar" />
 				</div>
 
 				<p className="mt-4 text-baume-white/35 text-[11px] tracking-[0.2em] uppercase">

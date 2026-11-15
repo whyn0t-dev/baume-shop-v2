@@ -167,7 +167,7 @@ export default function NeedLanding({ config }) {
 									{config.hero.title[1]}
 								</span>
 							</h1>
-							<p className="mt-7 max-w-[560px] text-[16px] md:text-[18px] leading-[30px] text-baume-charcoal/70">
+							<p className="mt-7 max-w-[560px] text-[16px] md:text-[18px] leading-[30px] text-baume-muted">
 								{config.hero.lead}
 							</p>
 							<div className="mt-9 flex flex-wrap gap-3">
@@ -185,7 +185,7 @@ export default function NeedLanding({ config }) {
 									{config.hero.ctaSecondary}
 								</a>
 							</div>
-							<ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13px] text-baume-charcoal/60">
+							<ul className="mt-10 flex flex-wrap gap-x-6 gap-y-3 text-[13px] text-baume-muted">
 								<li className="inline-flex items-center gap-2">
 									<Store className="h-4 w-4 text-baume-burgundy" /> Conseil en
 									boutique à Genève
@@ -296,7 +296,7 @@ export default function NeedLanding({ config }) {
 							<h2 className="mt-6 font-editorial text-[26px] text-baume-charcoal">
 								{p.title}
 							</h2>
-							<p className="mt-3 text-[14px] leading-[24px] text-baume-charcoal/65">
+							<p className="mt-3 text-[14px] leading-[24px] text-baume-muted">
 								{p.text}
 							</p>
 						</div>
@@ -312,12 +312,12 @@ export default function NeedLanding({ config }) {
 						<h2 className="mt-4 font-editorial text-[38px] md:text-[54px] leading-[1] text-baume-charcoal">
 							{config.selection.title}
 						</h2>
-						<p className="mt-4 text-[15px] leading-7 text-baume-charcoal/65">
+						<p className="mt-4 text-[15px] leading-7 text-baume-muted">
 							{config.selection.lead}
 						</p>
 					</div>
 					{!loading && (
-						<p className="text-[13px] text-baume-charcoal/55">
+						<p className="text-[13px] text-baume-muted">
 							{filtered.length} produit{filtered.length > 1 ? "s" : ""}
 						</p>
 					)}
@@ -351,7 +351,7 @@ export default function NeedLanding({ config }) {
 				</div>
 
 				{intentDef.hint && (
-					<p className="-mt-4 mb-8 text-[14px] italic text-baume-charcoal/60 font-editorial">
+					<p className="-mt-4 mb-8 text-[14px] italic text-baume-muted font-editorial">
 						{intentDef.hint}
 					</p>
 				)}
@@ -369,7 +369,7 @@ export default function NeedLanding({ config }) {
 								? "La sélection arrive très bientôt."
 								: "Aucun produit pour cette intention pour l'instant."}
 						</p>
-						<p className="mt-3 text-[14px] text-baume-charcoal/60">
+						<p className="mt-3 text-[14px] text-baume-muted">
 							Notre équipe peut vous conseiller en boutique ou par message.
 						</p>
 						{related.length > 0 && (
@@ -461,13 +461,13 @@ export default function NeedLanding({ config }) {
 							<h2 className="mt-4 font-editorial text-[34px] md:text-[46px] leading-tight text-baume-charcoal">
 								{config.expert.title}
 							</h2>
-							<p className="mt-5 text-[15px] leading-7 text-baume-charcoal/65">
+							<p className="mt-5 text-[15px] leading-7 text-baume-muted">
 								{config.expert.text}
 							</p>
 							<div className="mt-7 flex items-center gap-4 rounded-2xl border border-baume-border p-4">
 								<div>
 									<p className="font-semibold text-baume-charcoal">{expert.name}</p>
-									<p className="text-[13px] text-baume-charcoal/60">{expert.role}</p>
+									<p className="text-[13px] text-baume-muted">{expert.role}</p>
 								</div>
 							</div>
 							{expert.offer && (
@@ -494,7 +494,7 @@ export default function NeedLanding({ config }) {
 						<h2 className="mt-4 font-editorial text-[36px] md:text-[48px] leading-[1.02] text-baume-charcoal">
 							{config.faqTitle}
 						</h2>
-						<p className="mt-4 text-[14px] leading-6 text-baume-charcoal/60">
+						<p className="mt-4 text-[14px] leading-6 text-baume-muted">
 							Une question plus personnelle ? Écrivez-nous, nous répondons avec
 							discrétion.
 						</p>
@@ -509,7 +509,7 @@ export default function NeedLanding({ config }) {
 								<AccordionTrigger className="py-5 text-left font-editorial text-[19px] text-baume-charcoal hover:no-underline">
 									{f.q}
 								</AccordionTrigger>
-								<AccordionContent className="pb-5 text-[14px] leading-[24px] text-baume-charcoal/65">
+								<AccordionContent className="pb-5 text-[14px] leading-[24px] text-baume-muted">
 									{f.a}
 								</AccordionContent>
 							</AccordionItem>
@@ -561,7 +561,7 @@ export default function NeedLanding({ config }) {
 							<p className="font-editorial italic text-[28px] md:text-[34px] text-baume-charcoal leading-tight">
 								{config.contact.title}
 							</p>
-							<p className="mt-2 text-[14px] text-baume-charcoal/60">{config.contact.text}</p>
+							<p className="mt-2 text-[14px] text-baume-muted">{config.contact.text}</p>
 						</div>
 					</div>
 					<div className="flex flex-wrap gap-3">
@@ -579,7 +579,7 @@ export default function NeedLanding({ config }) {
 						</Link>
 					</div>
 				</TrackedBanner>
-				<p className="mt-4 text-[11px] text-baume-charcoal/45">
+				<p className="mt-4 text-[11px] text-baume-muted">
 					* Retours sous 30 jours sur les produits non ouverts, hors produits
 					d'hygiène intime ouverts.
 				</p>

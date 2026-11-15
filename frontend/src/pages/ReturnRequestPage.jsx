@@ -145,7 +145,7 @@ export default function ReturnRequestPage() {
 				<div className="max-w-[640px] mx-auto px-5 py-12">
 					<Link
 						to="/compte"
-						className="inline-flex items-center gap-2 text-[13px] text-baume-charcoal/60 hover:text-baume-charcoal mb-8"
+						className="inline-flex items-center gap-2 text-[13px] text-baume-muted hover:text-baume-charcoal mb-8"
 					>
 						<ArrowLeft className="h-4 w-4" /> Retour au compte
 					</Link>
@@ -155,13 +155,13 @@ export default function ReturnRequestPage() {
 						<h1 className="font-editorial text-[28px] text-baume-charcoal mt-4 mb-2">
 							Demande de retour
 						</h1>
-						<p className="text-[14px] text-baume-charcoal/60 mb-6">
+						<p className="text-[14px] text-baume-muted mb-6">
 							Commande #{String(orderId).slice(0, 8).toUpperCase()}
 						</p>
 
 						<div className="text-left rounded-2xl bg-baume-ivory border border-baume-border p-5 space-y-3 mb-6">
 							<div>
-								<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 mb-1">
+								<p className="text-[11px] uppercase tracking-wider text-baume-muted mb-1">
 									Motif
 								</p>
 								<p className="text-[14px] text-baume-charcoal">
@@ -172,7 +172,7 @@ export default function ReturnRequestPage() {
 								</p>
 							</div>
 							<div>
-								<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 mb-1">
+								<p className="text-[11px] uppercase tracking-wider text-baume-muted mb-1">
 									Message
 								</p>
 								<p className="text-[14px] text-baume-charcoal/80 leading-relaxed">
@@ -181,7 +181,7 @@ export default function ReturnRequestPage() {
 							</div>
 							{existingReturn.admin_note && (
 								<div>
-									<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 mb-1">
+									<p className="text-[11px] uppercase tracking-wider text-baume-muted mb-1">
 										Réponse de notre équipe
 									</p>
 									<p className="text-[14px] text-baume-charcoal/80 leading-relaxed">
@@ -191,7 +191,7 @@ export default function ReturnRequestPage() {
 							)}
 							{existingReturn.images?.length > 0 && (
 								<div>
-									<p className="text-[11px] uppercase tracking-wider text-baume-charcoal/50 mb-2">
+									<p className="text-[11px] uppercase tracking-wider text-baume-muted mb-2">
 										Photos
 									</p>
 									<div className="flex flex-wrap gap-2">
@@ -208,7 +208,7 @@ export default function ReturnRequestPage() {
 							)}
 						</div>
 
-						<p className="text-[12px] text-baume-charcoal/50">
+						<p className="text-[12px] text-baume-muted">
 							Demande soumise le{" "}
 							{new Date(existingReturn.created_at).toLocaleDateString("fr-CH")}
 						</p>
@@ -227,7 +227,7 @@ export default function ReturnRequestPage() {
 			<div className="max-w-[640px] mx-auto px-5 py-12">
 				<Link
 					to="/compte"
-					className="inline-flex items-center gap-2 text-[13px] text-baume-charcoal/60 hover:text-baume-charcoal mb-8"
+					className="inline-flex items-center gap-2 text-[13px] text-baume-muted hover:text-baume-charcoal mb-8"
 				>
 					<ArrowLeft className="h-4 w-4" /> Retour au compte
 				</Link>
@@ -240,7 +240,7 @@ export default function ReturnRequestPage() {
 					<h1 className="font-editorial text-[36px] text-baume-charcoal leading-tight">
 						Demande de retour
 					</h1>
-					<p className="mt-2 text-[14px] text-baume-charcoal/60">
+					<p className="mt-2 text-[14px] text-baume-muted">
 						Commande #{String(orderId).slice(0, 8).toUpperCase()} ·{" "}
 						{order?.total?.toFixed(2)} {order?.currency || "CHF"}
 					</p>
@@ -283,12 +283,12 @@ export default function ReturnRequestPage() {
 											{item.product_title}
 										</p>
 										{item.variant_title && (
-											<p className="text-[12px] text-baume-charcoal/50">
+											<p className="text-[12px] text-baume-muted">
 												{item.variant_title}
 											</p>
 										)}
 									</div>
-									<p className="text-[13px] text-baume-charcoal/70 shrink-0">
+									<p className="text-[13px] text-baume-muted shrink-0">
 										×{item.quantity} · {Number(item.total_price).toFixed(2)} CHF
 									</p>
 								</div>
@@ -335,7 +335,7 @@ export default function ReturnRequestPage() {
 								rows={5}
 								className="w-full rounded-2xl border border-baume-border bg-baume-ivory px-4 py-3 text-[14px] text-baume-charcoal outline-none focus:ring-2 focus:ring-baume-burgundy/30 resize-none"
 							/>
-							<p className="mt-2 text-[12px] text-baume-charcoal/40">
+							<p className="mt-2 text-[12px] text-baume-muted">
 								{message.length} / 2000 caractères
 							</p>
 						</div>
@@ -345,7 +345,7 @@ export default function ReturnRequestPage() {
 							<label className="block text-[13px] font-semibold uppercase tracking-wider text-baume-charcoal mb-1">
 								Photos (optionnel)
 							</label>
-							<p className="text-[12px] text-baume-charcoal/50 mb-4">
+							<p className="text-[12px] text-baume-muted mb-4">
 								Ajoutez jusqu'à 5 photos du produit pour faciliter le
 								traitement.
 							</p>
@@ -377,7 +377,7 @@ export default function ReturnRequestPage() {
 									type="button"
 									onClick={() => fileInputRef.current?.click()}
 									disabled={uploadingImages}
-									className="w-full h-16 rounded-2xl border-2 border-dashed border-baume-border flex items-center justify-center gap-2 text-[13px] text-baume-charcoal/50 hover:border-baume-burgundy/50 hover:text-baume-burgundy transition disabled:opacity-50"
+									className="w-full h-16 rounded-2xl border-2 border-dashed border-baume-border flex items-center justify-center gap-2 text-[13px] text-baume-muted hover:border-baume-burgundy/50 hover:text-baume-burgundy transition disabled:opacity-50"
 								>
 									{uploadingImages ? (
 										<Loader2 className="h-4 w-4 animate-spin" />
@@ -399,7 +399,7 @@ export default function ReturnRequestPage() {
 						</div>
 
 						{/* CGV */}
-						<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 text-[13px] text-baume-charcoal/60 leading-relaxed">
+						<div className="rounded-2xl bg-baume-ivory border border-baume-border p-4 text-[13px] text-baume-muted leading-relaxed">
 							Les retours sont acceptés sous 30 jours pour les produits non
 							ouverts et en parfait état. Les produits d'hygiène intime ouverts
 							sont exclus conformément à nos{" "}

@@ -44,7 +44,7 @@ function StatCard({ title, description, icon: Icon, unit, value }) {
 	return (
 		<div className="rounded-2xl border border-baume-border bg-baume-ivory/40 p-5">
 			<div className="flex items-start justify-between gap-3">
-				<p className="text-[11px] font-bold uppercase tracking-wider text-baume-charcoal/60">
+				<p className="text-[11px] font-bold uppercase tracking-wider text-baume-muted">
 					{title}
 				</p>
 				<Icon className="h-5 w-5 shrink-0 text-baume-burgundy" />
@@ -54,10 +54,10 @@ function StatCard({ title, description, icon: Icon, unit, value }) {
 					{value ?? "—"}
 				</span>
 				{unit && (
-					<span className="text-[12px] text-baume-charcoal/50">{unit}</span>
+					<span className="text-[12px] text-baume-muted">{unit}</span>
 				)}
 			</div>
-			<p className="mt-2 text-[12px] leading-5 text-baume-charcoal/55">
+			<p className="mt-2 text-[12px] leading-5 text-baume-muted">
 				{description}
 			</p>
 		</div>
@@ -73,7 +73,7 @@ function SectionCard({ title, description, icon: Icon, children }) {
 						{title}
 					</h4>
 					{description && (
-						<p className="mt-1 text-[12px] leading-5 text-baume-charcoal/55">
+						<p className="mt-1 text-[12px] leading-5 text-baume-muted">
 							{description}
 						</p>
 					)}
@@ -86,7 +86,7 @@ function SectionCard({ title, description, icon: Icon, children }) {
 function EmptyState({ message }) {
 	return (
 		<div className="rounded-xl border border-dashed border-baume-border bg-baume-ivory/40 px-5 py-12 text-center">
-			<p className="text-[13px] text-baume-charcoal/55">{message}</p>
+			<p className="text-[13px] text-baume-muted">{message}</p>
 		</div>
 	);
 }
@@ -99,7 +99,7 @@ function EmptyTable({ columns, message }) {
 						{columns.map((column) => (
 							<th
 								key={column}
-								className="px-4 py-3 whitespace-nowrap font-semibold text-baume-charcoal/70"
+								className="px-4 py-3 whitespace-nowrap font-semibold text-baume-muted"
 							>
 								{column}
 							</th>
@@ -107,7 +107,7 @@ function EmptyTable({ columns, message }) {
 					</tr>
 				</thead>
 			</table>
-			<div className="px-5 py-10 text-center text-[13px] text-baume-charcoal/50">
+			<div className="px-5 py-10 text-center text-[13px] text-baume-muted">
 				{message}
 			</div>
 		</div>
@@ -124,7 +124,7 @@ function DataTable({ columns, rows, empty }) {
 	return (
 		<div className="overflow-x-auto rounded-xl border border-baume-border">
 			<table className="w-full text-[13px]">
-				<thead className="bg-baume-ivory/60 text-baume-charcoal/60">
+				<thead className="bg-baume-ivory/60 text-baume-muted">
 					<tr>
 						{columns.map((c) => (
 							<th
@@ -290,7 +290,7 @@ function SalesTable({ products, currency = "CHF", loading, type }) {
 						{columns.map((column) => (
 							<th
 								key={column}
-								className="px-4 py-3 whitespace-nowrap font-semibold text-baume-charcoal/70"
+								className="px-4 py-3 whitespace-nowrap font-semibold text-baume-muted"
 							>
 								{column}
 							</th>
@@ -320,7 +320,7 @@ function SalesTable({ products, currency = "CHF", loading, type }) {
 				</tbody>
 			</table>
 			{products.length === 0 && (
-				<div className="px-5 py-10 text-center text-[13px] text-baume-charcoal/50">
+				<div className="px-5 py-10 text-center text-[13px] text-baume-muted">
 					{loading ? "Chargement..." : "Aucune donnée pour cette période."}
 				</div>
 			)}
@@ -819,7 +819,7 @@ function InventoryView({ salesData }) {
 											<div className="font-semibold">
 												{variant.product_name}
 											</div>
-											<div className="mt-1 font-mono text-[10px] text-baume-charcoal/50">
+											<div className="mt-1 font-mono text-[10px] text-baume-muted">
 												{variant.variant_id}
 											</div>
 										</td>
@@ -963,7 +963,7 @@ function ReportsView({ salesData, period }) {
 				icon={Mail}
 			>
 				<div className="rounded-xl border border-baume-border bg-baume-ivory/40 p-5">
-					<p className="text-[13px] text-baume-charcoal/65">
+					<p className="text-[13px] text-baume-muted">
 						Planifié chaque 1er du mois à 8h (heure de Genève) via une tâche
 						cron Supabase et la fonction <code>send-monthly-report</code>.
 						Destinataires : variable <code>REPORT_RECIPIENTS</code>.
@@ -1092,7 +1092,7 @@ export default function StatisticsSection() {
 					<h3 className="font-editorial text-[28px] text-baume-charcoal">
 						Statistiques & rapports
 					</h3>
-					<p className="mt-2 text-[13px] text-baume-charcoal/60">
+					<p className="mt-2 text-[13px] text-baume-muted">
 						Analyse des ventes, de la rentabilité et du réapprovisionnement.
 					</p>
 				</div>
@@ -1113,7 +1113,7 @@ export default function StatisticsSection() {
 			</div>
 			<div className="flex items-start gap-3 rounded-xl border border-baume-border bg-baume-ivory/50 p-4">
 				<Info className="h-5 w-5 shrink-0 text-baume-burgundy" />
-				<p className="text-[12px] leading-5 text-baume-charcoal/65">
+				<p className="text-[12px] leading-5 text-baume-muted">
 					Ventes issues de Supabase. Les prix fournisseurs, frais et coûts
 					d'achat sont actuellement simulés : marges indicatives avant TVA,
 					remboursements et retours. La valeur du stock reflète le stock actuel,
@@ -1122,7 +1122,7 @@ export default function StatisticsSection() {
 			</div>
 			<div className="flex flex-wrap gap-2 border-b border-baume-border pb-4">
 				{loading && (
-					<p className="text-sm text-baume-charcoal/60">
+					<p className="text-sm text-baume-muted">
 						Chargement des statistiques...
 					</p>
 				)}

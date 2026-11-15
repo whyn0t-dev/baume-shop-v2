@@ -26,7 +26,7 @@ function RatingBar({ label, count, total }) {
 	const pct = total ? Math.round((count / total) * 100) : 0;
 	return (
 		<div className="flex items-center gap-3">
-			<span className="text-[12px] text-baume-charcoal/60 w-4 shrink-0 text-right">
+			<span className="text-[12px] text-baume-muted w-4 shrink-0 text-right">
 				{label}
 			</span>
 			<div className="flex-1 h-1.5 rounded-full bg-baume-border overflow-hidden">
@@ -35,7 +35,7 @@ function RatingBar({ label, count, total }) {
 					style={{ width: `${pct}%` }}
 				/>
 			</div>
-			<span className="text-[11px] text-baume-charcoal/50 w-6 shrink-0">
+			<span className="text-[11px] text-baume-muted w-6 shrink-0">
 				{count}
 			</span>
 		</div>
@@ -61,7 +61,7 @@ function ReviewCard({ review, productName }) {
 
 			{/* Corps */}
 			{(review.body || review.content) && (
-				<p className="text-[13px] leading-[21px] text-baume-charcoal/65 line-clamp-4">
+				<p className="text-[13px] leading-[21px] text-baume-muted line-clamp-4">
 					{review.body || review.content}
 				</p>
 			)}
@@ -69,7 +69,7 @@ function ReviewCard({ review, productName }) {
 			{/* Footer */}
 			<div className="mt-auto pt-3 border-t border-baume-border flex items-center justify-between gap-2 flex-wrap">
 				<div className="flex items-center gap-2">
-					<div className="h-7 w-7 rounded-full bg-baume-ivory border border-baume-border flex items-center justify-center text-[11px] font-semibold text-baume-charcoal/60 shrink-0">
+					<div className="h-7 w-7 rounded-full bg-baume-ivory border border-baume-border flex items-center justify-center text-[11px] font-semibold text-baume-muted shrink-0">
 						{(review.author || "?")[0].toUpperCase()}
 					</div>
 					<div>
@@ -85,7 +85,7 @@ function ReviewCard({ review, productName }) {
 				</div>
 				<div className="flex items-center gap-2 text-right">
 					{productName && (
-						<span className="text-[11px] text-baume-charcoal/40 truncate max-w-[120px]">
+						<span className="text-[11px] text-baume-muted truncate max-w-[120px]">
 							{productName}
 						</span>
 					)}
@@ -221,7 +221,7 @@ export default function ReviewsPage() {
 					<h1 className="font-editorial text-[44px] md:text-[64px] text-baume-charcoal leading-[1.0]">
 						Ce qu'elles en pensent
 					</h1>
-					<p className="mt-5 text-[16px] text-baume-charcoal/60 leading-[26px] max-w-xl">
+					<p className="mt-5 text-[16px] text-baume-muted leading-[26px] max-w-xl">
 						Tous les avis vérifiés de notre communauté — honnêtes, précis, et
 						partagés avec soin.
 					</p>
@@ -236,7 +236,7 @@ export default function ReviewsPage() {
 								</span>
 								<div className="flex flex-col gap-2">
 									<StarRow rating={parseFloat(stats.average)} size="lg" />
-									<p className="text-[13px] text-baume-charcoal/55">
+									<p className="text-[13px] text-baume-muted">
 										{stats.count} avis vérifiés
 									</p>
 								</div>
@@ -304,7 +304,7 @@ export default function ReviewsPage() {
 							<option value="rating_desc">Meilleures notes</option>
 							<option value="rating_asc">Notes les plus basses</option>
 						</select>
-						<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-baume-charcoal/40 pointer-events-none" />
+						<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-baume-muted pointer-events-none" />
 					</div>
 				</div>
 
@@ -313,7 +313,7 @@ export default function ReviewsPage() {
 					<div className="rounded-3xl border border-baume-border bg-baume-white p-6 mb-6 flex flex-col md:flex-row gap-6">
 						{/* Note */}
 						<div className="flex-1">
-							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold mb-3">
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-muted font-semibold mb-3">
 								Note
 							</p>
 							<div className="flex flex-wrap gap-2">
@@ -341,7 +341,7 @@ export default function ReviewsPage() {
 
 						{/* Produit */}
 						<div className="flex-1">
-							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold mb-3">
+							<p className="text-[11px] uppercase tracking-[0.18em] text-baume-muted font-semibold mb-3">
 								Produit
 							</p>
 							<div className="relative">
@@ -357,7 +357,7 @@ export default function ReviewsPage() {
 										</option>
 									))}
 								</select>
-								<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-baume-charcoal/40 pointer-events-none" />
+								<ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-baume-muted pointer-events-none" />
 							</div>
 						</div>
 
@@ -378,7 +378,7 @@ export default function ReviewsPage() {
 
 				{/* ── Résultat count ── */}
 				<div className="flex items-center justify-between mb-6">
-					<p className="text-[13px] text-baume-charcoal/55">
+					<p className="text-[13px] text-baume-muted">
 						{filtered.length} avis
 						{filtered.length !== reviews.length && ` sur ${reviews.length}`}
 					</p>
@@ -397,16 +397,16 @@ export default function ReviewsPage() {
 				{loading ? (
 					<div className="py-32 flex flex-col items-center gap-4">
 						<div className="h-8 w-8 rounded-full border-2 border-baume-burgundy border-t-transparent animate-spin" />
-						<p className="text-[14px] text-baume-charcoal/50">
+						<p className="text-[14px] text-baume-muted">
 							Chargement des avis…
 						</p>
 					</div>
 				) : filtered.length === 0 ? (
 					<div className="py-24 text-center rounded-3xl border border-baume-border bg-baume-white">
-						<p className="font-editorial text-[26px] text-baume-charcoal/50 mb-2">
+						<p className="font-editorial text-[26px] text-baume-muted mb-2">
 							Aucun avis trouvé
 						</p>
-						<p className="text-[13px] text-baume-charcoal/40">
+						<p className="text-[13px] text-baume-muted">
 							Essayez de modifier vos critères de recherche.
 						</p>
 						{hasActiveFilters && (

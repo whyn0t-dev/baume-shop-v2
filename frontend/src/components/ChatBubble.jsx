@@ -215,7 +215,7 @@ export default function ChatBubble() {
 							<p className="font-editorial text-[20px] text-baume-charcoal mb-2">
 								Besoin d'aide ?
 							</p>
-							<p className="text-[13px] text-baume-charcoal/60 mb-4">
+							<p className="text-[13px] text-baume-muted mb-4">
 								Connectez-vous pour discuter avec nos expertes.
 							</p>
 
@@ -281,10 +281,10 @@ export default function ChatBubble() {
 							</div>
 						) : messages.length === 0 ? (
 							<div className="text-center pt-8">
-								<p className="text-[13px] text-baume-charcoal/50">
+								<p className="text-[13px] text-baume-muted">
 									Bonjour {user?.first_name || ""} 👋
 								</p>
-								<p className="text-[13px] text-baume-charcoal/50 mt-1">
+								<p className="text-[13px] text-baume-muted mt-1">
 									Comment pouvons-nous vous aider ?
 								</p>
 							</div>
@@ -325,8 +325,8 @@ export default function ChatBubble() {
 					{/* Input */}
 					{isLocked ? (
 						<div className="px-4 py-3 border-t border-baume-border bg-baume-ivory/50 flex items-center gap-2 shrink-0">
-							<Lock className="h-4 w-4 text-baume-charcoal/40 shrink-0" />
-							<p className="text-[12px] text-baume-charcoal/50">
+							<Lock className="h-4 w-4 text-baume-muted shrink-0" />
+							<p className="text-[12px] text-baume-muted">
 								Cette conversation est verrouillée.
 							</p>
 						</div>
@@ -405,7 +405,7 @@ function MessageBubble({ message, isOwn }) {
 				</p>
 				<p
 					className={`text-[10px] mt-1 ${
-						isOwn ? "text-baume-white/60" : "text-baume-charcoal/40"
+						isOwn ? "text-baume-white/60" : "text-baume-muted"
 					}`}
 				>
 					{time}

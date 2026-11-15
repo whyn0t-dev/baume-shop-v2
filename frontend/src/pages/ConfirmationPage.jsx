@@ -99,14 +99,14 @@ export default function ConfirmationPage() {
 						Merci pour votre commande
 					</h1>
 
-					<p className="mt-4 text-[16px] md:text-[18px] leading-[28px] text-baume-charcoal/75">
+					<p className="mt-4 text-[16px] md:text-[18px] leading-[28px] text-baume-muted">
 						Votre paiement a bien été reçu. Un email de confirmation vous sera
 						envoyé sous quelques minutes. Votre commande sera expédiée depuis
 						Genève dans les 24 h ouvrées.
 					</p>
 
 					{sessionId && (
-						<p className="mt-4 text-[12px] text-baume-charcoal/45">
+						<p className="mt-4 text-[12px] text-baume-muted">
 							Référence paiement : {sessionId}
 						</p>
 					)}
@@ -146,7 +146,7 @@ export default function ConfirmationPage() {
 					Paiement non abouti
 				</h1>
 
-				<p className="mt-4 text-[16px] md:text-[18px] leading-[28px] text-baume-charcoal/75">
+				<p className="mt-4 text-[16px] md:text-[18px] leading-[28px] text-baume-muted">
 					{cancelled === "true"
 						? "Vous avez annulé le paiement. Votre panier a été conservé — vous pouvez relancer la commande quand vous le souhaitez."
 						: "Une erreur est survenue lors du traitement de votre paiement. Aucun montant n'a été débité."}
@@ -164,7 +164,7 @@ export default function ConfirmationPage() {
 					].map((t, i) => (
 						<div
 							key={i}
-							className="flex items-start gap-2 text-[13px] text-baume-charcoal/70"
+							className="flex items-start gap-2 text-[13px] text-baume-muted"
 						>
 							<span className="h-1.5 w-1.5 rounded-full bg-baume-burgundy mt-1.5 shrink-0" />
 							<span>{t}</span>
@@ -197,12 +197,12 @@ export default function ConfirmationPage() {
 				</div>
 
 				{items.length === 0 && (
-					<p className="mt-4 text-[12px] text-baume-charcoal/50">
+					<p className="mt-4 text-[12px] text-baume-muted">
 						Votre panier est vide — retournez au shop pour ajouter des produits.
 					</p>
 				)}
 
-				<p className="mt-8 text-[13px] text-baume-charcoal/55">
+				<p className="mt-8 text-[13px] text-baume-muted">
 					Un problème persistant ?{" "}
 					<Link to="/contact" className="baume-link">
 						Contactez-nous

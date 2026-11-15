@@ -155,7 +155,7 @@ function Panel({ title, subtitle, action, children, className = "" }) {
 							</h2>
 						)}
 						{subtitle && (
-							<p className="mt-1.5 text-sm leading-relaxed text-baume-charcoal/60">
+							<p className="mt-1.5 text-sm leading-relaxed text-baume-muted">
 								{subtitle}
 							</p>
 						)}
@@ -177,7 +177,7 @@ function Empty({ icon: Icon = Package, title, text, action }) {
 				{title}
 			</h3>
 			{text && (
-				<p className="mx-auto mt-2 max-w-md text-sm leading-6 text-baume-charcoal/60">
+				<p className="mx-auto mt-2 max-w-md text-sm leading-6 text-baume-muted">
 					{text}
 				</p>
 			)}
@@ -195,7 +195,7 @@ function Field({ label, htmlFor, children, hint }) {
 				{label}
 			</label>
 			{children}
-			{hint && <p className="mt-1.5 text-xs text-baume-charcoal/50">{hint}</p>}
+			{hint && <p className="mt-1.5 text-xs text-baume-muted">{hint}</p>}
 		</div>
 	);
 }
@@ -215,7 +215,7 @@ function Stat({ icon: Icon, eyebrow, value, detail, onClick }) {
 					className="mt-1 text-baume-charcoal/35 transition group-hover:translate-x-1"
 				/>
 			</div>
-			<p className="mt-5 text-sm text-baume-charcoal/60">{eyebrow}</p>
+			<p className="mt-5 text-sm text-baume-muted">{eyebrow}</p>
 			<p className="mt-1 font-editorial text-[29px] leading-tight text-baume-charcoal">
 				{value}
 			</p>
@@ -245,7 +245,7 @@ function OrderCard({ order }) {
 						<p className="text-sm font-semibold text-baume-charcoal">
 							Commande #{String(order.id).slice(0, 8).toUpperCase()}
 						</p>
-						<p className="mt-1 text-xs text-baume-charcoal/50">
+						<p className="mt-1 text-xs text-baume-muted">
 							{dateFR(order.created_at)}
 						</p>
 					</div>
@@ -292,7 +292,7 @@ function OrderCard({ order }) {
 						order.status,
 					) && (
 						<Link
-							className="text-sm text-baume-charcoal/70 underline underline-offset-4"
+							className="text-sm text-baume-muted underline underline-offset-4"
 							to={`/retour/${order.id}`}
 						>
 							Demander un retour
@@ -731,7 +731,7 @@ export default function AccountPage() {
 					<MapPin size={20} className="text-baume-burgundy" /> Adresse par
 					défaut
 				</h3>
-				<p className="mt-1.5 text-sm text-baume-charcoal/60">
+				<p className="mt-1.5 text-sm text-baume-muted">
 					Utilisée pour préremplir vos informations lorsque le site le permet.
 				</p>
 			</div>
@@ -748,7 +748,7 @@ export default function AccountPage() {
 					}}
 					placeholder="Rue et numéro"
 				/>
-				<p className="mt-1.5 text-xs text-baume-charcoal/50">
+				<p className="mt-1.5 text-xs text-baume-muted">
 					{selectedAddress
 						? "Adresse sélectionnée via Google Places. Vous pouvez encore la modifier."
 						: "Saisissez votre adresse ou sélectionnez une suggestion Google."}
@@ -798,7 +798,7 @@ export default function AccountPage() {
 				</select>
 			</Field>
 			<div className="flex flex-wrap items-center justify-between gap-3 border-t border-baume-border pt-6">
-				<p className="text-xs text-baume-charcoal/50">
+				<p className="text-xs text-baume-muted">
 					Vos données sont enregistrées dans votre profil Baume.
 				</p>
 				<button
@@ -969,10 +969,10 @@ export default function AccountPage() {
 									Bonjour,{" "}
 									<span className="italic text-baume-burgundy">{name}</span>
 								</h1>
-								<p className="mt-3 break-all text-sm text-baume-charcoal/65">
+								<p className="mt-3 break-all text-sm text-baume-muted">
 									{user?.email}
 								</p>
-								<p className="mt-3 max-w-xl text-sm leading-relaxed text-baume-charcoal/65">
+								<p className="mt-3 max-w-xl text-sm leading-relaxed text-baume-muted">
 									Vos commandes, vos avantages et vos informations, réunis au
 									même endroit.
 								</p>
@@ -1091,7 +1091,7 @@ export default function AccountPage() {
 									>
 										<dl className="space-y-4 text-sm">
 											<div className="flex justify-between gap-4">
-												<dt className="text-baume-charcoal/55">Nom</dt>
+												<dt className="text-baume-muted">Nom</dt>
 												<dd className="text-right font-semibold">
 													{[profile.first_name, profile.last_name]
 														.filter(Boolean)
@@ -1099,13 +1099,13 @@ export default function AccountPage() {
 												</dd>
 											</div>
 											<div className="flex justify-between gap-4">
-												<dt className="text-baume-charcoal/55">Téléphone</dt>
+												<dt className="text-baume-muted">Téléphone</dt>
 												<dd className="text-right">
 													{profile.phone || "À compléter"}
 												</dd>
 											</div>
 											<div className="border-t border-baume-border pt-4">
-												<dt className="mb-2 flex items-center gap-2 text-baume-charcoal/55">
+												<dt className="mb-2 flex items-center gap-2 text-baume-muted">
 													<MapPin size={16} /> Livraison
 												</dt>
 												<dd className="leading-6">
@@ -1274,7 +1274,7 @@ export default function AccountPage() {
 															<p className="mt-4 font-editorial text-[28px]">
 																{reward.label}
 															</p>
-															<p className="mt-1 text-sm text-baume-charcoal/60">
+															<p className="mt-1 text-sm text-baume-muted">
 																{reward.points} points
 															</p>
 															<button
@@ -1328,7 +1328,7 @@ export default function AccountPage() {
 																		? "Points gagnés"
 																		: "Points utilisés")}
 															</p>
-															<p className="mt-1 text-xs text-baume-charcoal/50">
+															<p className="mt-1 text-xs text-baume-muted">
 																{dateFR(item.created_at)}
 															</p>
 														</div>
@@ -1398,7 +1398,7 @@ export default function AccountPage() {
 															{voucher.used ? "Utilisé" : "Disponible"}
 														</span>
 													</div>
-													<p className="mt-1 text-sm text-baume-charcoal/65">
+													<p className="mt-1 text-sm text-baume-muted">
 														{voucher.reward} CHF · {voucher.points_spent} points
 														· {dateFR(voucher.created_at)}
 													</p>
@@ -1453,7 +1453,7 @@ export default function AccountPage() {
 									<>
 										<div className="grid gap-4 sm:grid-cols-3">
 											<div className="rounded-2xl bg-baume-ivory p-5">
-												<p className="text-xs text-baume-charcoal/60">
+												<p className="text-xs text-baume-muted">
 													Parrainages
 												</p>
 												<p className="mt-1 font-editorial text-3xl">
@@ -1461,7 +1461,7 @@ export default function AccountPage() {
 												</p>
 											</div>
 											<div className="rounded-2xl bg-baume-ivory p-5">
-												<p className="text-xs text-baume-charcoal/60">
+												<p className="text-xs text-baume-muted">
 													En attente
 												</p>
 												<p className="mt-1 font-editorial text-3xl">
@@ -1469,7 +1469,7 @@ export default function AccountPage() {
 												</p>
 											</div>
 											<div className="rounded-2xl bg-baume-ivory p-5">
-												<p className="text-xs text-baume-charcoal/60">
+												<p className="text-xs text-baume-muted">
 													Points gagnés
 												</p>
 												<p className="mt-1 font-editorial text-3xl">
@@ -1501,7 +1501,7 @@ export default function AccountPage() {
 													}}
 												/>
 											</div>
-											<p className="mt-3 text-xs leading-5 text-baume-charcoal/60">
+											<p className="mt-3 text-xs leading-5 text-baume-muted">
 												{(referral?.remaining_this_year ?? 5) > 0
 													? `Encore ${referral?.remaining_this_year ?? 5} parrainage(s) possible(s) cette année.`
 													: "Limite atteinte pour cette année — elle se renouvelle le 1er janvier."}{" "}
@@ -1532,7 +1532,7 @@ export default function AccountPage() {
 													Mon lien de partage
 												</p>
 												<div className="flex flex-wrap gap-3">
-													<div className="min-w-0 flex-1 break-all rounded-2xl border border-baume-border bg-baume-ivory px-5 py-3 text-sm text-baume-charcoal/70">
+													<div className="min-w-0 flex-1 break-all rounded-2xl border border-baume-border bg-baume-ivory px-5 py-3 text-sm text-baume-muted">
 														{referral?.referral_link || "Indisponible"}
 													</div>
 													<button
@@ -1578,7 +1578,7 @@ export default function AccountPage() {
 													<p className="text-sm font-semibold">
 														{r.referee_email || "Parrainage"}
 													</p>
-													<p className="mt-1 text-xs text-baume-charcoal/50">
+													<p className="mt-1 text-xs text-baume-muted">
 														{dateFR(r.created_at)}
 													</p>
 												</div>
@@ -1624,7 +1624,7 @@ export default function AccountPage() {
 													Adresse e-mail
 												</h3>
 
-												<p className="mt-1 text-sm leading-6 text-baume-charcoal/60">
+												<p className="mt-1 text-sm leading-6 text-baume-muted">
 													Modifiez l'adresse utilisée pour vous connecter à
 													votre compte Baume.
 												</p>
@@ -1632,7 +1632,7 @@ export default function AccountPage() {
 										</div>
 
 										<div className="mt-6 rounded-2xl border border-baume-border bg-white px-4 py-3">
-											<p className="text-[11px] font-bold uppercase tracking-[0.15em] text-baume-charcoal/45">
+											<p className="text-[11px] font-bold uppercase tracking-[0.15em] text-baume-muted">
 												Adresse actuelle
 											</p>
 
@@ -1708,7 +1708,7 @@ export default function AccountPage() {
 														Mot de passe
 													</h3>
 
-													<p className="mt-1 text-sm leading-6 text-baume-charcoal/60">
+													<p className="mt-1 text-sm leading-6 text-baume-muted">
 														Indiquez votre mot de passe actuel avant
 														d'enregistrer le nouveau.
 													</p>
@@ -1718,7 +1718,7 @@ export default function AccountPage() {
 											<button
 												type="button"
 												onClick={() => setShowPasswords((value) => !value)}
-												className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-baume-border text-baume-charcoal/60 transition hover:text-baume-burgundy"
+												className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-baume-border text-baume-muted transition hover:text-baume-burgundy"
 												aria-label={
 													showPasswords
 														? "Masquer les mots de passe"
@@ -1779,7 +1779,7 @@ export default function AccountPage() {
 													}
 												/>
 
-												<p className="mt-1.5 text-xs text-baume-charcoal/50">
+												<p className="mt-1.5 text-xs text-baume-muted">
 													8 caractères minimum.
 												</p>
 											</div>
@@ -1832,7 +1832,7 @@ export default function AccountPage() {
 									<div>
 										<p className="text-sm font-semibold">Session actuelle</p>
 
-										<p className="mt-1 text-sm text-baume-charcoal/60">
+										<p className="mt-1 text-sm text-baume-muted">
 											Déconnectez-vous lorsque vous utilisez un appareil
 											partagé.
 										</p>
@@ -1850,7 +1850,7 @@ export default function AccountPage() {
 										className="mt-0.5 shrink-0 text-baume-burgundy"
 									/>
 
-									<p className="text-xs leading-5 text-baume-charcoal/60">
+									<p className="text-xs leading-5 text-baume-muted">
 										Les modifications sensibles sont traitées côté serveur par
 										Supabase. La clé administrateur n'est jamais exposée au
 										navigateur.
@@ -1872,7 +1872,7 @@ export default function AccountPage() {
 										<h3 className="mt-4 font-editorial text-2xl">
 											Suivre une livraison
 										</h3>
-										<p className="mt-2 text-sm leading-6 text-baume-charcoal/60">
+										<p className="mt-2 text-sm leading-6 text-baume-muted">
 											Accédez aux informations disponibles pour chacune de vos
 											commandes.
 										</p>
@@ -1888,7 +1888,7 @@ export default function AccountPage() {
 										<h3 className="mt-4 font-editorial text-2xl">
 											Retours & assistance
 										</h3>
-										<p className="mt-2 text-sm leading-6 text-baume-charcoal/60">
+										<p className="mt-2 text-sm leading-6 text-baume-muted">
 											Une question ou une demande concernant votre achat ?
 											Contactez-nous.
 										</p>

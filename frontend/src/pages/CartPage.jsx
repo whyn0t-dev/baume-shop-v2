@@ -82,7 +82,7 @@ export default function CartPage() {
 				<h1 className="font-editorial text-[36px] md:text-[48px] text-baume-charcoal">
 					Mon panier
 				</h1>
-				<p className="mt-3 text-[15px] text-baume-charcoal/70">
+				<p className="mt-3 text-[15px] text-baume-muted">
 					{items.length === 0
 						? "Votre panier est vide."
 						: `${items.length} article${items.length > 1 ? "s" : ""} sélectionné${items.length > 1 ? "s" : ""}.`}
@@ -95,7 +95,7 @@ export default function CartPage() {
 						<p className="font-editorial text-[24px] text-baume-charcoal">
 							Commencez votre routine
 						</p>
-						<p className="mt-2 text-[14px] text-baume-charcoal/70">
+						<p className="mt-2 text-[14px] text-baume-muted">
 							Découvrez nos best-sellers ou entrez par votre besoin.
 						</p>
 						<div className="mt-6 flex flex-wrap justify-center gap-3">
@@ -135,7 +135,7 @@ export default function CartPage() {
 										>
 											{it.name}
 										</Link>
-										<p className="text-[13px] text-baume-charcoal/60 mt-0.5">
+										<p className="text-[13px] text-baume-muted mt-0.5">
 											{[it.size, it.color].filter(Boolean).join(" · ") ||
 												"Taille unique"}
 										</p>
@@ -167,7 +167,7 @@ export default function CartPage() {
 									<button
 										aria-label="Retirer"
 										onClick={() => removeItem(it.key)}
-										className="h-9 w-9 text-baume-charcoal/40 hover:text-baume-burgundy"
+										className="h-9 w-9 text-baume-muted hover:text-baume-burgundy"
 									>
 										<X className="h-4 w-4" />
 									</button>
@@ -184,7 +184,7 @@ export default function CartPage() {
 
 								{/* Barre livraison offerte */}
 								<div className="mt-5 rounded-xl bg-baume-ivory p-3">
-									<p className="text-[12px] text-baume-charcoal/70">
+									<p className="text-[12px] text-baume-muted">
 										{remaining > 0 ? (
 											<>
 												Encore{" "}
@@ -232,7 +232,7 @@ export default function CartPage() {
 									) : (
 										/* Champ code */
 										<div className="flex flex-col gap-2">
-											<p className="text-[12px] uppercase tracking-[0.15em] text-baume-charcoal/50 font-semibold">
+											<p className="text-[12px] uppercase tracking-[0.15em] text-baume-muted font-semibold">
 												Code promo
 											</p>
 											<div className="flex gap-2">
@@ -275,7 +275,7 @@ export default function CartPage() {
 								{/* ── Lignes totaux ── */}
 								<div className="mt-5 space-y-2 text-[14px]">
 									<div className="flex items-center justify-between">
-										<span className="text-baume-charcoal/70">Sous-total</span>
+										<span className="text-baume-muted">Sous-total</span>
 										<span
 											className="font-medium text-baume-charcoal"
 											data-testid="cart-subtotal"
@@ -297,8 +297,8 @@ export default function CartPage() {
 									)}
 
 									<div className="flex items-center justify-between">
-										<span className="text-baume-charcoal/70">Livraison</span>
-										<span className="text-baume-charcoal/70">
+										<span className="text-baume-muted">Livraison</span>
+										<span className="text-baume-muted">
 											Calculée au paiement
 										</span>
 									</div>
@@ -312,7 +312,7 @@ export default function CartPage() {
 									</span>
 									<div className="text-right">
 										{discountAmount > 0 && (
-											<p className="text-[13px] text-baume-charcoal/40 line-through">
+											<p className="text-[13px] text-baume-muted line-through">
 												{subtotal.toFixed(2)} CHF
 											</p>
 										)}
@@ -331,7 +331,7 @@ export default function CartPage() {
 									Passer au paiement
 								</Link>
 
-								<div className="mt-5 flex items-center gap-4 text-[12px] text-baume-charcoal/65">
+								<div className="mt-5 flex items-center gap-4 text-[12px] text-baume-muted">
 									<span className="inline-flex items-center gap-1.5">
 										<ShieldCheck className="h-3.5 w-3.5" /> Paiement sécurisé
 									</span>

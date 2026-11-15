@@ -15,7 +15,7 @@ function LegalLayout({ testid, title, updated, children }) {
 				<h1 className="font-editorial text-[36px] md:text-[48px] leading-[1.1] text-baume-charcoal">
 					{title}
 				</h1>
-				<p className="mt-4 text-[13px] text-baume-charcoal/60">
+				<p className="mt-4 text-[13px] text-baume-muted">
 					Dernière mise à jour : {updated}
 				</p>
 				<div className="mt-10 space-y-8 text-[16px] leading-[28px] text-baume-charcoal/85 [&_h2]:font-editorial [&_h2]:text-[24px] [&_h2]:md:text-[28px] [&_h2]:text-baume-charcoal [&_h2]:mt-10 [&_h2]:mb-3 [&_h3]:font-editorial [&_h3]:text-[20px] [&_h3]:text-baume-charcoal [&_h3]:mt-6 [&_h3]:mb-2 [&_a]:text-baume-burgundy [&_a]:underline [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1 [&_p]:mb-3">
@@ -98,7 +98,7 @@ export function CgvPage() {
 			title="Conditions générales de vente"
 			updated="Février 2026"
 		>
-			<p className="italic text-baume-charcoal/70">
+			<p className="italic text-baume-muted">
 				Les présentes conditions générales de vente (« CGV ») régissent les
 				relations commerciales entre Baume Sàrl, société à responsabilité
 				limitée de droit suisse, et toute personne majeure (« le Client »)
@@ -223,7 +223,7 @@ export function PrivacyPage() {
 			title="Politique de confidentialité"
 			updated="Février 2026"
 		>
-			<p className="italic text-baume-charcoal/70">
+			<p className="italic text-baume-muted">
 				Baume Sàrl attache une importance particulière au respect de votre vie
 				privée. La présente politique explique quelles données nous collectons,
 				pourquoi, comment et vos droits associés.

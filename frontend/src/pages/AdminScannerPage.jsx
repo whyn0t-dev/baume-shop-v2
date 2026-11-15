@@ -146,7 +146,7 @@ export default function AdminScannerPage() {
 			<main className="p-4 md:p-6 max-w-2xl mx-auto space-y-5">
 				{/* Sélection du mode */}
 				<div className="rounded-2xl border border-baume-border bg-baume-white p-4">
-					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold mb-3">
+					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-muted font-semibold mb-3">
 						Mode de scan
 					</p>
 					<div className="grid grid-cols-3 gap-2">
@@ -158,7 +158,7 @@ export default function AdminScannerPage() {
 								red: "border-red-300 bg-red-50 text-red-700",
 							};
 							const inactiveColors =
-								"border-baume-border bg-baume-ivory text-baume-charcoal/60";
+								"border-baume-border bg-baume-ivory text-baume-muted";
 
 							return (
 								<button
@@ -179,7 +179,7 @@ export default function AdminScannerPage() {
 				{/* Quantité pour stock in/out */}
 				{mode !== "lookup" && (
 					<div className="rounded-2xl border border-baume-border bg-baume-white p-4">
-						<p className="text-[12px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold mb-3">
+						<p className="text-[12px] uppercase tracking-[0.18em] text-baume-muted font-semibold mb-3">
 							Quantité
 						</p>
 						<div className="flex items-center gap-3">
@@ -210,7 +210,7 @@ export default function AdminScannerPage() {
 
 				{/* Scanner caméra */}
 				<div className="rounded-2xl border border-baume-border bg-baume-white p-4">
-					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold mb-3">
+					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-muted font-semibold mb-3">
 						Caméra
 					</p>
 					<BarcodeScanner
@@ -222,7 +222,7 @@ export default function AdminScannerPage() {
 
 				{/* Saisie manuelle */}
 				<div className="rounded-2xl border border-baume-border bg-baume-white p-4">
-					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-charcoal/50 font-semibold mb-3">
+					<p className="text-[12px] uppercase tracking-[0.18em] text-baume-muted font-semibold mb-3">
 						Saisie manuelle
 					</p>
 					<form onSubmit={handleManualSubmit} className="flex gap-2">
@@ -313,7 +313,7 @@ export default function AdminScannerPage() {
 				{processing && (
 					<div className="rounded-2xl border border-baume-border bg-baume-white p-5 flex items-center justify-center gap-3">
 						<Loader2 className="h-5 w-5 animate-spin text-baume-burgundy" />
-						<p className="text-[14px] text-baume-charcoal/70">
+						<p className="text-[14px] text-baume-muted">
 							Traitement en cours...
 						</p>
 					</div>

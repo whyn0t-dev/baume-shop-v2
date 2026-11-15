@@ -206,7 +206,7 @@ export default function CheckoutPage() {
 				<h1 className="font-editorial text-[32px] text-baume-charcoal">
 					Votre panier est vide
 				</h1>
-				<p className="mt-3 text-[15px] text-baume-charcoal/70">
+				<p className="mt-3 text-[15px] text-baume-muted">
 					Ajoutez au moins un produit avant de passer au paiement.
 				</p>
 				<Link
@@ -306,7 +306,7 @@ export default function CheckoutPage() {
 					<h1 className="font-editorial text-[32px] md:text-[40px] text-baume-charcoal">
 						Paiement
 					</h1>
-					<p className="mt-2 text-[14px] text-baume-charcoal/70">
+					<p className="mt-2 text-[14px] text-baume-muted">
 						Paiement sécurisé par Stripe. Vos données sont chiffrées.
 					</p>
 
@@ -319,12 +319,12 @@ export default function CheckoutPage() {
 						].map((s, i) => (
 							<li key={s.n} className="flex items-center gap-2">
 								<span
-									className={`h-7 w-7 rounded-full inline-flex items-center justify-center text-[12px] font-semibold ${step >= s.n ? "bg-baume-burgundy text-baume-white" : "bg-baume-white border border-baume-border text-baume-charcoal/60"}`}
+									className={`h-7 w-7 rounded-full inline-flex items-center justify-center text-[12px] font-semibold ${step >= s.n ? "bg-baume-burgundy text-baume-white" : "bg-baume-white border border-baume-border text-baume-muted"}`}
 								>
 									{step > s.n ? <CheckCircle2 className="h-4 w-4" /> : s.n}
 								</span>
 								<span
-									className={`font-medium ${step >= s.n ? "text-baume-charcoal" : "text-baume-charcoal/50"}`}
+									className={`font-medium ${step >= s.n ? "text-baume-charcoal" : "text-baume-muted"}`}
 								>
 									{s.label}
 								</span>
@@ -351,7 +351,7 @@ export default function CheckoutPage() {
 										>
 											Se connecter
 										</Link>
-										<span className="text-baume-charcoal/50">
+										<span className="text-baume-muted">
 											— vos infos seront pré-remplies.
 										</span>
 									</div>
@@ -372,7 +372,7 @@ export default function CheckoutPage() {
 										className="mt-1.5 h-12 rounded-lg border-baume-border bg-baume-white focus-visible:ring-baume-burgundy focus-visible:border-baume-burgundy"
 									/>
 								</div>
-								<p className="text-[12px] text-baume-charcoal/60">
+								<p className="text-[12px] text-baume-muted">
 									Nous vous enverrons la confirmation de commande ici.
 								</p>
 							</div>
@@ -433,7 +433,7 @@ export default function CheckoutPage() {
 										className="mt-1.5 h-12 w-full rounded-lg border border-baume-border bg-white px-3 text-[14px] text-baume-charcoal focus:outline-none focus:ring-2 focus:ring-baume-burgundy"
 									/>
 
-									<p className="mt-2 text-[12px] text-baume-charcoal/60">
+									<p className="mt-2 text-[12px] text-baume-muted">
 										Sélectionnez une suggestion Google si elle apparaît, ou
 										saisissez directement votre adresse.
 									</p>
@@ -507,7 +507,7 @@ export default function CheckoutPage() {
 											))}
 										</SelectContent>
 									</Select>
-									<p className="mt-1 text-[11px] text-baume-charcoal/60">
+									<p className="mt-1 text-[11px] text-baume-muted">
 										Livraison vers 9 pays européens. Sélectionnez votre pays
 										avant de saisir votre adresse.
 									</p>
@@ -539,7 +539,7 @@ export default function CheckoutPage() {
 										finaliser votre paiement. Cartes, TWINT, Apple Pay et Google
 										Pay acceptés (selon votre pays).
 									</p>
-									<div className="mt-4 flex items-center gap-2 text-[12px] text-baume-charcoal/65">
+									<div className="mt-4 flex items-center gap-2 text-[12px] text-baume-muted">
 										<ShieldCheck className="h-4 w-4 text-baume-burgundy" />{" "}
 										Paiement chiffré · Aucune donnée bancaire stockée
 									</div>
@@ -548,13 +548,13 @@ export default function CheckoutPage() {
 									<p className="text-[13px] font-semibold text-baume-charcoal mb-2">
 										Récapitulatif
 									</p>
-									<p className="text-[13px] text-baume-charcoal/75">
+									<p className="text-[13px] text-baume-muted">
 										{form.email}
 									</p>
-									<p className="text-[13px] text-baume-charcoal/75">
+									<p className="text-[13px] text-baume-muted">
 										{form.first_name} {form.last_name}
 									</p>
-									<p className="text-[13px] text-baume-charcoal/75">
+									<p className="text-[13px] text-baume-muted">
 										{form.address}, {form.postal_code} {form.city},{" "}
 										{countryName}
 									</p>
@@ -614,7 +614,7 @@ export default function CheckoutPage() {
 										<p className="text-[14px] font-medium text-baume-charcoal truncate">
 											{it.name}
 										</p>
-										<p className="text-[12px] text-baume-charcoal/60">
+										<p className="text-[12px] text-baume-muted">
 											{[it.size, it.color].filter(Boolean).join(" · ") ||
 												"Taille unique"}{" "}
 											· Qté {it.quantity}
@@ -629,18 +629,18 @@ export default function CheckoutPage() {
 						<div className="my-5 border-t border-baume-border" />
 						<div className="space-y-2 text-[14px]">
 							<div className="flex justify-between">
-								<span className="text-baume-charcoal/70">Sous-total</span>
+								<span className="text-baume-muted">Sous-total</span>
 								<span>{subtotal.toFixed(2)} CHF</span>
 							</div>
 							{/* ← ajouter */}
 							{discountAmount > 0 && (
-								<p className="text-[12px] text-baume-charcoal/60">
+								<p className="text-[12px] text-baume-muted">
 									Réduction sous réserve de validation du coupon. Le montant
 									définitif sera confirmé avant le paiement Stripe.
 								</p>
 							)}
 							<div className="flex justify-between">
-								<span className="text-baume-charcoal/70">
+								<span className="text-baume-muted">
 									Livraison ({countryName})
 								</span>
 								<span>

@@ -76,10 +76,10 @@ export default function CookieBanner() {
 							onClick={handleRejectAll}
 							className="h-8 w-8 rounded-full bg-baume-ivory border border-baume-border flex items-center justify-center hover:bg-baume-border transition shrink-0 mt-1"
 						>
-							<X className="h-3.5 w-3.5 text-baume-charcoal/60" />
+							<X className="h-3.5 w-3.5 text-baume-muted" />
 						</button>
 					</div>
-					<p className="mt-3 text-[13px] leading-[20px] text-baume-charcoal/60">
+					<p className="mt-3 text-[13px] leading-[20px] text-baume-muted">
 						Nous utilisons des cookies pour améliorer votre expérience, analyser
 						notre trafic et afficher notre carte boutique. Vous pouvez choisir
 						lesquels accepter.
@@ -102,7 +102,7 @@ export default function CookieBanner() {
 												{cat.label}
 											</p>
 											{cat.required ? (
-												<span className="text-[11px] px-2 py-0.5 rounded-full bg-baume-ivory border border-baume-border text-baume-charcoal/50 shrink-0">
+												<span className="text-[11px] px-2 py-0.5 rounded-full bg-baume-ivory border border-baume-border text-baume-muted shrink-0">
 													Requis
 												</span>
 											) : (
@@ -124,7 +124,7 @@ export default function CookieBanner() {
 												</button>
 											)}
 										</div>
-										<p className="mt-1 text-[12px] leading-[18px] text-baume-charcoal/55">
+										<p className="mt-1 text-[12px] leading-[18px] text-baume-muted">
 											{cat.description}
 										</p>
 									</div>
@@ -139,7 +139,7 @@ export default function CookieBanner() {
 					{/* Bouton personnaliser */}
 					<button
 						onClick={() => setShowDetails((v) => !v)}
-						className="w-full flex items-center justify-between text-[13px] text-baume-charcoal/60 hover:text-baume-charcoal transition"
+						className="w-full flex items-center justify-between text-[13px] text-baume-muted hover:text-baume-charcoal transition"
 					>
 						<span>
 							{showDetails ? "Masquer les détails" : "Personnaliser mes choix"}
@@ -175,7 +175,7 @@ export default function CookieBanner() {
 					</div>
 
 					{/* Liens légaux */}
-					<p className="text-center text-[11px] text-baume-charcoal/40">
+					<p className="text-center text-[11px] text-baume-muted">
 						En continuant, vous acceptez notre{" "}
 						<a
 							href="/confidentialite"

@@ -301,7 +301,7 @@ export default function AdminWorkshopForm() {
 function Field({ label, children }) {
 	return (
 		<label className="grid gap-2">
-			<span className="text-[13px] font-semibold text-baume-charcoal/75">
+			<span className="text-[13px] font-semibold text-baume-muted">
 				{label}
 			</span>
 			{children}
