@@ -275,3 +275,105 @@ async def send_order_confirmation(to_email: str, first_name: str, order: dict):
         f"Commande confirmée {order_number} · Baume",
         _layout(body),
     )
+
+
+# ── Caisse : rapport de clôture (rapport Z) ──────────────────────────────────
+
+from html import escape as _esc
+
+
+def _chf(value) -> str:
+    try:
+        return f"{float(value or 0):,.2f} CHF".replace(",", "'")
+    except (TypeError, ValueError):
+        return "0.00 CHF"
+
+
+def _row(label: str, value: str, strong: bool = False) -> str:
+    weight = "700" if strong else "400"
+    return f"""
+      <tr>
+        <td style="padding:6px 0;color:#666;font-size:14px;">{label}</td>
+        <td style="padding:6px 0;text-align:right;font-size:14px;font-weight:{weight};color:#2C2C2C;">{value}</td>
+      </tr>"""
+
+
+async def send_pos_session_report(to: List[str], session: dict, report: dict) -> bool:
+    """E-mail envoyé automatiquement à la clôture d'une session de caisse."""
+    if not to:
+        return False
+
+    sales = report.get("sales") or {}
+    refunds = report.get("refunds") or {}
+    movements = report.get("movements") or {}
+    diff = float(report.get("cash_difference") or 0)
+    diff_color = "#2F7A4B" if abs(diff) < 0.005 else "#B23A3A"
+    diff_label = "Caisse juste" if abs(diff) < 0.005 else ("Excédent" if diff > 0 else "Manquant")
+
+    register = (session.get("register") or {}).get("code") or "Caisse"
+    number = session.get("session_number")
+    opened = str(session.get("opened_at") or "")[:16].replace("T", " ")
+    closed = str(session.get("closed_at") or report.get("closed_at") or "")[:16].replace("T", " ")
+    opened_by = _esc(str(session.get("opened_by_name") or ""))
+    closed_by = _esc(str(session.get("closed_by_name") or ""))
+    note = _esc(str(session.get("closing_note") or ""))
+
+    movements_html = "".join(
+        _row(
+            f"{'Entrée' if m.get('type') == 'in' else 'Sortie'} · {_esc(str(m.get('reason') or ''))}",
+            ("+ " if m.get("type") == "in" else "− ") + _chf(m.get("amount")),
+        )
+        for m in (movements.get("list") or [])
+    )
+
+    body = f"""
+      <h1 style="margin:0 0 6px;font-size:22px;font-weight:normal;color:#3D2A2A;">Clôture de caisse</h1>
+      <p style="margin:0 0 20px;color:#888;font-size:13px;">
+        {register}{f" · session n° {number}" if number else ""}<br>
+        Ouverture : {opened} UTC{f" · {opened_by}" if opened_by else ""}<br>
+        Clôture : {closed} UTC{f" · {closed_by}" if closed_by else ""}
+      </p>
+
+      <div style="background:{'#E5F3EA' if abs(diff) < 0.005 else '#FBE7E7'};border-radius:12px;padding:16px;text-align:center;margin-bottom:20px;">
+        <p style="margin:0;font-size:13px;color:{diff_color};">{diff_label}</p>
+        <p style="margin:4px 0 0;font-size:26px;font-weight:700;color:{diff_color};">{"+ " if diff > 0 else ""}{_chf(diff)}</p>
+      </div>
+
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;color:#999;text-transform:uppercase;">Ventes</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        {_row("Tickets", str(sales.get("count", 0)))}
+        {_row("Articles vendus", str(sales.get("items", 0)))}
+        {_row("Espèces", _chf(sales.get("cash")))}
+        {_row("Carte / TWINT", _chf(sales.get("card")))}
+        {_row("Panier moyen", _chf(sales.get("average_basket")))}
+        {_row("Total des ventes", _chf(sales.get("total")), True)}
+      </table>
+
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;color:#999;text-transform:uppercase;">Remboursements</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        {_row("Nombre", str(refunds.get("count", 0)))}
+        {_row("Articles retournés", str(refunds.get("items_returned", 0)))}
+        {_row("En espèces", "− " + _chf(refunds.get("cash")))}
+        {_row("Sur carte", "− " + _chf(refunds.get("card")))}
+        {_row("Chiffre d'affaires net", _chf(report.get("net_total")), True)}
+      </table>
+
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;color:#999;text-transform:uppercase;">Espèces</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        {_row("Fond de caisse", _chf(report.get("opening_float")))}
+        {_row("+ Ventes en espèces", _chf(sales.get("cash")))}
+        {_row("− Remboursements en espèces", _chf(refunds.get("cash")))}
+        {_row("+ Entrées", _chf(movements.get("in")))}
+        {_row("− Sorties", _chf(movements.get("out")))}
+        {_row("Espèces attendues", _chf(report.get("expected_cash")), True)}
+        {_row("Espèces comptées", _chf(report.get("counted_cash")), True)}
+      </table>
+
+      {f'''<p style="margin:0 0 4px;font-size:12px;letter-spacing:2px;color:#999;text-transform:uppercase;">Mouvements</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">{movements_html}</table>''' if movements_html else ""}
+
+      {f'<p style="margin:0;padding:12px;background:#faf7f4;border-radius:8px;font-size:14px;"><strong>Note :</strong> {note}</p>' if note else ""}
+    """
+
+    subject = f"Clôture de caisse · {register}{f' n° {number}' if number else ''} · {_chf(report.get('net_total'))} · {diff_label}"
+    return await _send(to, subject, _layout(body))

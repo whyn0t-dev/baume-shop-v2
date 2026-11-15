@@ -49,6 +49,8 @@ from emails import (
     send_contact_notification,
     send_contact_acknowledgement,
     send_order_confirmation,
+    send_pos_session_report,
+    CONTACT_EMAIL,
 )
 
 limiter = Limiter(key_func=get_remote_address)
@@ -7945,6 +7947,8 @@ def _pos_receipt_payload(order: dict, tx: dict) -> dict:
             "amount": (tx or {}).get("amount"),
             "cash_received": metadata.get("cash_received"),
             "change_due": metadata.get("change_due"),
+            "cash_part": metadata.get("cash_part"),
+            "card_part": metadata.get("card_part"),
         },
         "customer_name": ((tx or {}).get("shipping_address") or {}).get("name"),
     }
@@ -8213,7 +8217,7 @@ async def _pos_session_report(session: dict) -> dict:
 
     txs = await stats_fetch_all(
         lambda: supabase.table("payment_transactions")
-        .select("session_id,amount,items,payment_status,created_at")
+        .select("session_id,amount,items,payment_status,created_at,metadata")
         .eq("metadata->>pos_session_id", sid)
         .eq("payment_status", "paid")
         .order("created_at")
@@ -8240,11 +8244,17 @@ async def _pos_session_report(session: dict) -> dict:
             continue
         sales_count += 1
         total = _money(o.get("total"))
-        if str(o.get("stripe_checkout_session_id") or "").startswith(POS_CASH_PREFIX):
+        tx = tx_by_session.get(o.get("stripe_checkout_session_id")) or {}
+        tx_meta = tx.get("metadata") or {}
+        if tx_meta.get("payment_method") == "mixed":
+            # Vente mixte : part espèces dans le tiroir, le reste sur carte.
+            part_cash = min(_money(tx_meta.get("cash_part")), total)
+            sales_cash += part_cash
+            sales_card += total - part_cash
+        elif str(o.get("stripe_checkout_session_id") or "").startswith(POS_CASH_PREFIX):
             sales_cash += total
         else:
             sales_card += total
-        tx = tx_by_session.get(o.get("stripe_checkout_session_id")) or {}
         items_count += sum(int(i.get("quantity") or 0) for i in (tx.get("items") or []))
 
     refunds = await stats_fetch_all(
@@ -8534,7 +8544,20 @@ async def pos_close_session(
     data = _pos_public_session(closed, register)
     data["opened_by_name"] = names.get(closed.get("opened_by"))
     data["closed_by_name"] = names.get(closed.get("closed_by"))
-    return {"session": data, "report": report}
+
+    # Rapport Z envoyé automatiquement (POS_REPORT_RECIPIENTS, sinon CONTACT_EMAIL).
+    recipients = [
+        e.strip()
+        for e in (os.environ.get("POS_REPORT_RECIPIENTS") or CONTACT_EMAIL or "").split(",")
+        if e.strip()
+    ]
+    email_sent = False
+    try:
+        email_sent = await send_pos_session_report(recipients, data, report)
+    except Exception:
+        logger.exception("Caisse : e-mail de clôture non envoyé")
+
+    return {"session": data, "report": report, "email_sent": email_sent, "email_to": recipients}
 
 
 # ── Remboursements & retours en boutique ──
@@ -8594,6 +8617,24 @@ async def _pos_refundable(order_id: str) -> dict:
         )
 
     refundable_status = order.get("status") in ("paid", "processing", "shipped", "delivered")
+
+    # Montant maximal remboursable sur la carte d'origine.
+    card_refunded = sum(
+        (
+            _money(r.get("amount"))
+            for r in order.get("refunds") or []
+            if r.get("stripe_refund_id") and (r.get("status") or "succeeded") in ("succeeded", "pending")
+        ),
+        Decimal("0"),
+    )
+    remaining_total = max(total - refunded, Decimal("0"))
+    card_paid = total
+    is_mixed = session_ref.startswith(POS_MIXED_PREFIX)
+    if is_mixed:
+        mixed_tx = await sb_select_one("payment_transactions", "session_id", session_ref)
+        card_paid = _money(((mixed_tx or {}).get("metadata") or {}).get("card_part"))
+    card_max = Decimal("0") if is_cash_sale or not pi else min(max(card_paid - card_refunded, Decimal("0")), remaining_total)
+
     return {
         "order": {
             "id": order["id"],
@@ -8610,9 +8651,11 @@ async def _pos_refundable(order_id: str) -> dict:
         "refundable": refundable_status and total - refunded > 0,
         "methods": {
             "cash": True,
-            "card": bool(pi) and not is_cash_sale,
+            "card": card_max > 0,
         },
+        "card_max": float(card_max),
         "is_cash_sale": is_cash_sale,
+        "is_mixed_sale": is_mixed,
         "_payment_intent": pi,
     }
 
@@ -8725,6 +8768,11 @@ async def pos_refund_order(
 
     if payload.method == "card" and not data["methods"]["card"]:
         raise HTTPException(status_code=400, detail="Cette vente n'a pas été payée par carte : remboursez en espèces.")
+    if payload.method == "card" and amount > _money(data["card_max"]):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Maximum remboursable sur la carte : {_money(data['card_max'])} CHF. Remboursez le reste en espèces.",
+        )
 
     # Espèces : session ouverte obligatoire. Carte : rattachée si une session est ouverte.
     if payload.method == "cash":
@@ -8815,6 +8863,431 @@ async def pos_refund_order(
         "points_removed": points_removed,
         "refundable": refreshed,
     }
+
+
+
+# ============================================================
+# BAUME — CAISSE : PAIEMENT MIXTE (espèces + carte / TWINT)
+#
+# Ordre des opérations, choisi pour qu'aucune étape ne laisse la
+# vente à moitié faite :
+#   1. start    : panier vérifié (prix + stock), vente « en attente »
+#                 avec part espèces / part carte figées, session Stripe
+#                 pour la part carte (QR).
+#   2. status   : la caisse suit le paiement carte.
+#   3. complete : seulement quand Stripe confirme la part carte, les
+#                 espèces sont encaissées et la commande est créée
+#                 (finalize_paid_order : stock, paiement) → fidélité,
+#                 e-mail. Rejouable sans doublon.
+#   4. cancel   : à tout moment avant « complete » ; si la carte a déjà
+#                 été débitée, elle est remboursée automatiquement.
+#   Si la création de la commande échoue pour une raison de stock après
+#   le paiement carte, la part carte est remboursée automatiquement.
+#
+# La session Stripe porte metadata.source = "baume_pos_split" : le
+# webhook e-commerce l'ignore, c'est « complete » qui finalise.
+# ============================================================
+
+POS_MIXED_PREFIX = "pos_mixed_"
+POS_STRIPE_MIN = Decimal("0.50")
+
+
+class PosSplitCheckoutRequest(BaseModel):
+    items: List[PosCheckoutItem] = Field(..., min_length=1, max_length=100)
+    customer_profile_id: Optional[str] = None
+    email: Optional[EmailStr] = None
+    cash_amount: Decimal = Field(..., gt=0, le=100000)
+    client_sale_id: uuid.UUID
+    session_id: Optional[str] = None
+
+
+class PosSplitComplete(BaseModel):
+    cash_received: Decimal = Field(..., ge=0, le=100000)
+
+
+def _pos_cents(value) -> int:
+    return int((_money(value) * 100).quantize(Decimal("1")))
+
+
+async def _pos_split_tx(sale_id: str) -> dict:
+    try:
+        sale_id = str(uuid.UUID(sale_id))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Vente introuvable")
+    tx = await sb_select_one("payment_transactions", "session_id", f"{POS_MIXED_PREFIX}{sale_id}")
+    if not tx or (tx.get("metadata") or {}).get("payment_method") != "mixed":
+        raise HTTPException(status_code=404, detail="Vente introuvable")
+    return tx
+
+
+async def _pos_split_update(tx: dict, metadata_patch: dict, **fields) -> dict:
+    metadata = {**(tx.get("metadata") or {}), **metadata_patch}
+    values = {"metadata": metadata, "updated_at": now_iso(), **fields}
+    await sb_update("payment_transactions", values, "session_id", tx["session_id"])
+    return {**tx, **values}
+
+
+async def _pos_split_refund_card(tx: dict, payment_intent: str, reason: str) -> Optional[str]:
+    """Rembourse la part carte d'une vente mixte non finalisée (idempotent)."""
+    if not payment_intent:
+        return None
+    sale_id = tx["session_id"][len(POS_MIXED_PREFIX):]
+    refund = await asyncio.to_thread(
+        stripe.Refund.create,
+        payment_intent=payment_intent,
+        reason="requested_by_customer",
+        metadata={"source": "baume_pos_split", "pos_tx_session": tx["session_id"], "reason": reason},
+        idempotency_key=f"baume-pos-split-refund-{sale_id}",
+    )
+    return refund.id
+
+
+@api_router.post("/pos/checkout/split")
+async def pos_split_start(payload: PosSplitCheckoutRequest, profile=Depends(require_admin)):
+    if os.environ.get("CHECKOUT_ENABLED", "false").lower() != "true":
+        raise HTTPException(status_code=503, detail="Paiement temporairement indisponible.")
+    if not STRIPE_API_KEY:
+        raise HTTPException(status_code=500, detail="Stripe non configuré")
+    if not STRIPE_API_KEY.startswith("sk_test_"):
+        raise HTTPException(status_code=503, detail="Seul Stripe en mode test est autorisé.")
+
+    sale_id = str(payload.client_sale_id)
+    tx_session = f"{POS_MIXED_PREFIX}{sale_id}"
+
+    # Rejeu : on renvoie la vente déjà préparée.
+    existing = await sb_select_one("payment_transactions", "session_id", tx_session)
+    if existing:
+        meta = existing.get("metadata") or {}
+        if meta.get("cancelled"):
+            raise HTTPException(status_code=409, detail="Cette vente a été annulée. Recommencez l'encaissement.")
+        session = await asyncio.to_thread(stripe.checkout.Session.retrieve, meta["stripe_session_id"])
+        return {
+            "sale_id": sale_id,
+            "url": session.url,
+            "total": existing.get("amount"),
+            "cash_part": float(_money(meta.get("cash_part"))),
+            "card_part": float(_money(meta.get("card_part"))),
+            "expires_at": session.expires_at,
+            "items": existing.get("items") or [],
+        }
+
+    pos_session = await _pos_require_open_session(payload.session_id)
+
+    customer = None
+    if payload.customer_profile_id:
+        customer = await sb_select_one("profiles", "id", payload.customer_profile_id)
+        if not customer:
+            raise HTTPException(status_code=404, detail="Client introuvable")
+
+    explicit_email = payload.email or (customer or {}).get("email")
+    email = explicit_email or os.environ.get("POS_DEFAULT_EMAIL")
+    if not email:
+        raise HTTPException(status_code=400, detail="Indiquez l'e-mail du client (ou configurez POS_DEFAULT_EMAIL).")
+
+    for item in payload.items:
+        await sync_variant_inventory(item.variant_id)
+
+    priced = await _price_cart([item.model_dump() for item in payload.items])
+    total = _money(priced["subtotal"])
+    cash_part = _money(payload.cash_amount)
+    card_part = total - cash_part
+
+    if cash_part >= total:
+        raise HTTPException(status_code=400, detail="La part espèces couvre tout le montant : utilisez le paiement en espèces.")
+    if card_part < POS_STRIPE_MIN:
+        raise HTTPException(status_code=400, detail=f"La part carte doit être d'au moins {POS_STRIPE_MIN} CHF.")
+
+    customer_id = (customer or {}).get("id")
+    customer_name = " ".join(
+        x for x in [(customer or {}).get("first_name"), (customer or {}).get("last_name")] if x
+    )
+
+    try:
+        session = await asyncio.to_thread(
+            stripe.checkout.Session.create,
+            mode="payment",
+            payment_method_types=POS_PAYMENT_METHODS,
+            customer_email=email,
+            success_url=f"{FRONTEND_URL}/commande/confirmation" "?session_id={CHECKOUT_SESSION_ID}",
+            cancel_url=f"{FRONTEND_URL}/commande/confirmation?cancelled=true",
+            metadata={
+                "source": "baume_pos_split",
+                "channel": POS_CHANNEL,
+                "pos_tx_session": tx_session,
+                "pos_session_id": pos_session["id"],
+            },
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": "chf",
+                        "product_data": {
+                            "name": "Achat boutique Baume — part carte",
+                            "description": f"Total {total} CHF, dont {cash_part} CHF réglés en espèces",
+                        },
+                        "unit_amount": _pos_cents(card_part),
+                    },
+                    "quantity": 1,
+                }
+            ],
+            expires_at=int(time.time()) + POS_SESSION_TTL_SECONDS,
+            idempotency_key=f"baume-pos-split-{sale_id}",
+        )
+    except Exception:
+        logger.exception("Caisse mixte : session Stripe impossible")
+        raise HTTPException(status_code=503, detail="Création du paiement indisponible")
+
+    metadata = {
+        "source": "baume_pos_split",
+        "channel": POS_CHANNEL,
+        "payment_method": "mixed",
+        "country": "CH",
+        "email": email,
+        "user_id": customer_id or "",
+        "items_count": str(sum(i.quantity for i in payload.items)),
+        "discount_code": "",
+        "discount_amount": "0.0",
+        "cashier_id": profile.get("id") or "",
+        "cash_part": str(cash_part),
+        "card_part": str(card_part),
+        "stripe_session_id": session.id,
+        "send_receipt_email": "true" if explicit_email else "false",
+        "pos_session_id": pos_session["id"],
+    }
+
+    tx = {
+        "id": str(uuid.uuid4()),
+        "session_id": tx_session,
+        "amount": float(total),
+        "subtotal": priced["subtotal"],
+        "shipping": 0.0,
+        "discount_code": None,
+        "discount_amount": 0.0,
+        "currency": "chf",
+        "email": email,
+        "user_id": customer_id,
+        "country": "CH",
+        "items": priced["items"],
+        "shipping_address": {
+            "type": "in_store",
+            "name": customer_name or "Client boutique",
+            "first_name": (customer or {}).get("first_name"),
+            "last_name": (customer or {}).get("last_name"),
+            "line1": "Vente en boutique",
+            "address": "Vente en boutique",
+            "country": "CH",
+        },
+        "status": "initiated",
+        "payment_status": "pending",
+        "metadata": metadata,
+        "created_at": now_iso(),
+        "updated_at": now_iso(),
+    }
+
+    try:
+        await sb_insert("payment_transactions", tx)
+    except Exception:
+        logger.exception("Caisse mixte : transaction non enregistrée %s", tx_session)
+        try:
+            await asyncio.to_thread(stripe.checkout.Session.expire, session.id)
+        except Exception:
+            logger.exception("Caisse mixte : expiration à vérifier %s", session.id)
+        raise HTTPException(status_code=503, detail="Impossible de préparer le paiement")
+
+    return {
+        "sale_id": sale_id,
+        "url": session.url,
+        "total": float(total),
+        "cash_part": float(cash_part),
+        "card_part": float(card_part),
+        "expires_at": session.expires_at,
+        "items": priced["items"],
+    }
+
+
+@api_router.get("/pos/checkout/split/{sale_id}")
+async def pos_split_status(sale_id: str, profile=Depends(require_admin)):
+    tx = await _pos_split_tx(sale_id)
+    meta = tx.get("metadata") or {}
+
+    order = await sb_select_one("orders", "stripe_checkout_session_id", tx["session_id"])
+    base = {
+        "sale_id": sale_id,
+        "total": tx.get("amount"),
+        "cash_part": float(_money(meta.get("cash_part"))),
+        "card_part": float(_money(meta.get("card_part"))),
+        "cancelled": bool(meta.get("cancelled")),
+        "card_refunded": bool(meta.get("card_refund_id")),
+        "finalized": bool(order),
+        "order": (
+            {"id": order["id"], "order_number": order.get("order_number"), "status": order.get("status"), "total": order.get("total")}
+            if order
+            else None
+        ),
+    }
+    if order or meta.get("cancelled"):
+        return {**base, "status": "complete" if order else "expired", "card_paid": bool(order) or bool(meta.get("card_refund_id")), "url": None}
+
+    try:
+        session = await asyncio.to_thread(stripe.checkout.Session.retrieve, meta["stripe_session_id"])
+    except Exception:
+        logger.exception("Caisse mixte : statut Stripe indisponible %s", sale_id)
+        raise HTTPException(status_code=503, detail="Statut du paiement indisponible")
+
+    card_paid = session.payment_status == "paid" and session.amount_total == _pos_cents(meta.get("card_part"))
+    return {**base, "status": session.status, "card_paid": card_paid, "url": session.url}
+
+
+@api_router.post("/pos/checkout/split/{sale_id}/complete")
+async def pos_split_complete(sale_id: str, payload: PosSplitComplete, profile=Depends(require_admin)):
+    tx = await _pos_split_tx(sale_id)
+    meta = tx.get("metadata") or {}
+
+    order = await sb_select_one("orders", "stripe_checkout_session_id", tx["session_id"])
+    if order:
+        # Déjà validée (double appui / réseau coupé) : même résultat.
+        return _pos_receipt_payload(order, tx)
+
+    if meta.get("cancelled"):
+        raise HTTPException(status_code=409, detail="Cette vente a été annulée.")
+
+    # 1. La part carte doit être confirmée par Stripe AVANT tout encaissement.
+    session = await asyncio.to_thread(stripe.checkout.Session.retrieve, meta["stripe_session_id"])
+    if (
+        session.payment_status != "paid"
+        or session.amount_total != _pos_cents(meta.get("card_part"))
+        or (session.currency or "").lower() != "chf"
+    ):
+        raise HTTPException(status_code=409, detail="Le paiement par carte n'est pas encore confirmé.")
+
+    # 2. Part espèces.
+    cash_part = _money(meta.get("cash_part"))
+    received = _money(payload.cash_received)
+    if received < cash_part:
+        raise HTTPException(status_code=400, detail=f"Montant reçu insuffisant : {received} CHF pour {cash_part} CHF en espèces.")
+
+    payment_intent = session.payment_intent if isinstance(session.payment_intent, str) else getattr(session.payment_intent, "id", None)
+
+    tx = await _pos_split_update(
+        tx,
+        {
+            "cash_received": str(received),
+            "change_due": str(received - cash_part),
+            "stripe_payment_intent": payment_intent or "",
+        },
+        payment_status="paid",
+    )
+
+    # 3. Création de la commande (stock + paiement), en une transaction SQL.
+    for item in tx.get("items") or []:
+        await sync_variant_inventory(item.get("variant_id"))
+
+    customer_id = None
+    if tx.get("user_id"):
+        p = await sb_select_one("profiles", "id", tx["user_id"])
+        if p:
+            customer_id = (await get_or_create_customer(p))["id"]
+
+    try:
+        result = await asyncio.to_thread(
+            lambda: supabase.rpc(
+                "finalize_paid_order",
+                {
+                    "p_session_id": tx["session_id"],
+                    "p_payment_intent_id": payment_intent,
+                    "p_customer_id": customer_id,
+                },
+            ).execute()
+        )
+        if not result.data:
+            raise RuntimeError("finalize_paid_order n'a renvoyé aucune commande")
+    except Exception as exc:
+        message = str(getattr(exc, "message", "") or exc)
+        logger.exception("Caisse mixte : finalisation échouée %s", tx["session_id"])
+        # Validation simultanée : l'autre appel a déjà créé la commande.
+        already = await sb_select_one("orders", "stripe_checkout_session_id", tx["session_id"])
+        if already:
+            return _pos_receipt_payload(already, tx)
+        if any(word in message.lower() for word in ("stock", "inactive", "invalide", "introuvable")):
+            # Vente impossible : on rend la part carte au client.
+            refund_id = None
+            try:
+                refund_id = await _pos_split_refund_card(tx, payment_intent, "stock")
+            except Exception:
+                logger.critical("Caisse mixte : REMBOURSEMENT CARTE À FAIRE À LA MAIN %s", tx["session_id"])
+            await _pos_split_update(tx, {"cancelled": True, "card_refund_id": refund_id or ""}, payment_status="refunded")
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Vente impossible (stock modifié entre-temps). "
+                    + ("La part carte a été remboursée au client. " if refund_id else "")
+                    + "Ne prenez pas les espèces."
+                ),
+            )
+        raise HTTPException(
+            status_code=503,
+            detail="La commande n'a pas pu être créée. Réessayez : la vente ne sera pas comptée deux fois.",
+        )
+
+    order_id = result.data
+    try:
+        await asyncio.to_thread(
+            lambda: supabase.table("payments")
+            .update(
+                {
+                    "provider": "mixed",
+                    "raw_payload": {
+                        "checkout_session_id": meta.get("stripe_session_id"),
+                        "payment_intent_id": payment_intent,
+                        "cash_part": str(cash_part),
+                        "card_part": meta.get("card_part"),
+                        "cash_received": str(received),
+                    },
+                }
+            )
+            .eq("order_id", order_id)
+            .execute()
+        )
+    except Exception:
+        logger.exception("Caisse mixte : paiement non marqué « mixed » %s", order_id)
+
+    order = await sb_select_one("orders", "id", order_id)
+    order = await _pos_hand_over(order)
+    await _pos_after_paid(order, meta.get("send_receipt_email") == "true")
+
+    return _pos_receipt_payload(order, tx)
+
+
+@api_router.post("/pos/checkout/split/{sale_id}/cancel")
+async def pos_split_cancel(sale_id: str, profile=Depends(require_admin)):
+    tx = await _pos_split_tx(sale_id)
+    meta = tx.get("metadata") or {}
+
+    if await sb_select_one("orders", "stripe_checkout_session_id", tx["session_id"], select="id"):
+        raise HTTPException(status_code=409, detail="Vente déjà validée : utilisez le remboursement depuis la commande.")
+    if meta.get("cancelled"):
+        return {"cancelled": True, "card_refunded": bool(meta.get("card_refund_id"))}
+
+    session = await asyncio.to_thread(stripe.checkout.Session.retrieve, meta["stripe_session_id"])
+    refund_id = None
+    if session.payment_status == "paid":
+        payment_intent = session.payment_intent if isinstance(session.payment_intent, str) else getattr(session.payment_intent, "id", None)
+        try:
+            refund_id = await _pos_split_refund_card(tx, payment_intent, "annulation")
+        except Exception:
+            logger.exception("Caisse mixte : remboursement impossible %s", tx["session_id"])
+            raise HTTPException(status_code=502, detail="Annulation impossible : le remboursement de la part carte a échoué.")
+    elif session.status == "open":
+        try:
+            await asyncio.to_thread(stripe.checkout.Session.expire, session.id)
+        except Exception:
+            logger.exception("Caisse mixte : expiration impossible %s", session.id)
+
+    await _pos_split_update(
+        tx,
+        {"cancelled": True, "card_refund_id": refund_id or ""},
+        payment_status="refunded" if refund_id else "cancelled",
+    )
+    return {"cancelled": True, "card_refunded": bool(refund_id)}
 
 
 api_router.include_router(auth_router)
