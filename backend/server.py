@@ -38,7 +38,7 @@ import stripe
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Depends, Query
 from starlette.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, ConfigDict, field_validator
 from supabase import create_client, Client
 
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -6371,9 +6371,25 @@ async def get_preorder_subscribers(
 class MessageRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
 
+    @field_validator("content")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Le message est vide.")
+        return v
+
 
 class ConversationCreateRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
+
+    @field_validator("content")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Le message est vide.")
+        return v
 
 
 async def _auto_lock_expired_conversations():
@@ -6474,6 +6490,26 @@ async def get_my_conversations(profile=Depends(get_current_profile)):
 
 
 # Retirer le décorateur @limiter.limit("30/minute") complètement
+@api_router.get("/conversations/unread-count")
+async def get_unread_count(profile=Depends(get_current_profile)):
+    """Messages de l'équipe Baume pas encore lus par le client (sans les marquer lus)."""
+    convs = await asyncio.to_thread(
+        lambda: supabase.table("conversations").select("id").eq("profile_id", profile["id"]).execute()
+    )
+    ids = [c["id"] for c in (convs.data or [])]
+    if not ids:
+        return {"unread": 0}
+    result = await asyncio.to_thread(
+        lambda: supabase.table("messages")
+        .select("id", count="exact")
+        .in_("conversation_id", ids)
+        .neq("sender_id", profile["id"])
+        .is_("read_at", "null")
+        .execute()
+    )
+    return {"unread": result.count or 0}
+
+
 @api_router.get("/conversations/{conversation_id}/messages")
 async def get_conversation_messages(
     request: Request,
@@ -6632,6 +6668,13 @@ async def update_typing(
 ):
     role = payload.get("role")
     is_admin = profile.get("role") == "admin"
+
+    # La conversation doit appartenir à l'utilisateur (sauf pour l'équipe Baume).
+    conversation = await sb_select_one("conversations", "id", conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation introuvable")
+    if not is_admin and conversation.get("profile_id") != profile["id"]:
+        raise HTTPException(status_code=403, detail="Accès refusé")
 
     if is_admin:
         await sb_update(
