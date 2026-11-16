@@ -6,6 +6,7 @@ import {
 	specsToText,
 } from "../lib/productInfo";
 import { useNavigate, useParams } from "react-router-dom";
+import { NeedsPicker, ProductCategorySelect } from "../components/ProductTaxonomyFields";
 import {
 	getAdminProductFull,
 	updateAdminProduct,
@@ -613,8 +614,7 @@ export default function AdminProductEdit() {
 						value={product.price || ""}
 						onChange={(v) => setProduct({ ...product, price: v })}
 					/>
-					<Input
-						label="Catégorie"
+					<ProductCategorySelect
 						value={product.product_category || ""}
 						onChange={(v) => setProduct({ ...product, product_category: v })}
 					/>
@@ -639,6 +639,12 @@ export default function AdminProductEdit() {
 							<option value="archived">Archivé</option>
 						</select>
 					</label>
+
+					<NeedsPicker
+						value={product.needs || []}
+						onChange={(v) => setProduct({ ...product, needs: v })}
+						className="md:col-span-2"
+					/>
 
 					<Textarea
 						label="Description"

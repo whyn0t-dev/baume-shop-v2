@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Plus, Trash2, Save, ImagePlus } from "lucide-react";
 import { createAdminProduct, formatApiError } from "../lib/api";
 import { parseLines, parseSpecs } from "../lib/productInfo";
+import { NeedsPicker, ProductCategorySelect } from "../components/ProductTaxonomyFields";
 
 const emptyVariant = {
 	title: "",
@@ -263,7 +264,7 @@ export default function AdminProductCreate() {
 							onChange={(value) => updateProduct("product_type", value)}
 						/>
 
-						<Input
+						<ProductCategorySelect
 							label="Catégorie produit"
 							value={product.product_category}
 							onChange={(value) => updateProduct("product_category", value)}
@@ -275,7 +276,7 @@ export default function AdminProductCreate() {
 							onChange={(value) => updateProduct("status", value)}
 							options={[
 								{ label: "Brouillon", value: "draft" },
-								{ label: "Publié", value: "published" },
+								{ label: "Actif (visible sur le shop)", value: "active" },
 								{ label: "Archivé", value: "archived" },
 							]}
 						/>
@@ -409,9 +410,9 @@ export default function AdminProductCreate() {
 							onChange={(value) => updateJsonField("benefits", value)}
 						/>
 
-						<Textarea
-							label="Besoins — un par ligne"
-							onChange={(value) => updateJsonField("needs", value)}
+						<NeedsPicker
+							value={product.needs}
+							onChange={(value) => updateProduct("needs", value)}
 						/>
 
 						<Textarea
