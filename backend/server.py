@@ -298,6 +298,8 @@ class CheckoutRequest(BaseModel):
     discount_code: Optional[str] = None  # ← ajouter
     success_url: Optional[str] = None  # ← ajouter
     cancel_url: Optional[str] = None  # ← ajouter
+    # "delivery" (défaut) ou "pickup" : retrait gratuit à la boutique de Genève.
+    shipping_method: Optional[str] = None
 
 
 class AddressRequest(BaseModel):
@@ -1218,6 +1220,24 @@ async def create_checkout(
         else shipping_rules["fee"]
     )
 
+    # Retrait en boutique (Genève) : gratuit, adresse de la boutique.
+    if (payload.shipping_method or "").lower() == "pickup":
+        shipping = 0.0
+        customer = payload.shipping_address or {}
+        payload.shipping_address = {
+            "name": customer.get("name"),
+            "first_name": customer.get("first_name"),
+            "last_name": customer.get("last_name"),
+            "phone": customer.get("phone"),
+            "pickup": True,
+            "method": "pickup",
+            "line1": "Retrait en boutique — Baume, Rue du Rhône 15",
+            "address": "Retrait en boutique — Baume, Rue du Rhône 15",
+            "postal_code": "1204",
+            "city": "Genève",
+            "country": "CH",
+        }
+
     # ── Calcul réduction ──────────────────────────────────────────────────
 
     # ── Réservation atomique de la réduction ─────────────────────────
@@ -1296,6 +1316,13 @@ async def create_checkout(
     )
 
     cancel_url = f"{FRONTEND_URL}/commande/confirmation" "?cancelled=true"
+
+    # Application mobile Baume Shop : retour direct dans l'app après le paiement.
+    # Seul le schéma de l'app est accepté (aucune redirection vers un site tiers).
+    APP_SCHEME = "baume-shop://"
+    if (payload.success_url or "").startswith(APP_SCHEME):
+        success_url = f"{APP_SCHEME}checkout/success" "?session_id={CHECKOUT_SESSION_ID}"
+        cancel_url = f"{APP_SCHEME}checkout/cancel"
 
     email = payload.email or user_email
 

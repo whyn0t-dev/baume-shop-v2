@@ -88,7 +88,13 @@ export function ForgotPasswordPage() {
 
 export function ResetPasswordPage() {
 	const [params] = useSearchParams();
-	const token = params.get("token") || "";
+	// Le lien Supabase renvoie le jeton dans le fragment : #access_token=…&type=recovery
+	const token = React.useMemo(() => {
+		const fromQuery = params.get("token");
+		if (fromQuery) return fromQuery;
+		const hash = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+		return hash.get("access_token") || "";
+	}, [params]);
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
 	const navigate = useNavigate();

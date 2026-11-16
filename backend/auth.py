@@ -124,6 +124,69 @@ async def refresh_session(payload: RefreshRequest):
     }
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+@auth_router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest):
+    """
+    Envoie l'e-mail Supabase de réinitialisation du mot de passe.
+    Réponse identique que le compte existe ou non (pas d'énumération des e-mails).
+    """
+    import httpx
+
+    frontend = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    params = {"redirect_to": f"{frontend}/reinitialiser-mot-de-passe"} if frontend else {}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.post(
+                f"{SUPABASE_URL}/auth/v1/recover",
+                params=params,
+                json={"email": payload.email},
+                headers={"apikey": SUPABASE_ANON_KEY, "Content-Type": "application/json"},
+            )
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service d'authentification indisponible")
+    if response.status_code == 429:
+        raise HTTPException(status_code=429, detail="Email rate limit exceeded")
+    return {"success": True}
+
+
+@auth_router.post("/reset-password")
+async def reset_password(payload: ResetPasswordRequest):
+    """Définit le nouveau mot de passe avec le jeton reçu dans le lien de l'e-mail."""
+    import httpx
+
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Le mot de passe doit contenir au moins 8 caractères.")
+    if not payload.token:
+        raise HTTPException(status_code=400, detail="Token has expired or is invalid")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.put(
+                f"{SUPABASE_URL}/auth/v1/user",
+                json={"password": payload.password},
+                headers={
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": f"Bearer {payload.token}",
+                    "Content-Type": "application/json",
+                },
+            )
+    except Exception:
+        raise HTTPException(status_code=503, detail="Service d'authentification indisponible")
+    if response.status_code == 422:
+        raise HTTPException(status_code=400, detail="New password should be different from the old password")
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Token has expired or is invalid")
+    return {"success": True}
+
+
 @auth_router.post("/register")
 async def register(payload: RegisterRequest):
     result = supabase.auth.sign_up(
