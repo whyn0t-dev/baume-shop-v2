@@ -82,15 +82,17 @@ async def login(request: Request, payload: LoginRequest):
             "factor_id": verified_factor,
         }
 
+    # Client « service » : le client partagé garde la dernière session ouverte sur le serveur,
+    # qui peut être celle d'une autre personne (ou une session partielle avant le code).
     profile_result = (
-        supabase.table("profiles")
+        supabase_admin.table("profiles")
         .select("*")
         .eq("id", result.user.id)
         .maybe_single()
         .execute()
     )
 
-    profile = profile_result.data or {}
+    profile = (getattr(profile_result, "data", None) if profile_result is not None else None) or {}
 
     return {
         "user": {
@@ -447,8 +449,11 @@ async def get_optional_user(request: Request):
 
 async def get_current_profile(user=Depends(get_current_user)):
     try:
+        # Lecture avec le client « service », filtrée sur l'identité vérifiée de la personne.
+        # (Le client partagé garde la dernière session ouverte sur le serveur : il pouvait
+        # lire le profil avec la session d'une autre personne, ou une session sans le code.)
         result = (
-            supabase.table("profiles")
+            supabase_admin.table("profiles")
             .select("*")
             .eq("id", user.id)
             .maybe_single()
@@ -457,10 +462,12 @@ async def get_current_profile(user=Depends(get_current_user)):
     except Exception:
         raise HTTPException(status_code=401, detail="Profil inaccessible")
 
-    if not result.data:
+    # Selon la version de la bibliothèque, « aucune ligne » renvoie None ou un résultat vide.
+    data = getattr(result, "data", None) if result is not None else None
+    if not data:
         raise HTTPException(status_code=404, detail="Profil introuvable")
 
-    return result.data
+    return data
 
 
 async def require_admin(profile=Depends(get_current_profile)):
@@ -478,7 +485,7 @@ async def get_me(user=Depends(get_current_user)):
         .maybe_single()
         .execute()
     )
-    profile = result.data or {}
+    profile = (getattr(result, "data", None) if result is not None else None) or {}
     return {
         "id": user.id,
         "email": user.email,
@@ -643,9 +650,8 @@ async def mfa_login(request: Request, payload: MfaLoginRequest):
 
     session = await _challenge_and_verify(payload.mfa_ticket, payload.factor_id, code, f"mfa:{user.id}")
 
-    profile = (
-        supabase_admin.table("profiles").select("*").eq("id", user.id).maybe_single().execute()
-    ).data or {}
+    profile_res = supabase_admin.table("profiles").select("*").eq("id", user.id).maybe_single().execute()
+    profile = (getattr(profile_res, "data", None) if profile_res is not None else None) or {}
     return {
         "user": {
             "id": user.id,
