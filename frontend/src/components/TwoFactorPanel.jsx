@@ -17,11 +17,19 @@ const onlyDigits = (v) => v.replace(/\D/g, "").slice(0, 6);
 // certains navigateurs refusent d'afficher : on le réencode proprement.
 function qrSource(qr) {
 	if (!qr) return null;
-	const m = qr.match(/^data:image\/svg\+xml;(?:utf-?8|charset=utf-?8)?,(.*)$/is);
-	if (!m) return qr;
+	const value = String(qr).trim();
+	// 1. SVG brut (« <svg…> » ou « <?xml…> ») : renvoyé tel quel par certaines versions de Supabase.
+	if (value.startsWith("<")) {
+		return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(value)}`;
+	}
+	// 2. Déjà en base64 : utilisable directement.
+	if (/^data:image\/[a-z+]+;base64,/i.test(value)) return value;
+	// 3. « data:image/svg+xml;utf-8,<svg…> » : caractères non encodés, à réencoder.
+	const m = value.match(/^data:image\/svg\+xml[^,]*,(.*)$/is);
+	if (!m) return null;
 	let svg = m[1];
 	try {
-		if (/%3Csvg/i.test(svg)) svg = decodeURIComponent(svg);
+		if (/^%3C/i.test(svg)) svg = decodeURIComponent(svg);
 	} catch {
 		// déjà décodé
 	}
@@ -199,7 +207,7 @@ export default function TwoFactorPanel() {
 						<li>
 							<p className="font-semibold">2. Ajoutez votre compte Baume</p>
 							<div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start">
-								{enroll.qr_code ? (
+								{qrSource(enroll.qr_code) ? (
 									<img
 										src={qrSource(enroll.qr_code)}
 										alt="QR code à scanner avec votre application d'authentification"

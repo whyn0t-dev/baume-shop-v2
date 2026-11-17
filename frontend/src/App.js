@@ -261,6 +261,10 @@ posthog.init(process.env.REACT_APP_POSTHOG_KEY, {
   opt_out_capturing_by_default: !consent?.choices?.analytics,
 });
 
+// Instance PostHog de Baume, utilisée par le bandeau de consentement et le suivi des bannières.
+// (Elle remplace l'instance du modèle Emergent qui était chargée par index.html.)
+if (typeof window !== "undefined") window.posthog = posthog;
+
 // Appliquer les préférences existantes au démarrage
 if (consent) {
   applyConsent(consent.choices);
