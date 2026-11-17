@@ -63,12 +63,24 @@ async function isRealServiceKey(token: string): Promise<boolean> {
 	return false;
 }
 
+/**
+ * Double authentification : si le compte a un code à 6 chiffres actif, la session
+ * doit avoir été ouverte avec ce code (niveau aal2). Une session ouverte avec le seul
+ * mot de passe (aal1) est refusée.
+ */
+export function hasRequiredSessionLevel(token: string, user: { factors?: Array<{ status?: string; factor_type?: string }> } | null): boolean {
+	const protectedAccount = (user?.factors ?? []).some((f) => f.status === "verified");
+	if (!protectedAccount) return true;
+	return claims(token)?.aal === "aal2";
+}
+
 async function isAdminUser(token: string): Promise<boolean> {
 	if (!token || !SERVICE_KEY || !SUPABASE_URL) return false;
 	if (claims(token)?.role !== "authenticated") return false;
 	const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 	const { data, error } = await admin.auth.getUser(token);
 	if (error || !data?.user) return false;
+	if (!hasRequiredSessionLevel(token, data.user as never)) return false;
 	const { data: profile } = await admin.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
 	return profile?.role === "admin";
 }

@@ -7,7 +7,7 @@ import React, {
 	useRef,
 } from "react";
 
-import { fetchMe, loginUser, logoutUser, registerUser, updateMe } from "./api";
+import { fetchMe, loginUser, logoutUser, mfaLogin, registerUser, updateMe } from "./api";
 
 const AuthContext = createContext(null);
 
@@ -125,6 +125,34 @@ export function AuthProvider({ children }) {
 				password,
 			});
 
+			// Double authentification active : il faut encore le code à 6 chiffres.
+			if (data?.mfa_required) {
+				return {
+					mfaRequired: true,
+					ticket: data.mfa_ticket,
+					factorId: data.factor_id,
+				};
+			}
+
+			return await storeSession(data, options);
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[refreshMe],
+	);
+
+	// 2e étape de connexion : code de l'application d'authentification.
+	const completeMfaLogin = useCallback(
+		async (ticket, factorId, code, options = {}) => {
+			const data = await mfaLogin(ticket, factorId, code);
+			return await storeSession(data, options);
+		},
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[refreshMe],
+	);
+
+	// Enregistre une nouvelle session (après connexion ou changement du niveau de sécurité).
+	const storeSession = useCallback(
+		async (data, options = {}) => {
 			const rememberMe = Boolean(options.rememberMe);
 
 			const now = Date.now();
@@ -151,6 +179,13 @@ export function AuthProvider({ children }) {
 		},
 		[refreshMe],
 	);
+
+	// Nouvelle session renvoyée après activation / désactivation de la double authentification :
+	// on remplace les jetons sans toucher aux préférences de session.
+	const replaceTokens = useCallback((data) => {
+		if (data?.access_token) localStorage.setItem(STORAGE.accessToken, data.access_token);
+		if (data?.refresh_token) localStorage.setItem(STORAGE.refreshToken, data.refresh_token);
+	}, []);
 
 	const register = useCallback(async (payload) => {
 		const data = await registerUser(payload);
@@ -308,6 +343,8 @@ export function AuthProvider({ children }) {
 				status,
 				isAuth: status === "authenticated",
 				login,
+				completeMfaLogin,
+				replaceTokens,
 				register,
 				logout,
 				refreshMe,

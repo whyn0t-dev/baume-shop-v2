@@ -19,6 +19,7 @@ Mis à jour le 17 novembre 2026.
 | Paiement | Prix recalculés côté serveur, coupons réservés avec contrôle du propriétaire, webhook Stripe signé et dédoublonné. |
 | Connexion | 10 essais/minute et 60/heure par IP ; e-mail bloqué 15 min après 8 mauvais mots de passe. |
 | Mots de passe | 8 caractères minimum ; refus des mots de passe déjà fuités (Pwned Passwords, gratuit) à l'inscription, à la réinitialisation et au changement depuis le compte. |
+| Double authentification | Facultative pour tous (site, app Baume Shop, app de caisse) : code à 6 chiffres d'une application d'authentification. Pour un compte qui l'a activée, une session « mot de passe seul » (aal1) est refusée par le serveur, les fonctions Supabase et la base (règle restrictive `mfa_session_required`). 8 mauvais codes → blocage 15 min. Réinitialisation par l'admin (fiche cliente) si téléphone perdu. |
 | Robots | Champ pot de miel (`website`) sur inscription, contact, newsletter ; limites sur contact, newsletter, quiz, ateliers, mot de passe oublié. |
 | Données personnelles | Le lien public de suivi masque rue, téléphone, nom et e-mail (version complète si la cliente est connectée). |
 | Téléversement | `/api/upload/image` réservé à l'admin, images uniquement, 10 Mo max. |
@@ -28,3 +29,7 @@ Mis à jour le 17 novembre 2026.
 1. Importer `requireTrustedCaller` depuis `../_shared/security.ts` et l'appeler en début de handler.
 2. Mettre `verify_jwt = true` dans `supabase/config.toml`.
 3. Depuis le serveur, appeler la fonction avec `Authorization: Bearer <service_role>`.
+
+## Double authentification — si l'admin perd son téléphone
+Supabase → Authentication → Users → ouvrir le compte → supprimer le facteur « TOTP ».
+La connexion se fait alors avec le seul mot de passe ; réactiver ensuite depuis l'espace sécurité.

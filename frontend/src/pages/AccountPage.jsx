@@ -44,6 +44,7 @@ import {
 	updateAccountPassword,
 } from "../lib/api";
 import Breadcrumb from "../components/Breadcrumb";
+import TwoFactorPanel from "../components/TwoFactorPanel";
 
 /* Remplace intégralement ton ancien AccountPage.jsx par ce fichier.
  * Cette page utilise uniquement les API déjà présentes dans ton projet :
@@ -1857,6 +1858,8 @@ export default function AccountPage() {
 									</p>
 								</div>
 							</Panel>
+
+							<TwoFactorPanel />
 						</div>
 					)}
 

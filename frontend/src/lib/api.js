@@ -131,6 +131,27 @@ export const resetPassword = (token, password) =>
 export const refreshToken = () =>
   authApi.post("/auth/refresh").then((r) => r.data);
 
+// Double authentification (code à 6 chiffres)
+export const mfaLogin = (mfaTicket, factorId, code) =>
+  authApi
+    .post("/auth/mfa/login", { mfa_ticket: mfaTicket, factor_id: factorId, code })
+    .then((r) => r.data);
+
+export const getMfaStatus = () =>
+  authApi.get("/auth/mfa/status").then((r) => r.data);
+
+export const startMfaEnroll = () =>
+  authApi.post("/auth/mfa/enroll").then((r) => r.data);
+
+export const confirmMfaEnroll = (factorId, code) =>
+  authApi.post("/auth/mfa/enroll/verify", { factor_id: factorId, code }).then((r) => r.data);
+
+export const disableMfa = (code) =>
+  authApi.post("/auth/mfa/disable", { code }).then((r) => r.data);
+
+export const adminResetMfa = (profileId) =>
+  authApi.post(`/auth/admin/users/${profileId}/mfa/reset`).then((r) => r.data);
+
 async function callAccountSecurity(payload) {
   const token = localStorage.getItem("access_token");
 

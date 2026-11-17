@@ -14,7 +14,7 @@ fi
 # jeton obligatoire au niveau de Supabase + contrôle d'accès dans le code.
 for f in refund-order update-order-status update-order-item-status \
          send-order-status-email send-return-status-email send-newsletter-welcome \
-         send-preorder-available send-quiz-results; do
+         send-preorder-available send-quiz-results account-security; do
   echo "→ $f"
   $SB functions deploy "$f" --project-ref "$REF"
 done
@@ -23,4 +23,4 @@ done
 echo "→ create-checkout-session (désactivée)"
 $SB functions deploy create-checkout-session --project-ref "$REF" --no-verify-jwt
 
-echo "Terminé : 9 fonctions protégées."
+echo "Terminé : 10 fonctions protégées."

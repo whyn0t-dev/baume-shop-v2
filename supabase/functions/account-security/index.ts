@@ -1,7 +1,7 @@
 // Sauvegarde de la fonction déployée (version 2), mise en forme compacte.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { isPasswordPwned } from "../_shared/security.ts";
+import { hasRequiredSessionLevel, isPasswordPwned } from "../_shared/security.ts";
 const corsHeaders = {
 	"Access-Control-Allow-Origin": "*",
 	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -55,6 +55,11 @@ Deno.serve(async (req) => {
 		if (userError || !user) {
 			console.error("Utilisateur non authentifié :", userError);
 			return response({ success: false, message: "Votre session est invalide ou a expiré." }, 401);
+		}
+
+		// Compte protégé par double authentification : code obligatoire pour modifier e-mail ou mot de passe.
+		if (!hasRequiredSessionLevel(token, user as never)) {
+			return response({ success: false, message: "Code de double authentification requis." }, 401);
 		}
 
 		// ── Client admin ──

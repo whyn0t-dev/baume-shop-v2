@@ -5,13 +5,16 @@ import { Label } from "../components/ui/label";
 import { useAuth } from "../lib/auth";
 import { formatApiError } from "../lib/api";
 import { toast } from "sonner";
-import { Eye, EyeOff, Loader2 } from "lucide-react"; // ← ajouter Eye, EyeOff
+import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
-	const { login } = useAuth();
+	const { login, completeMfaLogin } = useAuth();
+	// Étape du code à 6 chiffres (double authentification active sur le compte).
+	const [mfa, setMfa] = useState(null);
+	const [code, setCode] = useState("");
 	const navigate = useNavigate();
 	const location = useLocation();
 	const redirect =
@@ -24,9 +27,14 @@ export default function LoginPage() {
 		if (!email || !password) return;
 		setLoading(true);
 		try {
-			await login(email, password, {
+			const result = await login(email, password, {
 				rememberMe: keepSession,
 			});
+			if (result?.mfaRequired) {
+				setMfa(result);
+				setCode("");
+				return;
+			}
 			toast.success("Bon retour chez Baume");
 			navigate(redirect);
 		} catch (err) {
@@ -37,6 +45,32 @@ export default function LoginPage() {
 	};
 
 	const [showPassword, setShowPassword] = useState(false);
+
+	const onSubmitCode = async (e) => {
+		e.preventDefault();
+		const digits = code.replace(/\D/g, "");
+		if (digits.length !== 6 || !mfa) return;
+		setLoading(true);
+		try {
+			await completeMfaLogin(mfa.ticket, mfa.factorId, digits, {
+				rememberMe: keepSession,
+			});
+			toast.success("Bon retour chez Baume");
+			navigate(redirect);
+		} catch (err) {
+			const status = err?.response?.status;
+			toast.error(status === 401 ? "Connexion expirée" : "Code refusé", {
+				description: formatApiError(err),
+			});
+			if (status === 401) {
+				setMfa(null);
+				setPassword("");
+			}
+			setCode("");
+		} finally {
+			setLoading(false);
+		}
+	};
 
 	return (
 		<div data-testid="login-page" className="bg-baume-ivory min-h-[70vh]">
@@ -51,6 +85,67 @@ export default function LoginPage() {
 					Retrouvez votre historique de commandes et vos informations.
 				</p>
 
+				{mfa ? (
+					<form
+						onSubmit={onSubmitCode}
+						className="mt-10 bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-5"
+					>
+						<div className="flex items-start gap-3">
+							<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-baume-ivory text-baume-burgundy">
+								<ShieldCheck size={20} />
+							</span>
+							<div>
+								<p className="font-editorial text-[22px] text-baume-charcoal">
+									Code de sécurité
+								</p>
+								<p className="mt-1 text-sm leading-6 text-baume-muted">
+									Ouvrez votre application d'authentification et saisissez le
+									code à 6 chiffres affiché pour Baume.
+								</p>
+							</div>
+						</div>
+						<div>
+							<Label htmlFor="mfa-code">Code à 6 chiffres</Label>
+							<Input
+								id="mfa-code"
+								data-testid="login-mfa-code"
+								inputMode="numeric"
+								autoComplete="one-time-code"
+								autoFocus
+								maxLength={7}
+								placeholder="123 456"
+								value={code}
+								onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ""))}
+								className="mt-1.5 h-14 rounded-lg border-baume-border text-center text-[22px] tracking-[0.35em] focus-visible:ring-baume-burgundy"
+							/>
+						</div>
+						<button
+							type="submit"
+							disabled={loading || code.replace(/\D/g, "").length !== 6}
+							data-testid="login-mfa-submit"
+							className="w-full h-12 rounded-full bg-baume-burgundy text-baume-white font-semibold text-[15px] hover:bg-baume-burgundyDark disabled:opacity-60 inline-flex items-center justify-center gap-2"
+						>
+							{loading && <Loader2 className="h-4 w-4 animate-spin" />} Valider
+						</button>
+						<button
+							type="button"
+							onClick={() => {
+								setMfa(null);
+								setCode("");
+							}}
+							className="w-full text-center text-[13px] text-baume-muted hover:text-baume-charcoal"
+						>
+							Revenir à la connexion
+						</button>
+						<p className="text-center text-[12px] leading-5 text-baume-muted">
+							Téléphone perdu ?{" "}
+							<Link to="/contact" className="baume-link">
+								Contactez-nous
+							</Link>{" "}
+							pour réinitialiser la double authentification.
+						</p>
+					</form>
+				) : (
 				<form
 					onSubmit={onSubmit}
 					className="mt-10 bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4"
@@ -121,6 +216,7 @@ export default function LoginPage() {
 						connecter
 					</button>
 				</form>
+				)}
 
 				<p className="mt-6 text-center text-[14px] text-baume-muted">
 					Pas encore de compte ?{" "}

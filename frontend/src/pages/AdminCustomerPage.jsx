@@ -18,9 +18,10 @@ import {
 	Save,
 	Users,
 	Sparkles,
+	ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
-import { api, formatApiError } from "../lib/api";
+import { adminResetMfa, api, formatApiError } from "../lib/api";
 import { STATUS_STYLES } from "../components/CustomersSection";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -651,6 +652,32 @@ export default function AdminCustomerPage() {
 								className="mt-4 w-full h-10 rounded-full border border-baume-burgundy text-baume-burgundy text-[13px] font-semibold inline-flex items-center justify-center gap-2"
 							>
 								<Save className="h-4 w-4" /> {saving ? "Enregistrement…" : "Enregistrer"}
+							</button>
+						</Card>
+
+						<Card title="Sécurité du compte" icon={ShieldCheck}>
+							<p className="text-[13px] text-baume-muted">
+								Téléphone perdu ? Retirez sa double authentification : la cliente pourra se
+								connecter avec son seul mot de passe, puis la réactiver depuis son compte.
+							</p>
+							<button
+								type="button"
+								onClick={async () => {
+									if (!window.confirm("Retirer la double authentification de ce compte ?")) return;
+									try {
+										const res = await adminResetMfa(profileId);
+										toast.success(
+											res?.removed
+												? "Double authentification retirée"
+												: "Ce compte n'avait pas de double authentification",
+										);
+									} catch (err) {
+										toast.error("Action impossible", { description: formatApiError(err) });
+									}
+								}}
+								className="mt-4 w-full h-10 rounded-full border border-baume-border text-baume-charcoal text-[13px] font-semibold inline-flex items-center justify-center gap-2 hover:border-baume-burgundy"
+							>
+								<ShieldCheck className="h-4 w-4" /> Réinitialiser la double authentification
 							</button>
 						</Card>
 
