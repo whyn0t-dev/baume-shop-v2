@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
 	Instagram,
@@ -14,17 +14,22 @@ import { api } from "../lib/api";
 import { toast } from "sonner";
 
 import { BaumeLogo } from "./BaumeLogo";
+import HoneypotField from "./HoneypotField";
 function NewsletterForm() {
 	const [email, setEmail] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [done, setDone] = useState(false);
+	const honeypot = useRef(null);
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		if (!email.trim()) return;
 		setLoading(true);
 		try {
-			await api.post("/newsletter/subscribe", { email: email.trim() });
+			await api.post("/newsletter/subscribe", {
+				email: email.trim(),
+				website: honeypot.current?.value || "",
+			});
 			setDone(true);
 			setEmail("");
 		} catch (err) {
@@ -50,7 +55,8 @@ function NewsletterForm() {
 	}
 
 	return (
-		<div className="flex flex-col sm:flex-row gap-3">
+		<div className="relative flex flex-col sm:flex-row gap-3">
+			<HoneypotField ref={honeypot} />
 			<input
 				type="email"
 				required

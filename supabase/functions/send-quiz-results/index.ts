@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+import { requireTrustedCaller } from "../_shared/security.ts";
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -240,6 +241,10 @@ function buildQuizEmail(
 
 // ── Handler principal ─────────────────────────────────────────────────────
 Deno.serve(async (req: Request): Promise<Response> => {
+  // Réservé au serveur Baume : empêche d'utiliser cette fonction pour envoyer des e-mails à n'importe qui.
+  const denied = await requireTrustedCaller(req);
+  if (denied) return denied;
+
   if (req.method !== "POST") {
     return response({ error: "Method not allowed" }, 405);
   }

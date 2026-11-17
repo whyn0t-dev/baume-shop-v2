@@ -11,6 +11,7 @@ import {
 	SelectValue,
 } from "../components/ui/select";
 import { submitContact } from "../lib/api";
+import HoneypotField from "../components/HoneypotField";
 import { MapPin, Mail, Phone, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { hasConsent, resetConsent } from "../lib/consent";
@@ -45,7 +46,7 @@ export default function ContactPage() {
 		}
 		setLoading(true);
 		try {
-			const res = await submitContact(form);
+			const res = await submitContact({ ...form, website: e.target.elements?.website?.value || "" });
 			toast.success("Message envoyé", { description: res.message });
 			setForm({
 				name: "",
@@ -173,8 +174,9 @@ export default function ContactPage() {
 					<form
 						data-testid="contact-form"
 						onSubmit={onSubmit}
-						className="bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4"
+						className="relative bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4"
 					>
+						<HoneypotField />
 						<p className="font-editorial text-[24px] text-baume-charcoal">
 							Envoyer un message
 						</p>

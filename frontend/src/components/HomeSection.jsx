@@ -16,7 +16,6 @@ import {
 import { getAdminTable, api } from "../lib/api";
 
 // ── Config PostHog ──────────────────────────────────────────────────────────
-const POSTHOG_PERSONAL_KEY = process.env.REACT_APP_POSTHOG_PERSONAL_KEY;
 const POSTHOG_HOST =
 	process.env.REACT_APP_POSTHOG_HOST || "https://us.posthog.com";
 

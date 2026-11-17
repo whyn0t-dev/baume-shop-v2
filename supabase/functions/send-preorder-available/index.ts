@@ -1,10 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+import { requireTrustedCaller } from "../_shared/security.ts";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const FRONTEND_URL = Deno.env.get("FRONTEND_URL") ?? "https://baumeshop-v2.weblax.fr";
 const FROM_EMAIL = "Baume Shop <contact@baumeshop-v2.weblax.fr>";
 
 serve(async (req) => {
+  // Réservé au serveur Baume : empêche d'utiliser cette fonction pour envoyer des e-mails à n'importe qui.
+  const denied = await requireTrustedCaller(req);
+  if (denied) return denied;
+
   try {
     const { email, product_name, product_slug } = await req.json();
 

@@ -18,13 +18,13 @@ verify_jwt = false
 [functions.keepalive]
 verify_jwt = false
 [functions.send-quiz-results]
-verify_jwt = false
+verify_jwt = true
 [functions.send-loyalty-code]
 verify_jwt = false
 [functions.send-order-status-email]
 verify_jwt = true
 [functions.send-preorder-available]
-verify_jwt = false
+verify_jwt = true
 [functions.send-return-status-email]
 verify_jwt = true
 [functions.send-welcome-email]

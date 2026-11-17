@@ -1,4 +1,5 @@
 from fastapi import Request, HTTPException, Depends, APIRouter
+from security import limiter, login_guard, is_honeypot_filled
 from pydantic import BaseModel, EmailStr
 from supabase import create_client
 import os
@@ -26,6 +27,8 @@ class RegisterRequest(BaseModel):
     password: str
     first_name: str | None = None
     last_name: str | None = None
+    # Champ invisible du formulaire (pot de miel anti-robots).
+    website: str | None = None
 
 class UpdateProfileRequest(BaseModel):
     first_name: str | None = None
@@ -37,7 +40,10 @@ class UpdateProfileRequest(BaseModel):
     country: str | None = None
 
 @auth_router.post("/login")
-async def login(payload: LoginRequest):
+@limiter.limit("10/minute;60/hour")
+async def login(request: Request, payload: LoginRequest):
+    # Trop d'échecs récents pour cet e-mail : blocage temporaire (même depuis d'autres IP).
+    login_guard.check(payload.email)
     try:
         result = supabase.auth.sign_in_with_password(
             {
@@ -48,6 +54,7 @@ async def login(payload: LoginRequest):
     except Exception as e:
         msg = str(e)
         if "Invalid login credentials" in msg:
+            login_guard.failure(payload.email)
             raise HTTPException(status_code=401, detail="Invalid login credentials")
         if "Email not confirmed" in msg:
             raise HTTPException(status_code=401, detail="Email not confirmed")
@@ -56,7 +63,9 @@ async def login(payload: LoginRequest):
         raise HTTPException(status_code=401, detail="Identifiants invalides")
 
     if not result.user or not result.session:
+        login_guard.failure(payload.email)
         raise HTTPException(status_code=401, detail="Invalid login credentials")
+    login_guard.success(payload.email)
     profile_result = (
         supabase.table("profiles")
         .select("*")
@@ -90,7 +99,8 @@ class RefreshRequest(BaseModel):
 
 
 @auth_router.post("/refresh")
-async def refresh_session(payload: RefreshRequest):
+@limiter.limit("30/minute")
+async def refresh_session(request: Request, payload: RefreshRequest):
     """
     Renouvelle la session Supabase à partir du refresh token.
     Appel REST direct à GoTrue : le client Supabase partagé
@@ -134,7 +144,8 @@ class ResetPasswordRequest(BaseModel):
 
 
 @auth_router.post("/forgot-password")
-async def forgot_password(payload: ForgotPasswordRequest):
+@limiter.limit("5/hour")
+async def forgot_password(request: Request, payload: ForgotPasswordRequest):
     """
     Envoie l'e-mail Supabase de réinitialisation du mot de passe.
     Réponse identique que le compte existe ou non (pas d'énumération des e-mails).
@@ -159,7 +170,8 @@ async def forgot_password(payload: ForgotPasswordRequest):
 
 
 @auth_router.post("/reset-password")
-async def reset_password(payload: ResetPasswordRequest):
+@limiter.limit("10/hour")
+async def reset_password(request: Request, payload: ResetPasswordRequest):
     """Définit le nouveau mot de passe avec le jeton reçu dans le lien de l'e-mail."""
     import httpx
 
@@ -188,7 +200,23 @@ async def reset_password(payload: ResetPasswordRequest):
 
 
 @auth_router.post("/register")
-async def register(payload: RegisterRequest):
+@limiter.limit("10/hour")
+async def register(request: Request, payload: RegisterRequest):
+    # Robot : réponse identique à une inscription réussie, sans rien créer.
+    if is_honeypot_filled(payload.website):
+        return {
+            "user": {
+                "id": None,
+                "email": payload.email,
+                "first_name": payload.first_name,
+                "last_name": payload.last_name,
+                "role": "customer",
+            }
+        }
+
+    if len(payload.password) < 8:
+        raise HTTPException(status_code=400, detail="Le mot de passe doit contenir au moins 8 caractères.")
+
     result = supabase.auth.sign_up(
         {
             "email": payload.email,
@@ -201,17 +229,46 @@ async def register(payload: RegisterRequest):
 
     user_id = result.user.id
 
-    try:
-        # ── Profil ────────────────────────────────────────────────────────
-        supabase_admin.table("profiles").upsert(
-            {
-                "id": user_id,
-                "email": result.user.email,
+    # Adresse déjà inscrite et confirmée : Supabase renvoie un compte factice sans identité.
+    # On répond comme pour une inscription normale (on ne révèle pas quels e-mails existent)
+    # mais on ne crée ni ne modifie aucune donnée.
+    if getattr(result.user, "identities", None) == []:
+        return {
+            "user": {
+                "id": None,
+                "email": payload.email,
                 "first_name": payload.first_name,
                 "last_name": payload.last_name,
                 "role": "customer",
             }
-        ).execute()
+        }
+
+    # Compte déjà existant (inscription non confirmée relancée) : on ne touche ni à son rôle
+    # ni à ses données, et on ne le supprime jamais en cas d'erreur.
+    existing_profile = (
+        supabase_admin.table("profiles").select("id, role").eq("id", user_id).limit(1).execute()
+    ).data
+    already_existed = bool(existing_profile)
+
+    try:
+        # ── Profil ────────────────────────────────────────────────────────
+        if already_existed:
+            supabase_admin.table("profiles").update(
+                {
+                    "first_name": payload.first_name,
+                    "last_name": payload.last_name,
+                }
+            ).eq("id", user_id).execute()
+        else:
+            supabase_admin.table("profiles").upsert(
+                {
+                    "id": user_id,
+                    "email": result.user.email,
+                    "first_name": payload.first_name,
+                    "last_name": payload.last_name,
+                    "role": "customer",
+                }
+            ).execute()
 
         # ── Customer ──────────────────────────────────────────────────────
         existing_customer = (
@@ -240,18 +297,28 @@ async def register(payload: RegisterRequest):
             customer_id = existing_customer.data[0]["id"]
 
         # ── Loyalty points ────────────────────────────────────────────────
-        supabase_admin.table("loyalty_points").insert(
-            {
-                "profile_id": user_id,
-                "points": 0,
-                "total_earned": 0,
-                "total_spent": 0,
-                "generated_codes": [],
-            }
-        ).execute()
+        existing_points = (
+            supabase_admin.table("loyalty_points").select("profile_id").eq("profile_id", user_id).limit(1).execute()
+        ).data
+        if not existing_points:
+            supabase_admin.table("loyalty_points").insert(
+                {
+                    "profile_id": user_id,
+                    "points": 0,
+                    "total_earned": 0,
+                    "total_spent": 0,
+                    "generated_codes": [],
+                }
+            ).execute()
 
     except Exception as e:
         print(f"Register setup failed: {e} — rollback")
+        if already_existed:
+            # Jamais de suppression d'un compte qui existait avant cette demande.
+            raise HTTPException(
+                status_code=500,
+                detail="Erreur lors de la création du compte. Veuillez réessayer.",
+            )
         # Supprimer le profil et le user Supabase Auth pour éviter les données orphelines
         try:
             supabase_admin.table("profiles").delete().eq("id", user_id).execute()

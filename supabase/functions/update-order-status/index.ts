@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { requireTrustedCaller } from "../_shared/security.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://baumeshop-v2.weblax.fr",
   "Access-Control-Allow-Headers":
@@ -12,6 +13,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  // Réservé au serveur Baume et aux administratrices connectées (back-office).
+  const denied = await requireTrustedCaller(req, { admin: true, cors: corsHeaders });
+  if (denied) return denied;
 
   try {
     const { orderId, status } = await req.json();

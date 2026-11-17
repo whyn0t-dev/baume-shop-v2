@@ -13,7 +13,7 @@ else
 fi
 
 # Fonctions appelées par Stripe, le cron ou le backend : sans JWT
-for f in send-order-email send-preorder-available send-welcome-email send-quiz-results \
+for f in send-order-email send-welcome-email \
          send-loyalty-code send-post-purchase-offer send-personalized-offers \
          send-monthly-report stripe-webhook; do
   echo "→ $f"
@@ -21,7 +21,8 @@ for f in send-order-email send-preorder-available send-welcome-email send-quiz-r
 done
 
 # Fonctions appelées par le site avec la session de l'utilisateur : JWT obligatoire
-for f in send-order-status-email send-return-status-email send-newsletter-welcome; do
+for f in send-order-status-email send-return-status-email send-newsletter-welcome \
+         send-preorder-available send-quiz-results; do
   echo "→ $f"
   $SB functions deploy "$f" --project-ref "$REF"
 done

@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 
 import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
+import HoneypotField from "../components/HoneypotField";
 
 export default function RegisterPage() {
 	const [form, setForm] = useState({
@@ -52,7 +53,7 @@ export default function RegisterPage() {
 		}
 		setLoading(true);
 		try {
-			await register(form);
+			await register({ ...form, website: e.target.elements?.website?.value || "" });
 
 			// Enregistrer le parrainage si code valide
 			if (referralCode && referralValid) {
@@ -179,8 +180,9 @@ export default function RegisterPage() {
 
 				<form
 					onSubmit={onSubmit}
-					className="mt-10 bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4"
+					className="relative mt-10 bg-baume-white border border-baume-border rounded-2xl p-6 md:p-8 space-y-4"
 				>
+					<HoneypotField />
 					<div className="grid grid-cols-2 gap-3">
 						<div>
 							<Label htmlFor="first_name">Prénom</Label>

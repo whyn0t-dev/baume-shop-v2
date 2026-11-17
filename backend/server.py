@@ -53,7 +53,8 @@ from emails import (
     CONTACT_EMAIL,
 )
 
-limiter = Limiter(key_func=get_remote_address)
+# Limiteur partagé (IP réelle du visiteur, même derrière le proxy de Render).
+from security import limiter, SecurityHeadersMiddleware, is_honeypot_filled
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,6 +86,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Baume API", lifespan=lifespan)
 
 app.state.limiter = limiter
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
@@ -276,6 +278,8 @@ class ContactRequest(BaseModel):
     subject: str = Field(..., min_length=1, max_length=160)
     message: str = Field(..., min_length=1, max_length=5000)
     topic: Optional[str] = None
+    # Champ invisible du formulaire (pot de miel anti-robots).
+    website: Optional[str] = None
 
 
 class CheckoutItem(BaseModel):
@@ -891,8 +895,15 @@ async def list_experts():
 
 
 @api_router.post("/contact")
-@limiter.limit("10/minute")
+@limiter.limit("5/minute;30/hour")
 async def submit_contact(request: Request, payload: ContactRequest):
+    if is_honeypot_filled(payload.website):
+        # Robot : même réponse qu'un envoi réussi, sans enregistrement ni e-mail.
+        return {
+            "status": "ok",
+            "id": str(uuid.uuid4()),
+            "message": "Message enregistré. Nos expertes vous répondent sous peu.",
+        }
     msg = {
         "id": str(uuid.uuid4()),
         "name": payload.name,
@@ -3147,7 +3158,8 @@ async def get_workshop(slug: str):
 
 
 @api_router.post("/workshops/book")
-async def book_workshop(payload: WorkshopBookingRequest):
+@limiter.limit("10/minute;30/hour")
+async def book_workshop(request: Request, payload: WorkshopBookingRequest):
     workshop = await sb_select_one("workshops", "id", payload.workshop_id)
 
     if not workshop or not workshop.get("active"):
@@ -5320,12 +5332,23 @@ async def delete_admin_item(
     return {"status": "deleted"}
 
 
+UPLOAD_IMAGE_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
+UPLOAD_IMAGE_MAX_BYTES = 10 * 1024 * 1024
+
+
 @api_router.post("/upload/image")
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: UploadFile = File(...), profile=Depends(require_admin)):
+    # Réservé à l'administration : uniquement des images, 10 Mo maximum.
+    content_type = (file.content_type or "").lower()
+    if content_type not in UPLOAD_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Format d'image non accepté (JPEG, PNG, WebP ou GIF).")
     try:
         file_bytes = await file.read()
+        if len(file_bytes) > UPLOAD_IMAGE_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="Image trop lourde (10 Mo maximum).")
 
-        file_path = f"products/{uuid.uuid4()}-{file.filename}"
+        safe_name = "".join(c for c in (file.filename or "image") if c.isalnum() or c in "-_.")[:80] or "image"
+        file_path = f"products/{uuid.uuid4()}-{safe_name}"
 
         # ✅ IMPORTANT : nom du bucket
         res = await asyncio.to_thread(
@@ -5341,8 +5364,11 @@ async def upload_image(file: UploadFile = File(...)):
             "url": public_url,
         }
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Téléversement d'image impossible")
+        raise HTTPException(status_code=500, detail="Téléversement impossible.")
 
 
 @api_router.get("/admin/analytics")
@@ -5501,14 +5527,20 @@ class QuizSubmitRequest(BaseModel):
 
 
 @api_router.post("/quiz/submit")
-async def submit_quiz(payload: QuizSubmitRequest, http_request: Request):
+@limiter.limit("5/minute;20/hour")
+async def submit_quiz(payload: QuizSubmitRequest, request: Request):
+    # Le résultat n'est rattaché à un compte que si la personne est réellement connectée
+    # (on ne fait pas confiance au profile_id envoyé par le navigateur).
+    current_user = await get_optional_user(request)
+    quiz_profile_id = auth_user_id(current_user) if current_user else None
+
     # Sauvegarder en DB
     quiz_data = {
         "id": str(uuid.uuid4()),
         "email": payload.email,
         "answers": payload.answers,
         "recommended_categories": payload.recommended_categories,
-        "profile_id": payload.profile_id,
+        "profile_id": quiz_profile_id,
         "created_at": now_iso(),
     }
 
@@ -5729,8 +5761,33 @@ async def convert_loyalty_points(
     return coupon
 
 
+TRACKING_ORDER_FIELDS = (
+    "id", "status", "created_at", "updated_at", "currency", "subtotal", "shipping_total",
+    "discount_total", "discount_code", "total", "tracking_number", "carrier", "tracking_url",
+    "shipped_at", "delivered_at", "public_reference", "order_number",
+)
+TRACKING_ITEM_FIELDS = (
+    "id", "name", "product_title", "variant_title", "quantity", "unit_price", "total_price",
+    "image", "product_id", "variant_id", "fulfillment_status",
+)
+
+
+def _mask_email(email: str | None) -> str | None:
+    if not email or "@" not in email:
+        return None
+    local, domain = email.split("@", 1)
+    return f"{local[:1]}•••@{domain}"
+
+
 @api_router.get("/orders/{order_id}/tracking")
-async def get_order_tracking(order_id: str):
+@limiter.limit("30/minute")
+async def get_order_tracking(request: Request, order_id: str):
+    # Identifiant mal formé : inutile d'interroger la base.
+    try:
+        uuid.UUID(str(order_id))
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Commande introuvable")
+
     result = await asyncio.to_thread(
         lambda: supabase.table("orders")
         .select("*, order_items(*)")
@@ -5743,13 +5800,62 @@ async def get_order_tracking(order_id: str):
         raise HTTPException(status_code=404, detail="Commande introuvable")
 
     order = result.data[0]
-    order["items"] = order.get("order_items", [])
 
-    # Ne pas exposer les infos sensibles
-    order.pop("stripe_checkout_session_id", None)
-    order.pop("stripe_payment_intent_id", None)
+    # La cliente connectée (ou l'administration) voit sa commande complète, comme avant.
+    viewer = await get_optional_user(request)
+    full_access = False
+    if viewer:
+        try:
+            viewer_profile = await sb_select_one("profiles", "id", auth_user_id(viewer))
+            if viewer_profile:
+                if viewer_profile.get("role") == "admin":
+                    full_access = True
+                else:
+                    customer = await get_or_create_customer(viewer_profile)
+                    full_access = order.get("customer_id") == customer.get("id") or (
+                        bool(order.get("email")) and order.get("email") == viewer_profile.get("email")
+                    )
+        except Exception:
+            full_access = False
 
-    return order
+    if full_access:
+        order["items"] = order.get("order_items", [])
+        order.pop("stripe_checkout_session_id", None)
+        order.pop("stripe_payment_intent_id", None)
+        return order
+
+    # Lien de suivi ouvert sans être connectée (e-mail, autre appareil) : le suivi reste
+    # complet, mais sans les données personnelles (rue, téléphone, e-mail complet).
+    items = [
+        {k: item.get(k) for k in TRACKING_ITEM_FIELDS if k in item}
+        for item in (order.get("order_items") or [])
+    ]
+    address = order.get("shipping_address") or {}
+    if isinstance(address, str):
+        try:
+            address = json.loads(address)
+        except Exception:
+            address = {}
+    first_name = address.get("first_name") or (address.get("name") or "").split(" ")[0]
+    public_address = {
+        k: v
+        for k, v in {
+            "name": first_name or None,
+            "postal_code": address.get("postal_code"),
+            "city": address.get("city"),
+            "country": address.get("country"),
+            "pickup": address.get("pickup"),
+            "line1": address.get("line1") if address.get("pickup") else None,
+        }.items()
+        if v
+    }
+
+    public_order = {k: order.get(k) for k in TRACKING_ORDER_FIELDS if k in order}
+    public_order["email"] = _mask_email(order.get("email"))
+    public_order["shipping_address"] = public_address
+    public_order["order_items"] = items
+    public_order["items"] = items
+    return public_order
 
 
 # ── Parrainage ─────────────────────────────────────────────────────────────
@@ -7038,15 +7144,20 @@ async def upload_return_image(
 class NewsletterSubscribeRequest(BaseModel):
     email: EmailStr
     source: Optional[str] = "footer"
+    # Champ invisible du formulaire (pot de miel anti-robots).
+    website: Optional[str] = None
 
 
 @api_router.post("/newsletter/subscribe")
-@limiter.limit("5/minute")
+@limiter.limit("5/minute;20/hour")
 async def newsletter_subscribe(
     request: Request,
     payload: NewsletterSubscribeRequest,
 ):
     """Inscription à la newsletter."""
+
+    if is_honeypot_filled(payload.website):
+        return {"success": True}
 
     # Vérifier si déjà inscrit
     existing = await sb_select_one("newsletter_subscribers", "email", payload.email)

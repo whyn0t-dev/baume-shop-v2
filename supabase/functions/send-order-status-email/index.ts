@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { requireTrustedCaller } from "../_shared/security.ts";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -257,6 +258,10 @@ function buildEmail(order: any, content: typeof STATUS_CONTENT[keyof typeof STAT
 // ── Handler principal ────────────────────────────────────────────────────────
 
 serve(async (req) => {
+  // Réservé au serveur Baume : empêche d'utiliser cette fonction pour envoyer des e-mails à n'importe qui.
+  const denied = await requireTrustedCaller(req);
+  if (denied) return denied;
+
   try {
     const { order_id, new_status, tracking_number, carrier, tracking_url } = await req.json();
 
