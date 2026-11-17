@@ -18,6 +18,7 @@ Mis à jour le 17 novembre 2026.
 | Fonctions Supabase | Remboursement et statuts : serveur ou admin connectée. E-mails : serveur uniquement. `create-checkout-session` désactivée. |
 | Paiement | Prix recalculés côté serveur, coupons réservés avec contrôle du propriétaire, webhook Stripe signé et dédoublonné. |
 | Connexion | 10 essais/minute et 60/heure par IP ; e-mail bloqué 15 min après 8 mauvais mots de passe. |
+| Mots de passe | 8 caractères minimum ; refus des mots de passe déjà fuités (Pwned Passwords, gratuit) à l'inscription, à la réinitialisation et au changement depuis le compte. |
 | Robots | Champ pot de miel (`website`) sur inscription, contact, newsletter ; limites sur contact, newsletter, quiz, ateliers, mot de passe oublié. |
 | Données personnelles | Le lien public de suivi masque rue, téléphone, nom et e-mail (version complète si la cliente est connectée). |
 | Téléversement | `/api/upload/image` réservé à l'admin, images uniquement, 10 Mo max. |

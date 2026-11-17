@@ -1,5 +1,5 @@
 from fastapi import Request, HTTPException, Depends, APIRouter
-from security import limiter, login_guard, is_honeypot_filled
+from security import limiter, login_guard, is_honeypot_filled, is_password_pwned, PWNED_MESSAGE
 from pydantic import BaseModel, EmailStr
 from supabase import create_client
 import os
@@ -179,6 +179,8 @@ async def reset_password(request: Request, payload: ResetPasswordRequest):
         raise HTTPException(status_code=400, detail="Le mot de passe doit contenir au moins 8 caractères.")
     if not payload.token:
         raise HTTPException(status_code=400, detail="Token has expired or is invalid")
+    if await is_password_pwned(payload.password):
+        raise HTTPException(status_code=400, detail=PWNED_MESSAGE)
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.put(
@@ -216,6 +218,8 @@ async def register(request: Request, payload: RegisterRequest):
 
     if len(payload.password) < 8:
         raise HTTPException(status_code=400, detail="Le mot de passe doit contenir au moins 8 caractères.")
+    if await is_password_pwned(payload.password):
+        raise HTTPException(status_code=400, detail=PWNED_MESSAGE)
 
     result = supabase.auth.sign_up(
         {

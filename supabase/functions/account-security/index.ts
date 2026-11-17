@@ -1,6 +1,7 @@
 // Sauvegarde de la fonction déployée (version 2), mise en forme compacte.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { isPasswordPwned } from "../_shared/security.ts";
 const corsHeaders = {
 	"Access-Control-Allow-Origin": "*",
 	"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -111,6 +112,9 @@ Deno.serve(async (req) => {
 			}
 			if (currentPassword === newPassword) {
 				return response({ success: false, message: "Le nouveau mot de passe doit être différent de l'actuel." }, 400);
+			}
+			if (await isPasswordPwned(newPassword)) {
+				return response({ success: false, message: "Ce mot de passe est apparu dans une fuite de données, choisissez-en un autre." }, 400);
 			}
 			if (!user.email) {
 				return response({ success: false, message: "Votre compte ne possède pas d'adresse e-mail permettant de vérifier votre mot de passe." }, 400);

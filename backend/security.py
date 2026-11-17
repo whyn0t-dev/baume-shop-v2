@@ -126,3 +126,40 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         return response
+
+
+# ── Mots de passe déjà fuités (HaveIBeenPwned, gratuit) ─────────────────────
+PWNED_MESSAGE = "Ce mot de passe est apparu dans une fuite de données, choisissez-en un autre."
+
+
+async def is_password_pwned(password: str) -> bool:
+    """
+    Vérifie si un mot de passe figure dans les fuites connues (service gratuit
+    Pwned Passwords). Le mot de passe ne quitte jamais le serveur : seuls les
+    5 premiers caractères de son empreinte SHA-1 sont envoyés (k-anonymat).
+    En cas de panne ou de lenteur du service, renvoie False : on ne bloque jamais
+    une inscription légitime à cause d'un service extérieur.
+    """
+    import hashlib
+
+    import httpx
+
+    if not password:
+        return False
+    digest = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+    prefix, suffix = digest[:5], digest[5:]
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get(
+                f"https://api.pwnedpasswords.com/range/{prefix}",
+                headers={"Add-Padding": "true", "User-Agent": "Baume-Shop-API"},
+            )
+        if response.status_code != 200:
+            return False
+        for line in response.text.splitlines():
+            candidate, _, count = line.partition(":")
+            if candidate.strip() == suffix and count.strip() not in ("", "0"):
+                return True
+    except Exception:
+        return False
+    return False
