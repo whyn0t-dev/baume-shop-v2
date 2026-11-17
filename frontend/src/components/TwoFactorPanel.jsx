@@ -12,6 +12,21 @@ const CODE_INPUT =
 	"mt-2 h-14 w-full max-w-[220px] rounded-2xl border border-baume-border bg-white px-4 text-center text-[22px] tracking-[0.35em] text-baume-charcoal outline-none transition focus:border-baume-burgundy focus:ring-2 focus:ring-baume-burgundy/15";
 
 const onlyDigits = (v) => v.replace(/\D/g, "").slice(0, 6);
+
+// Supabase renvoie le QR code en SVG brut (« data:image/svg+xml;utf-8,<svg…> »), que
+// certains navigateurs refusent d'afficher : on le réencode proprement.
+function qrSource(qr) {
+	if (!qr) return null;
+	const m = qr.match(/^data:image\/svg\+xml;(?:utf-?8|charset=utf-?8)?,(.*)$/is);
+	if (!m) return qr;
+	let svg = m[1];
+	try {
+		if (/%3Csvg/i.test(svg)) svg = decodeURIComponent(svg);
+	} catch {
+		// déjà décodé
+	}
+	return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
 const groupSecret = (s) => (s || "").replace(/(.{4})/g, "$1 ").trim();
 
 function dateFR(value) {
@@ -186,7 +201,7 @@ export default function TwoFactorPanel() {
 							<div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start">
 								{enroll.qr_code ? (
 									<img
-										src={enroll.qr_code}
+										src={qrSource(enroll.qr_code)}
 										alt="QR code à scanner avec votre application d'authentification"
 										className="h-44 w-44 shrink-0 rounded-2xl border border-baume-border bg-white p-2"
 									/>
@@ -216,7 +231,7 @@ export default function TwoFactorPanel() {
 							</div>
 						</li>
 						<li>
-							<label className="font-semibold" htmlFor="mfa-enroll-code">
+							<label className="block font-semibold" htmlFor="mfa-enroll-code">
 								3. Saisissez le code à 6 chiffres affiché
 							</label>
 							<input
