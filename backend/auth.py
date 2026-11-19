@@ -1,5 +1,6 @@
 from fastapi import Request, HTTPException, Depends, APIRouter
 from security import limiter, login_guard, is_honeypot_filled, is_password_pwned, PWNED_MESSAGE
+import asyncio
 import base64
 import json
 import time
@@ -749,3 +750,44 @@ async def admin_mfa_reset(profile_id: str, profile=Depends(require_admin)):
     except Exception:
         raise HTTPException(status_code=503, detail="Service d'authentification indisponible")
     return {"success": True, "removed": removed}
+
+
+# ── Suppression du compte par la cliente (exigence Apple 5.1.1 / protection des données) ──
+class DeleteAccountRequest(BaseModel):
+    confirm: str
+
+
+@auth_router.post("/account/delete")
+@limiter.limit("5/hour")
+async def delete_my_account(request: Request, payload: DeleteAccountRequest, user=Depends(get_current_user)):
+    """Supprime définitivement le compte connecté.
+
+    Les données personnelles sont effacées ou anonymisées par la fonction SQL
+    delete_customer_account ; les commandes sont conservées (obligation comptable)
+    mais ne sont plus rattachées au compte. Les comptes administrateur sont refusés.
+    """
+    if (payload.confirm or "").strip().upper() != "SUPPRIMER":
+        raise HTTPException(status_code=400, detail="Confirmation manquante.")
+
+    def cleanup():
+        return supabase_admin.rpc("delete_customer_account", {"p_user": user.id}).execute()
+
+    try:
+        await asyncio.to_thread(cleanup)
+    except Exception as e:
+        if "not_customer" in str(e):
+            raise HTTPException(
+                status_code=403,
+                detail="Ce compte ne peut pas être supprimé depuis l'application. Contactez l'équipe Baume.",
+            )
+        raise HTTPException(status_code=503, detail="Suppression impossible pour le moment. Réessayez.")
+
+    headers = {"apikey": SUPABASE_SERVICE_ROLE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"}
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            res = await client.delete(f"{SUPABASE_URL}/auth/v1/admin/users/{user.id}", headers=headers)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Suppression impossible pour le moment. Réessayez.")
+    if res.status_code not in (200, 204, 404):
+        raise HTTPException(status_code=503, detail="Suppression impossible pour le moment. Réessayez.")
+    return {"deleted": True}
